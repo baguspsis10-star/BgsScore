@@ -1,0 +1,2831 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BGS ScoreHub - Live Score & Klasemen</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    @keyframes goalGlowPulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0px rgba(245, 158, 11, 0);
+        color: #fbbf24;
+      }
+      50% {
+        transform: scale(1.08);
+        box-shadow: 0 0 16px rgba(245, 158, 11, 0.9);
+        color: #f59e0b;
+      }
+    }
+    .goal-active-pulse {
+      animation: goalGlowPulse 1.2s infinite ease-in-out;
+      background-color: rgba(245, 158, 11, 0.2) !important;
+      border-color: #f59e0b !important;
+    }
+
+    @keyframes bounceBall {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    .animate-bounce-ball {
+      animation: bounceBall 0.6s infinite ease-in-out;
+    }
+
+    /* TAMPILAN SATU LAPANGAN PENUH TAKTIS (FULL-PITCH) */
+    .soccer-full-pitch {
+      background: radial-gradient(circle at center, #065f46 0%, #022c22 100%);
+      border: 2px solid #059669;
+      position: relative;
+      overflow: hidden;
+      min-height: 540px;
+    }
+    
+    /* Garis Tengah & Lingkaran Tengah */
+    .pitch-center-line-full {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.4);
+      transform: translateY(-50%);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .pitch-center-circle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 90px;
+      height: 90px;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .pitch-center-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 6px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* Kotak Penalti Atas (Home) & Bawah (Away) */
+    .pitch-penalty-box-top {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 50%;
+      height: 45px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top: none;
+      transform: translateX(-50%);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .pitch-penalty-box-bottom {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 50%;
+      height: 45px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-bottom: none;
+      transform: translateX(-50%);
+      z-index: 1;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-28 select-none">
+
+  <!-- HEADER ATAS -->
+  <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-30">
+    <div class="max-w-2xl mx-auto px-4 pt-3 pb-2 flex items-center justify-between border-b border-slate-800/50">
+      <div class="flex items-center gap-2.5">
+        <div class="p-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
+          <i class="fa-solid fa-futbol text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-black tracking-wider text-white">BGS SCOREHUB</h1>
+          <p class="text-[10px] text-slate-400" id="user-timezone-info">Zona HP</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openSettingsModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-amber-400 transition" title="Pengaturan Suara">
+          <i class="fa-solid fa-gear text-sm"></i>
+        </button>
+        <button onclick="loadData(true)" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition" title="Refresh Data">
+          <i id="refresh-icon" class="fa-solid fa-rotate-right text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- FITUR SEARCH BAR -->
+    <div class="max-w-2xl mx-auto px-4 py-2 border-b border-slate-800/40">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+        <input type="text" id="search-input" oninput="handleSearch(this.value)" placeholder="Cari liga, klub, atau pertandingan..." class="w-full bg-slate-800/80 border border-slate-700/80 text-xs text-slate-100 pl-9 pr-9 py-2.5 rounded-xl focus:outline-none focus:border-emerald-500 placeholder-slate-500 transition">
+        <button id="search-clear-btn" onclick="clearSearch()" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white hidden text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Dynamic Date Strip & Filter Liga -->
+    <div id="top-all-matches-header" class="max-w-2xl mx-auto">
+      <div class="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-slate-800/40" id="date-strip-container"></div>
+      <div class="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <button onclick="changeLeague('all')" id="btn-all" class="league-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white whitespace-nowrap transition flex items-center gap-1">
+          <i class="fa-solid fa-globe text-[10px]"></i> Semua Liga
+        </button>
+        <button onclick="changeLeague('idn.1')" id="btn-idn.1" class="league-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition flex items-center gap-1.5">
+          <img src="https://a.espncdn.com/i/leaguelogos/soccer/500/2283.png" loading="lazy" class="w-3.5 h-3.5 object-contain" alt=""> 🇮🇩 Liga 1
+        </button>
+        <button onclick="changeLeague('eng.1')" id="btn-eng.1" class="league-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition flex items-center gap-1.5">
+          <img src="https://a.espncdn.com/i/leaguelogos/soccer/500/23.png" loading="lazy" class="w-3.5 h-3.5 object-contain" alt=""> 🏴󠁧󠁢󠁥󠁮󠁧󠁿 EPL
+        </button>
+        <button onclick="changeLeague('esp.1')" id="btn-esp.1" class="league-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition flex items-center gap-1.5">
+          <img src="https://a.espncdn.com/i/leaguelogos/soccer/500/15.png" loading="lazy" class="w-3.5 h-3.5 object-contain" alt=""> 🇪🇸 La Liga
+        </button>
+        <button onclick="changeLeague('uefa.champions')" id="btn-uefa.champions" class="league-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition flex items-center gap-1.5">
+          <img src="https://a.espncdn.com/i/leaguelogos/soccer/500/2.png" loading="lazy" class="w-3.5 h-3.5 object-contain" alt=""> 🇪🇺 UCL
+        </button>
+        <button onclick="openLeagueModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 whitespace-nowrap transition flex items-center gap-1">
+          <i class="fa-solid fa-layer-group text-[10px]"></i> Liga Lain <i class="fa-solid fa-chevron-down text-[8px]"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-2xl mx-auto px-4 mt-4">
+    <div id="active-badge-container" class="mb-3 flex items-center justify-between bg-slate-900/60 border border-slate-800 px-3.5 py-2 rounded-xl">
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] text-slate-400">Pilihan:</span>
+        <div id="active-league-badge" class="flex items-center gap-1.5 text-xs font-bold text-white bg-slate-800 px-2.5 py-0.5 rounded-lg border border-slate-700">
+          <i class="fa-solid fa-globe text-emerald-400"></i> Semua Liga
+        </div>
+      </div>
+      <span id="active-mode-tag" class="text-[10px] text-slate-400 font-mono">Urut Waktu & Tim Favorit</span>
+    </div>
+
+    <div id="loading" class="flex flex-col items-center justify-center py-16 text-slate-400 gap-3 hidden">
+      <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-500"></i>
+      <p class="text-xs font-medium">Memuat data...</p>
+    </div>
+
+    <div id="search-results-container" class="space-y-4 hidden"></div>
+    <div id="matches-container" class="space-y-3 hidden"></div>
+    <div id="live-container" class="space-y-5 hidden"></div>
+    <div id="standings-container" class="space-y-4 hidden"></div>
+
+    <footer class="mt-8 mb-4 text-center text-[11px] text-slate-500 font-medium">
+      ©Bagus Sajiwo
+    </footer>
+  </main>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-40 py-2.5">
+    <div class="max-w-2xl mx-auto flex items-center justify-around text-center">
+      <button onclick="bottomNavSwitch('all')" id="bnav-all" class="bnav-item flex flex-col items-center gap-1 text-emerald-400 font-bold w-1/3">
+        <i class="fa-solid fa-futbol text-base"></i>
+        <span class="text-[10px]">Semua Laga</span>
+      </button>
+
+      <button onclick="bottomNavSwitch('live')" id="bnav-live" class="bnav-item flex flex-col items-center gap-1 text-slate-400 hover:text-white w-1/3 relative">
+        <div class="relative">
+          <i class="fa-solid fa-satellite-dish text-base"></i>
+          <span class="flex h-2 w-2 absolute -top-0.5 -right-1">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+          </span>
+        </div>
+        <span class="text-[10px]">Sedang Live</span>
+      </button>
+
+      <button onclick="bottomNavSwitch('league')" id="bnav-league" class="bnav-item flex flex-col items-center gap-1 text-slate-400 hover:text-white w-1/3">
+        <i class="fa-solid fa-chart-simple text-base"></i>
+        <span class="text-[10px]">Klasemen</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MODAL PENGATURAN SUARA -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md flex flex-col overflow-hidden shadow-2xl">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+        <div class="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+          <i class="fa-solid fa-volume-high"></i> Pengaturan Suara Favorit
+        </div>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <div class="p-4 space-y-3 overflow-y-auto max-h-[75vh]">
+        <p class="text-[11px] text-slate-400 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+          <i class="fa-solid fa-circle-info text-amber-400 mr-1"></i> Suara berbunyi saat terjadi momen pada laga ber-<strong>Bintang (Favorit)</strong>.
+        </p>
+
+        <div class="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
+          <div>
+            <div class="text-xs font-bold text-white">Master Suara</div>
+            <div class="text-[9px] text-slate-400">Aktifkan seluruh suara</div>
+          </div>
+          <input type="checkbox" id="snd-master" onchange="updateSoundSetting('master', this.checked)" class="w-4 h-4 accent-emerald-500 cursor-pointer">
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-bullhorn text-emerald-400 w-5"></i> Gol (Sorakan Fans)</span>
+            <div class="flex items-center gap-2">
+              <button onclick="playEventSound('goal')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
+              <input type="checkbox" id="snd-goal" onchange="updateSoundSetting('goal', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-play text-blue-400 w-5"></i> Mulai Babak 1 (1x Peluit)</span>
+            <div class="flex items-center gap-2">
+              <button onclick="playEventSound('kickoff1')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
+              <input type="checkbox" id="snd-kickoff1" onchange="updateSoundSetting('kickoff1', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-pause text-amber-400 w-5"></i> Akhir Babak 1 / HT (2x Peluit)</span>
+            <div class="flex items-center gap-2">
+              <button onclick="playEventSound('halftime')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
+              <input type="checkbox" id="snd-halftime" onchange="updateSoundSetting('halftime', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-forward text-blue-400 w-5"></i> Mulai Babak 2 (1x Peluit)</span>
+            <div class="flex items-center gap-2">
+              <button onclick="playEventSound('kickoff2')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
+              <input type="checkbox" id="snd-kickoff2" onchange="updateSoundSetting('kickoff2', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-flag-checkered text-emerald-400 w-5"></i> Selesai / FT (3x Peluit)</span>
+            <div class="flex items-center gap-2">
+              <button onclick="playEventSound('fulltime')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
+              <input type="checkbox" id="snd-fulltime" onchange="updateSoundSetting('fulltime', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-flag text-cyan-400 w-5"></i> Corner (Sudut)</span>
+            <div class="flex items-center gap-2">
+              <button onclick="playEventSound('corner')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
+              <input type="checkbox" id="snd-corner" onchange="updateSoundSetting('corner', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-square text-amber-400 w-5"></i> Kartu Kuning</span>
+            <div class="flex items-center gap-2">
+              <button onclick="playEventSound('yellow')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
+              <input type="checkbox" id="snd-yellow" onchange="updateSoundSetting('yellow', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-square text-red-500 w-5"></i> Kartu Merah</span>
+            <div class="flex items-center gap-2">
+              <button onclick="playEventSound('red')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
+              <input type="checkbox" id="snd-red" onchange="updateSoundSetting('red', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL LIGA LAINNYA -->
+  <div id="league-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+        <div class="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+          <i class="fa-solid fa-trophy"></i> Pilih Liga Dunia
+        </div>
+        <button onclick="closeLeagueModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+      <div class="p-4 overflow-y-auto space-y-4" id="league-selector-grid"></div>
+    </div>
+  </div>
+
+  <!-- DETAIL PERTANDINGAN (TAMPILAN FULL SCREEN) -->
+  <div id="detail-modal" class="fixed inset-0 bg-slate-950 z-50 flex flex-col hidden overflow-hidden">
+    <div class="max-w-2xl mx-auto w-full h-full flex flex-col bg-slate-900">
+      <div class="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950 shrink-0">
+        <button onclick="closeModal()" class="text-emerald-400 hover:text-emerald-300 p-1 rounded-lg flex items-center gap-2 text-xs font-bold transition">
+          <i class="fa-solid fa-arrow-left text-sm"></i> Kembali
+        </button>
+        <span id="modal-league-name" class="text-xs font-bold uppercase tracking-wider text-emerald-400 truncate max-w-[200px]"></span>
+        <div class="w-16"></div>
+      </div>
+
+      <div id="modal-body-wrapper" class="overflow-y-auto flex-1">
+        <div id="modal-loading" class="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+          <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-500"></i>
+          <p class="text-xs">Mengambil data...</p>
+        </div>
+
+        <div id="modal-data-container" class="hidden p-4 space-y-4">
+          <div id="modal-score-header"></div>
+
+          <div class="flex border-b border-slate-800 sticky top-0 bg-slate-900/95 backdrop-blur z-10 pt-1 overflow-x-auto no-scrollbar">
+            <button onclick="switchModalTab('summary')" id="mtab-summary" class="flex-1 py-2 px-2 text-[11px] font-bold text-emerald-400 border-b-2 border-emerald-500 transition whitespace-nowrap">
+              <i class="fa-solid fa-list-check mr-1"></i> Ringkasan
+            </button>
+            <button onclick="switchModalTab('stats')" id="mtab-stats" class="flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">
+              <i class="fa-solid fa-chart-simple mr-1"></i> Statistik
+            </button>
+            <button onclick="switchModalTab('lineup')" id="mtab-lineup" class="flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">
+              <i class="fa-solid fa-users mr-1"></i> Lineup
+            </button>
+            <button onclick="switchModalTab('standings')" id="mtab-standings" class="flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">
+              <i class="fa-solid fa-trophy mr-1"></i> Klasemen
+            </button>
+            <button onclick="switchModalTab('h2h')" id="mtab-h2h" class="flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">
+              <i class="fa-solid fa-clock-rotate-left mr-1"></i> Form & H2H
+            </button>
+          </div>
+
+          <div id="mcontent-summary" class="space-y-4"></div>
+          <div id="mcontent-stats" class="hidden space-y-4"></div>
+          <div id="mcontent-lineup" class="hidden space-y-4"></div>
+          <div id="mcontent-standings" class="hidden space-y-4"></div>
+          <div id="mcontent-h2h" class="hidden space-y-4"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DETAIL KLUB -->
+  <div id="team-detail-modal" class="fixed inset-0 bg-slate-950 z-50 flex flex-col hidden overflow-hidden">
+    <div class="max-w-2xl mx-auto w-full h-full flex flex-col bg-slate-900">
+      <div class="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950 shrink-0">
+        <button onclick="closeTeamModal()" class="text-emerald-400 hover:text-emerald-300 p-1 rounded-lg flex items-center gap-2 text-xs font-bold transition">
+          <i class="fa-solid fa-arrow-left text-sm"></i> Kembali
+        </button>
+        <span id="team-modal-title" class="text-xs font-bold uppercase tracking-wider text-white truncate max-w-[200px]">Profil Klub</span>
+        <div class="w-16"></div>
+      </div>
+
+      <div id="team-modal-body-wrapper" class="overflow-y-auto flex-1 p-4 space-y-4">
+        <div id="team-modal-banner" class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between shadow-lg"></div>
+
+        <div class="flex border-b border-slate-800 sticky top-0 bg-slate-900/95 backdrop-blur z-10 pt-1">
+          <button onclick="switchTeamModalTab('summary')" id="ttab-summary" class="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-calendar-days mr-1"></i> Ringkasan
+          </button>
+          <button onclick="switchTeamModalTab('player')" id="ttab-player" class="flex-1 py-2 text-xs font-bold text-emerald-400 border-b-2 border-emerald-500 transition">
+            <i class="fa-solid fa-user-group mr-1"></i> Squad
+          </button>
+          <button onclick="switchTeamModalTab('standings')" id="ttab-standings" class="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-trophy mr-1"></i> Klasemen
+          </button>
+        </div>
+
+        <div id="tcontent-summary" class="hidden space-y-4"></div>
+        <div id="tcontent-player" class="space-y-4"></div>
+        <div id="tcontent-standings" class="hidden space-y-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const LEAGUES = [
+      { id: 'eng.1', name: 'Premier League', country: 'Inggris', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png', category: 'Eropa' },
+      { id: 'esp.1', name: 'La Liga', country: 'Spanyol', flag: '🇪🇸', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png', category: 'Eropa' },
+      { id: 'ita.1', name: 'Serie A', country: 'Italia', flag: '🇮🇹', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png', category: 'Eropa' },
+      { id: 'ger.1', name: 'Bundesliga', country: 'Jerman', flag: '🇩🇪', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png', category: 'Eropa' },
+      { id: 'fra.1', name: 'Ligue 1', country: 'Prancis', flag: '🇫🇷', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png', category: 'Eropa' },
+      { id: 'ned.1', name: 'Eredivisie', country: 'Belanda', flag: '🇳🇱', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/11.png', category: 'Eropa' },
+      { id: 'por.1', name: 'Liga Portugal', country: 'Portugal', flag: '🇵🇹', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/14.png', category: 'Eropa' },
+      { id: 'tur.1', name: 'Süper Lig', country: 'Turki', flag: '🇹🇷', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/438.png', category: 'Eropa' },
+      { id: 'bel.1', name: 'Pro League', country: 'Belgia', flag: '🇧🇪', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/39.png', category: 'Eropa' },
+      { id: 'sco.1', name: 'Scottish Premiership', country: 'Skotlandia', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/45.png', category: 'Eropa' },
+      { id: 'aut.1', name: 'Austrian Bundesliga', country: 'Austria', flag: '🇦🇹', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/5.png', category: 'Eropa' },
+      { id: 'sui.1', name: 'Swiss Super League', country: 'Swiss', flag: '🇨🇭', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/18.png', category: 'Eropa' },
+      { id: 'gre.1', name: 'Super League Greece', country: 'Yunani', flag: '🇬🇷', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/38.png', category: 'Eropa' },
+      { id: 'den.1', name: 'Danish Superliga', country: 'Denmark', flag: '🇩🇰', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/7.png', category: 'Eropa' },
+      { id: 'nor.1', name: 'Eliteserien', country: 'Norwegia', flag: '🇳🇴', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/36.png', category: 'Eropa' },
+      { id: 'swe.1', name: 'Allsvenskan', country: 'Swedia', flag: '🇸🇪', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/17.png', category: 'Eropa' },
+      { id: 'pol.1', name: 'Ekstraklasa', country: 'Polandia', flag: '🇵🇱', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/35.png', category: 'Eropa' },
+      { id: 'cze.1', name: 'Czech First League', country: 'Ceko', flag: '🇨🇿', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/6.png', category: 'Eropa' },
+      { id: 'eng.2', name: 'EFL Championship', country: 'Inggris', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/24.png', category: 'Eropa' },
+      { id: 'esp.2', name: 'La Liga 2', country: 'Spanyol', flag: '🇪🇸', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/16.png', category: 'Eropa' },
+      { id: 'ger.2', name: '2. Bundesliga', country: 'Jerman', flag: '🇩🇪', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png', category: 'Eropa' },
+      { id: 'ita.2', name: 'Serie B', country: 'Italia', flag: '🇮🇹', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/13.png', category: 'Eropa' },
+      { id: 'fra.2', name: 'Ligue 2', country: 'Prancis', flag: '🇫🇷', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/8.png', category: 'Eropa' },
+
+      { id: 'idn.1', name: 'Liga 1 Indonesia', country: 'Indonesia', flag: '🇮🇩', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2283.png', category: 'Asia' },
+      { id: 'idn.2', name: 'Liga 2 Indonesia', country: 'Indonesia', flag: '🇮🇩', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2283.png', category: 'Asia' },
+      { id: 'ksa.1', name: 'Saudi Pro League', country: 'Arab Saudi', flag: '🇸🇦', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2817.png', category: 'Asia' },
+      { id: 'jpn.1', name: 'J1 League', country: 'Jepang', flag: '🇯🇵', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/229.png', category: 'Asia' },
+      { id: 'tha.1', name: 'Thai League 1', country: 'Thailand', flag: '🇹🇭', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/232.png', category: 'Asia' },
+      { id: 'aus.1', name: 'A-League', country: 'Australia', flag: '🇦🇺', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1308.png', category: 'Asia' },
+      { id: 'mys.1', name: 'Malaysia Super League', country: 'Malaysia', flag: '🇲🇾', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/230.png', category: 'Asia' },
+      { id: 'chn.1', name: 'Chinese Super League', country: 'Tiongkok', flag: '🇨🇳', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/227.png', category: 'Asia' },
+      { id: 'ind.1', name: 'Indian Super League', country: 'India', flag: '🇮🇳', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2813.png', category: 'Asia' },
+
+      { id: 'usa.1', name: 'MLS', country: 'Amerika Serikat', flag: '🇺🇸', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/19.png', category: 'Amerika' },
+      { id: 'bra.1', name: 'Brasileirão', country: 'Brasil', flag: '🇧🇷', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/85.png', category: 'Amerika' },
+      { id: 'arg.1', name: 'Liga Argentina', country: 'Argentina', flag: '🇦🇷', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1.png', category: 'Amerika' },
+      { id: 'mex.1', name: 'Liga MX', country: 'Meksiko', flag: '🇲🇽', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/22.png', category: 'Amerika' },
+      { id: 'col.1', name: 'Liga Kolombia', country: 'Kolombia', flag: '🇨🇴', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/87.png', category: 'Amerika' },
+      { id: 'chi.1', name: 'Liga Chili', country: 'Chili', flag: '🇨🇱', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/86.png', category: 'Amerika' },
+
+      { id: 'uefa.champions', name: 'Champions League', country: 'Eropa', flag: '🇪🇺', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png', category: 'Piala/kompetisi' },
+      { id: 'uefa.europa', name: 'Europa League', country: 'Eropa', flag: '🇪🇺', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png', category: 'Piala/kompetisi' },
+      { id: 'uefa.ecl', name: 'Conference League', country: 'Eropa', flag: '🇪🇺', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2320.png', category: 'Piala/kompetisi' },
+      { id: 'eng.fa', name: 'FA Cup', country: 'Inggris', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/26.png', category: 'Piala/kompetisi' },
+      { id: 'eng.league_cup', name: 'Carabao Cup', country: 'Inggris', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/22.png', category: 'Piala/kompetisi' },
+      { id: 'esp.copa_del_rey', name: 'Copa del Rey', country: 'Spanyol', flag: '🇪🇸', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/21.png', category: 'Piala/kompetisi' },
+      { id: 'ita.coppa_italia', name: 'Coppa Italia', country: 'Italia', flag: '🇮🇹', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/20.png', category: 'Piala/kompetisi' },
+      { id: 'ger.dfb_pokal', name: 'DFB-Pokal', country: 'Jerman', flag: '🇩🇪', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/209.png', category: 'Piala/kompetisi' },
+      { id: 'afc.champions', name: 'AFC Champions League', country: 'Asia', flag: '🌏', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2000.png', category: 'Piala/kompetisi' },
+      { id: 'aff.championship', name: 'Piala AFF', country: 'Asia Tenggara', flag: '🌏', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2311.png', category: 'Piala/kompetisi' },
+      { id: 'conmebol.libertadores', name: 'Copa Libertadores', country: 'Amerika Selatan', flag: '🌎', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1800.png', category: 'Piala/kompetisi' },
+      { id: 'conmebol.sudamericana', name: 'Copa Sudamericana', country: 'Amerika Selatan', flag: '🌎', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1801.png', category: 'Piala/kompetisi' },
+
+      { id: 'fifa.world', name: 'Piala Dunia', country: 'Internasional', flag: '🌐', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png', category: 'Internasional' },
+      { id: 'fifa.cwc', name: 'Piala Dunia Antarklub', country: 'Internasional', flag: '🌐', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png', category: 'Internasional' },
+      { id: 'uefa.euro', name: 'Euro', country: 'Eropa', flag: '🇪🇺', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2308.png', category: 'Internasional' },
+      { id: 'afc.asian.cup', name: 'Piala Asia', country: 'Asia', flag: '🌏', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2300.png', category: 'Internasional' },
+      { id: 'conmebol.america', name: 'Copa América', country: 'Amerika Selatan', flag: '🌎', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1802.png', category: 'Internasional' },
+      { id: 'uefa.nations', name: 'UEFA Nations League', country: 'Eropa', flag: '🇪🇺', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2324.png', category: 'Internasional' },
+      { id: 'club.friendly', name: 'Friendly Match Klub', country: 'Internasional', flag: '🤝', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png', category: 'Internasional' },
+      { id: 'fifa.friendly', name: 'Friendly Match Negara', country: 'Internasional', flag: '🌐', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png', category: 'Internasional' }
+    ];
+
+    let activeNav = 'all'; 
+    let selectedLeague = 'all';
+    let selectedDateFilter = getFormattedDate(new Date());
+    let showFinishedInLive = true;
+    let showUpcomingInLive = true;
+    let selectedStandingsLeague = null;
+    let selectedStandingsTab = 'table';
+    let cachedEvents = [];
+    let currentOpenModal = null;
+    let currentOpenTeam = null;
+
+    let favoriteMatches = JSON.parse(localStorage.getItem('bgs_favorites') || '[]');
+    let favoriteTeams = JSON.parse(localStorage.getItem('bgs_favorite_teams') || '[]');
+    let recentGoalCache = {};
+    let matchStateCache = {};
+
+    let soundSettings = JSON.parse(localStorage.getItem('bgs_sound_settings') || JSON.stringify({
+      master: true, goal: true, kickoff1: true, halftime: true, kickoff2: true, fulltime: true, corner: true, yellow: true, red: true
+    }));
+
+    function isTeamFavorite(teamId) {
+      if (!teamId) return false;
+      return favoriteTeams.some(id => String(id) === String(teamId));
+    }
+
+    function toggleTeamFavorite(teamId, e) {
+      if (e) e.stopPropagation();
+      const idStr = String(teamId);
+      if (isTeamFavorite(idStr)) {
+        favoriteTeams = favoriteTeams.filter(id => String(id) !== idStr);
+      } else {
+        favoriteTeams.push(idStr);
+      }
+      localStorage.setItem('bgs_favorite_teams', JSON.stringify(favoriteTeams));
+      loadData(true);
+    }
+
+    function getCountryFlag(country) {
+      if (!country) return '🌐';
+      const c = country.toLowerCase().trim();
+      if (c.includes('england') || c.includes('inggris')) return '🏴󠁧󠁢󠁥󠁮󠁧󠁿';
+      if (c.includes('scotland') || c.includes('skotlandia')) return '🏴󠁧󠁢󠁳󠁣󠁴󠁿';
+      if (c.includes('wales')) return '🏴󠁧󠁢󠁷󠁬󠁳󠁿';
+      if (c.includes('indonesia')) return '🇮🇩';
+      if (c.includes('brazil') || c.includes('brasil')) return '🇧🇷';
+      if (c.includes('argentina')) return '🇦🇷';
+      if (c.includes('france') || c.includes('prancis')) return '🇫🇷';
+      if (c.includes('spain') || c.includes('spanyol')) return '🇪🇸';
+      if (c.includes('portugal')) return '🇵🇹';
+      if (c.includes('belgium') || c.includes('belgia')) return '🇧🇪';
+      if (c.includes('netherlands') || c.includes('holland') || c.includes('belanda')) return '🇳🇱';
+      if (c.includes('germany') || c.includes('jerman')) return '🇩🇪';
+      if (c.includes('italy') || c.includes('italia')) return '🇮🇹';
+      if (c.includes('uruguay')) return '🇺🇾';
+      if (c.includes('denmark')) return '🇩🇰';
+      if (c.includes('cameroon') || c.includes('kamerun')) return '🇨🇲';
+      if (c.includes('slovenia')) return '🇸🇮';
+      if (c.includes('croatia') || c.includes('kroasia')) return '🇭🇷';
+      if (c.includes('japan') || c.includes('jepang')) return '🇯🇵';
+      if (c.includes('south korea') || c.includes('korea')) return '🇰🇷';
+      if (c.includes('northern ireland')) return '🇬🇧';
+      if (c.includes('colombia') || c.includes('kolombia')) return '🇨🇴';
+      if (c.includes('chile')) return '🇨🇱';
+      if (c.includes('senegal')) return '🇸🇳';
+      if (c.includes('nigeria')) return '🇳🇬';
+      if (c.includes('ghana')) return '🇬🇭';
+      if (c.includes('morocco') || c.includes('maroko')) return '🇲🇦';
+      if (c.includes('egypt') || c.includes('mesir')) return '🇪🇬';
+      if (c.includes('usa') || c.includes('united states') || c.includes('amerika')) return '🇺🇸';
+      if (c.includes('mexico') || c.includes('meksiko')) return '🇲🇽';
+      if (c.includes('turkey') || c.includes('turki')) return '🇹🇷';
+      if (c.includes('norway') || c.includes('norwegia')) return '🇳🇴';
+      if (c.includes('sweden') || c.includes('swedia')) return '🇸🇪';
+      if (c.includes('poland') || c.includes('polandia')) return '🇵🇱';
+      if (c.includes('austria')) return '🇦🇹';
+      if (c.includes('switzerland') || c.includes('swiss')) return '🇨🇭';
+      return '🌐';
+    }
+
+    function isFavorite(eventId) {
+      return favoriteMatches.some(id => String(id) === String(eventId));
+    }
+
+    function toggleFavorite(eventId, e) {
+      if (e) e.stopPropagation();
+      const idStr = String(eventId);
+      if (isFavorite(idStr)) {
+        favoriteMatches = favoriteMatches.filter(id => String(id) !== idStr);
+      } else {
+        favoriteMatches.push(idStr);
+      }
+      localStorage.setItem('bgs_favorites', JSON.stringify(favoriteMatches));
+      loadData(true);
+    }
+
+    function sortEventsByFavoriteAndDate(events) {
+      return events.sort((a, b) => {
+        const compA = a.competitions?.[0];
+        const compB = b.competitions?.[0];
+
+        const aHasFavTeam = compA?.competitors?.some(c => isTeamFavorite(c.team?.id)) ? 1 : 0;
+        const bHasFavTeam = compB?.competitors?.some(c => isTeamFavorite(c.team?.id)) ? 1 : 0;
+
+        if (bHasFavTeam !== aHasFavTeam) return bHasFavTeam - aHasFavTeam;
+
+        const aFavMatch = isFavorite(a.id) ? 1 : 0;
+        const bFavMatch = isFavorite(b.id) ? 1 : 0;
+        if (bFavMatch !== aFavMatch) return bFavMatch - aFavMatch;
+
+        return new Date(a.date) - new Date(b.date);
+      });
+    }
+
+    function openSettingsModal() {
+      document.getElementById('snd-master').checked = soundSettings.master;
+      document.getElementById('snd-goal').checked = soundSettings.goal;
+      document.getElementById('snd-kickoff1').checked = soundSettings.kickoff1;
+      document.getElementById('snd-halftime').checked = soundSettings.halftime;
+      document.getElementById('snd-kickoff2').checked = soundSettings.kickoff2;
+      document.getElementById('snd-fulltime').checked = soundSettings.fulltime;
+      document.getElementById('snd-corner').checked = soundSettings.corner;
+      document.getElementById('snd-yellow').checked = soundSettings.yellow;
+      document.getElementById('snd-red').checked = soundSettings.red;
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function updateSoundSetting(key, val) {
+      soundSettings[key] = val;
+      localStorage.setItem('bgs_sound_settings', JSON.stringify(soundSettings));
+    }
+
+    function playWhistlePattern(pattern) {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        let startTime = ctx.currentTime;
+
+        pattern.forEach((dur) => {
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc1.type = 'sine'; osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(2600, startTime);
+          osc2.frequency.setValueAtTime(2625, startTime);
+
+          gain.gain.setValueAtTime(0.01, startTime);
+          gain.gain.linearRampToValueAtTime(0.25, startTime + 0.03);
+          gain.gain.setValueAtTime(0.25, startTime + dur - 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + dur);
+
+          osc1.connect(gain); osc2.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc1.start(startTime); osc2.start(startTime);
+          osc1.stop(startTime + dur); osc2.stop(startTime + dur);
+
+          startTime += dur + 0.15;
+        });
+      } catch(e) { console.error(e); }
+    }
+
+    function playEventSound(type) {
+      if (!soundSettings.master || !soundSettings[type]) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+
+        if (type === 'goal') {
+          const ctx = new AudioContext();
+          const bufferSize = ctx.sampleRate * 3.0; 
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(900, ctx.currentTime);
+          filter.Q.setValueAtTime(1.2, ctx.currentTime);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.01, ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.4);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3.0);
+
+          noise.connect(filter); filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start(); noise.stop(ctx.currentTime + 3.0);
+
+        } else if (type === 'kickoff1' || type === 'kickoff2') {
+          playWhistlePattern([0.4]);
+        } else if (type === 'halftime') {
+          playWhistlePattern([0.3, 0.8]);
+        } else if (type === 'fulltime') {
+          playWhistlePattern([0.3, 0.3, 1.0]);
+        } else if (type === 'corner') {
+          playWhistlePattern([0.25]);
+        } else if (type === 'yellow') {
+          playWhistlePattern([0.2]);
+        } else if (type === 'red') {
+          playWhistlePattern([0.2, 0.4]);
+        }
+      } catch (e) {
+        console.error("Audio error:", e);
+      }
+    }
+
+    function monitorLiveFavoriteEvents(event) {
+      const eventId = String(event.id);
+      const comp = event.competitions?.[0];
+      if (!comp) return;
+
+      const home = comp.competitors?.find(c => c.homeAway === 'home');
+      const away = comp.competitors?.find(c => c.homeAway === 'away');
+
+      const isFavTeamMatch = isTeamFavorite(home?.team?.id) || isTeamFavorite(away?.team?.id);
+      const isFavMatch = isFavorite(eventId);
+
+      if (!isFavTeamMatch && !isFavMatch) return;
+
+      const homeScore = parseInt(home?.score || '0');
+      const awayScore = parseInt(away?.score || '0');
+      const totalScore = homeScore + awayScore;
+
+      const state = event.status?.type?.state; 
+      const period = event.status?.period || 0;
+      const detailStr = (event.status?.type?.shortDetail || event.status?.type?.description || '').toLowerCase();
+
+      let corners = 0, yellows = 0, reds = 0;
+      [home, away].forEach(team => {
+        if (team?.statistics) {
+          team.statistics.forEach(s => {
+            const name = (s.name || s.label || '').toLowerCase();
+            if (name.includes('corner')) corners += parseInt(s.displayValue || s.value || 0);
+            if (name.includes('yellowcard')) yellows += parseInt(s.displayValue || s.value || 0);
+            if (name.includes('redcard')) reds += parseInt(s.displayValue || s.value || 0);
+          });
+        }
+      });
+
+      const prev = matchStateCache[eventId];
+
+      if (prev) {
+        if (totalScore > prev.totalScore) {
+          recentGoalCache[eventId] = Date.now();
+          playEventSound('goal');
+        }
+
+        if (prev.state === 'pre' && state === 'in' && period === 1) playEventSound('kickoff1');
+        if (prev.period === 1 && (detailStr.includes('ht') || detailStr.includes('half')) && !prev.isHT) playEventSound('halftime');
+        if (prev.isHT && state === 'in' && period === 2) playEventSound('kickoff2');
+        if (prev.state === 'in' && state === 'post') playEventSound('fulltime');
+
+        if (corners > prev.corners) playEventSound('corner');
+        if (yellows > prev.yellows) playEventSound('yellow');
+        if (reds > prev.reds) playEventSound('red');
+      }
+
+      matchStateCache[eventId] = { 
+        state, period, isHT: detailStr.includes('ht') || detailStr.includes('half'), homeScore, awayScore, totalScore, corners, yellows, reds 
+      };
+    }
+
+    function getLeagueFlag(leagueId) {
+      const l = LEAGUES.find(item => item.id === leagueId);
+      return l && l.flag ? l.flag : '';
+    }
+
+    function getFormattedDate(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}${month}${day}`;
+    }
+
+    function getTeamLogo(team) {
+      if (!team) return '';
+      if (typeof team.logo === 'string' && team.logo !== '') return team.logo;
+      if (Array.isArray(team.logos) && team.logos.length > 0) {
+        return team.logos[0].href || team.logos[0] || '';
+      }
+      return '';
+    }
+
+    function displayTimezoneInfo() {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      document.getElementById('user-timezone-info').innerText = `Zona HP: ${tz}`;
+    }
+
+    function formatLocalDate(isoDateStr) {
+      const date = new Date(isoDateStr);
+      const userLang = navigator.language || 'id-ID';
+      
+      const dayName = date.toLocaleDateString(userLang, { weekday: 'short' });
+      const dayNum = date.getDate();
+      const monthName = date.toLocaleDateString(userLang, { month: 'short' });
+      const timeStr = date.toLocaleTimeString(userLang, { hour: '2-digit', minute: '2-digit', hour12: false });
+
+      return `${dayName}, ${dayNum} ${monthName} • ${timeStr}`;
+    }
+
+    function renderDateStrip() {
+      const container = document.getElementById('date-strip-container');
+      container.innerHTML = '';
+      
+      const today = new Date();
+      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+      for (let i = -3; i <= 3; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        const yyyymmdd = getFormattedDate(d);
+        
+        const dayName = days[d.getDay()];
+        const dateNum = d.getDate();
+        const monthName = months[d.getMonth()];
+
+        let label = `${dayName} ${dateNum} ${monthName}`;
+        if (i === 0) label = `Hari Ini (${dateNum} ${monthName})`;
+        else if (i === -1) label = `Kemarin (${dateNum} ${monthName})`;
+        else if (i === 1) label = `Besok (${dateNum} ${monthName})`;
+
+        const isActive = selectedDateFilter === yyyymmdd;
+
+        const btn = document.createElement('button');
+        btn.className = `px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+          isActive ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+        }`;
+        btn.innerText = label;
+        btn.onclick = () => {
+          selectedDateFilter = yyyymmdd;
+          renderDateStrip();
+          loadData(false);
+        };
+        container.appendChild(btn);
+      }
+    }
+
+    function bottomNavSwitch(navType) {
+      activeNav = navType;
+      clearSearch();
+
+      document.querySelectorAll('.bnav-item').forEach(el => {
+        el.classList.remove('text-emerald-400', 'font-bold');
+        el.classList.add('text-slate-400');
+      });
+
+      const activeBtn = document.getElementById(`bnav-${navType}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-400');
+        activeBtn.classList.add('text-emerald-400', 'font-bold');
+      }
+
+      const topHeader = document.getElementById('top-all-matches-header');
+
+      if (navType === 'all') {
+        topHeader.classList.remove('hidden');
+        document.getElementById('active-badge-container').classList.remove('hidden');
+        document.getElementById('active-mode-tag').innerText = "Urut Waktu & Tim Favorit";
+      } else if (navType === 'live') {
+        topHeader.classList.add('hidden');
+        document.getElementById('active-badge-container').classList.add('hidden');
+      } else if (navType === 'league') {
+        topHeader.classList.add('hidden');
+        document.getElementById('active-badge-container').classList.remove('hidden');
+        document.getElementById('active-mode-tag').innerText = "Klasemen Liga";
+        selectedStandingsLeague = null;
+        selectedStandingsTab = 'table';
+      }
+
+      loadData(false);
+    }
+
+    async function loadData(isSilent = false) {
+      const refreshIcon = document.getElementById('refresh-icon');
+      if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+      if (!isSilent) {
+        document.getElementById('loading').classList.remove('hidden');
+        document.getElementById('matches-container').classList.add('hidden');
+        document.getElementById('live-container').classList.add('hidden');
+        document.getElementById('standings-container').classList.add('hidden');
+        document.getElementById('search-results-container').classList.add('hidden');
+      }
+
+      updateActiveLeagueBadge();
+
+      if (activeNav === 'all') {
+        await fetchAllMatches();
+      } else if (activeNav === 'live') {
+        await fetchLiveMatchesStructured();
+      } else if (activeNav === 'league') {
+        await fetchStandingsForSelectedLeague();
+      }
+
+      if (currentOpenModal) {
+        await openMatchDetail(currentOpenModal.leagueId, currentOpenModal.eventId, currentOpenModal.leagueName, true);
+      }
+
+      document.getElementById('loading').classList.add('hidden');
+      if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+
+    function handleSearch(query) {
+      const searchContainer = document.getElementById('search-results-container');
+      const clearBtn = document.getElementById('search-clear-btn');
+      const q = query.trim().toLowerCase();
+
+      if (q === '') {
+        clearBtn.classList.add('hidden');
+        searchContainer.classList.add('hidden');
+        if (activeNav === 'all') document.getElementById('matches-container').classList.remove('hidden');
+        if (activeNav === 'live') document.getElementById('live-container').classList.remove('hidden');
+        if (activeNav === 'league') document.getElementById('standings-container').classList.remove('hidden');
+        return;
+      }
+
+      clearBtn.classList.remove('hidden');
+
+      document.getElementById('matches-container').classList.add('hidden');
+      document.getElementById('live-container').classList.add('hidden');
+      document.getElementById('standings-container').classList.add('hidden');
+
+      searchContainer.innerHTML = '';
+      searchContainer.classList.remove('hidden');
+
+      const matchedLeagues = LEAGUES.filter(l => 
+        l.name.toLowerCase().includes(q) || l.country.toLowerCase().includes(q)
+      );
+
+      const matchedEvents = cachedEvents.filter(e => {
+        const homeName = e.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.displayName || '';
+        const awayName = e.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.displayName || '';
+        const leagueName = e.leagueName || '';
+        return homeName.toLowerCase().includes(q) || awayName.toLowerCase().includes(q) || leagueName.toLowerCase().includes(q);
+      });
+
+      if (matchedLeagues.length === 0 && matchedEvents.length === 0) {
+        searchContainer.innerHTML = `
+          <div class="text-center py-10 text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl text-xs">
+            <i class="fa-solid fa-magnifying-glass text-2xl mb-2 block text-slate-600"></i>
+            Tidak ditemukan liga atau pertandingan untuk "<strong>${query}</strong>"
+          </div>
+        `;
+        return;
+      }
+
+      if (matchedLeagues.length > 0) {
+        const leagueSec = document.createElement('div');
+        leagueSec.className = 'space-y-2';
+        leagueSec.innerHTML = `
+          <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-slate-800">
+            <i class="fa-solid fa-trophy"></i> Liga Ditemukan (${matchedLeagues.length})
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            ${matchedLeagues.map(l => `
+              <button onclick="selectStandingsLeague('${l.id}'); bottomNavSwitch('league'); clearSearch();" class="p-2.5 bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-xl flex items-center gap-2 text-left transition">
+                <img src="${l.logo}" loading="lazy" class="w-5 h-5 object-contain" alt="">
+                <div class="truncate">
+                  <div class="text-xs font-bold text-white truncate">${l.flag ? l.flag + ' ' : ''}${l.name}</div>
+                  <div class="text-[9px] text-slate-400">${l.country}</div>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        `;
+        searchContainer.appendChild(leagueSec);
+      }
+
+      if (matchedEvents.length > 0) {
+        const matchSec = document.createElement('div');
+        matchSec.className = 'space-y-2 pt-2';
+        matchSec.innerHTML = `
+          <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-slate-800">
+            <i class="fa-solid fa-futbol"></i> Pertandingan Ditemukan (${matchedEvents.length})
+          </div>
+          <div id="search-matches-grid" class="space-y-2.5"></div>
+        `;
+        searchContainer.appendChild(matchSec);
+        renderMatchesCards('search-matches-grid', matchedEvents, true);
+      }
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('search-input');
+      if (input) input.value = '';
+      handleSearch('');
+    }
+
+    async function fetchAllMatches() {
+      const targets = selectedLeague === 'all' 
+        ? LEAGUES 
+        : LEAGUES.filter(l => l.id === selectedLeague);
+
+      const promises = targets.map(league => 
+        fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${selectedDateFilter}`)
+          .then(res => res.json())
+          .then(data => (data.events || []).map(evt => ({ 
+            ...evt, 
+            leagueName: league.name, 
+            leagueId: league.id, 
+            leagueLogo: league.logo,
+            leagueFlag: league.flag 
+          })))
+          .catch(() => [])
+      );
+
+      const allEventArrays = await Promise.all(promises);
+      let allEvents = allEventArrays.flat();
+
+      allEvents = sortEventsByFavoriteAndDate(allEvents);
+      cachedEvents = allEvents;
+
+      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+
+      renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
+      document.getElementById('matches-container').classList.remove('hidden');
+    }
+
+    async function fetchLiveMatchesStructured() {
+      const container = document.getElementById('live-container');
+      
+      const today = new Date();
+      const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
+      const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
+
+      const promises = LEAGUES.map(league => 
+        fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
+          .then(res => res.json())
+          .then(data => (data.events || []).map(evt => ({ 
+            ...evt, 
+            leagueName: league.name, 
+            leagueId: league.id, 
+            leagueLogo: league.logo,
+            leagueFlag: league.flag 
+          })))
+          .catch(() => [])
+      );
+
+      const allEventArrays = await Promise.all(promises);
+      
+      const eventMap = new Map();
+      allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
+      let allEvents = Array.from(eventMap.values());
+      
+      cachedEvents = allEvents;
+      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+
+      const now = new Date();
+      const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+      const next12h = new Date(now.getTime() + (12 * 60 * 60 * 1000));
+
+      const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+        const d = new Date(e.date);
+        return e.status.type.state === 'post' && d >= past24h;
+      }));
+
+      const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status.type.state === 'in'));
+
+      const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+        const d = new Date(e.date);
+        return e.status.type.state === 'pre' && d > now && d <= next12h;
+      }));
+
+      container.innerHTML = '';
+
+      const finishedSec = document.createElement('div');
+      finishedSec.className = 'space-y-2.5';
+      finishedSec.innerHTML = `
+        <button onclick="toggleFinishedInLiveView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+          <span class="flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
+          </span>
+          <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
+        </button>
+        <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
+      `;
+      container.appendChild(finishedSec);
+      renderMatchesCards('live-finished-grid', finishedEvents, true);
+
+      const liveSec = document.createElement('div');
+      liveSec.className = 'space-y-2.5';
+      liveSec.innerHTML = `
+        <div class="flex items-center justify-between pb-1 border-b border-slate-800 text-slate-300">
+          <span class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span class="flex h-2 w-2 relative">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            Pertandingan Sedang Live
+          </span>
+          <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">${liveEvents.length}</span>
+        </div>
+        <div id="live-active-grid" class="space-y-2.5"></div>
+      `;
+      container.appendChild(liveSec);
+      renderMatchesCards('live-active-grid', liveEvents, true);
+
+      const upcomingSec = document.createElement('div');
+      upcomingSec.className = 'space-y-2.5';
+      upcomingSec.innerHTML = `
+        <button onclick="toggleUpcomingInLiveView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+          <span class="flex items-center gap-2">
+            <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
+          </span>
+          <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
+        </button>
+        <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
+      `;
+      container.appendChild(upcomingSec);
+      renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
+
+      container.classList.remove('hidden');
+    }
+
+    function toggleFinishedInLiveView() {
+      showFinishedInLive = !showFinishedInLive;
+      const el = document.getElementById('live-finished-grid');
+      const icon = document.getElementById('finished-toggle-icon');
+      if (el) el.classList.toggle('hidden', !showFinishedInLive);
+      if (icon) icon.className = `fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]`;
+    }
+
+    function toggleUpcomingInLiveView() {
+      showUpcomingInLive = !showUpcomingInLive;
+      const el = document.getElementById('live-upcoming-grid');
+      const icon = document.getElementById('upcoming-toggle-icon');
+      if (el) el.classList.toggle('hidden', !showUpcomingInLive);
+      if (icon) icon.className = `fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]`;
+    }
+
+    function getPointsFromEntry(entry) {
+      const stats = entry.stats || [];
+      const ptStat = stats.find(s => s.name === 'points' || s.name === 'pts');
+      return parseFloat(ptStat?.value ?? ptStat?.displayValue ?? 0);
+    }
+
+    function renderCategorizedLeagueGrid(onSelectFunctionName) {
+      const categories = [
+        'Eropa',
+        'Asia',
+        'Amerika',
+        'Piala/kompetisi',
+        'Internasional'
+      ];
+
+      return categories.map(cat => {
+        const catLeagues = LEAGUES.filter(l => l.category === cat);
+        if (catLeagues.length === 0) return '';
+
+        return `
+          <div class="space-y-2">
+            <h4 class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider pb-1 border-b border-slate-800/80 flex items-center gap-1.5">
+              <i class="fa-solid fa-layer-group text-[9px]"></i> ${cat}
+            </h4>
+            <div class="grid grid-cols-2 gap-2">
+              ${catLeagues.map(l => `
+                <button onclick="${onSelectFunctionName}('${l.id}')" class="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 rounded-xl flex items-center gap-2 text-left transition group shadow-md">
+                  <img src="${l.logo}" loading="lazy" class="w-6 h-6 object-contain shrink-0 group-hover:scale-105 transition-transform" alt="">
+                  <div class="truncate">
+                    <div class="text-xs font-bold text-white truncate leading-tight">${l.flag ? l.flag + ' ' : ''}${l.name}</div>
+                    <div class="text-[9px] text-slate-400 truncate mt-0.5">${l.country}</div>
+                  </div>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function fetchStandingsForSelectedLeague() {
+      const container = document.getElementById('standings-container');
+      container.innerHTML = '';
+
+      if (!selectedStandingsLeague) {
+        container.innerHTML = `
+          <div class="space-y-4">
+            <div class="p-3.5 bg-slate-900/80 border border-slate-800 rounded-xl text-center">
+              <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-center gap-2">
+                <i class="fa-solid fa-trophy"></i> Pilih Liga Untuk Melihat Klasemen & Match
+              </h3>
+              <p class="text-[10px] text-slate-400 mt-0.5">Dikelompokkan secara rapi berdasarkan kategori</p>
+            </div>
+            ${renderCategorizedLeagueGrid('selectStandingsLeague')}
+          </div>
+        `;
+        container.classList.remove('hidden');
+        return;
+      }
+
+      const targetLeague = LEAGUES.find(l => l.id === selectedStandingsLeague) || LEAGUES[0];
+
+      const backHeader = document.createElement('div');
+      backHeader.className = 'space-y-3';
+      backHeader.innerHTML = `
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <button onclick="selectStandingsLeague(null)" class="text-xs font-bold text-emerald-400 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-arrow-left text-[10px]"></i> Pilih Liga Lain
+          </button>
+          <span class="text-xs font-bold text-white flex items-center gap-1.5">
+            <img src="${targetLeague.logo}" loading="lazy" class="w-4 h-4 object-contain"> ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name}
+          </span>
+        </div>
+
+        <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+          <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+            <i class="fa-solid fa-list-ol mr-1"></i> Klasemen
+          </button>
+          <button onclick="switchStandingsSubTab('bracket')" id="stab-bracket" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'bracket' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+            <i class="fa-solid fa-sitemap mr-1"></i> Bracket
+          </button>
+          <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+            <i class="fa-solid fa-calendar-days mr-1"></i> Match
+          </button>
+        </div>
+      `;
+      container.appendChild(backHeader);
+
+      const subContainer = document.createElement('div');
+      subContainer.id = 'standings-sub-content';
+      container.appendChild(subContainer);
+
+      if (selectedStandingsTab === 'table') {
+        await renderLeagueStandingsTable(targetLeague, subContainer);
+      } else if (selectedStandingsTab === 'bracket') {
+        await renderLeagueBracketUI(targetLeague, subContainer);
+      } else {
+        await renderLeagueMatchesList(targetLeague, subContainer);
+      }
+
+      container.classList.remove('hidden');
+    }
+
+    function switchStandingsSubTab(tab) {
+      selectedStandingsTab = tab;
+      fetchStandingsForSelectedLeague();
+    }
+
+    async function renderLeagueStandingsTable(targetLeague, container, highlightTeamId = null) {
+      const highlightIds = Array.isArray(highlightTeamId) 
+        ? highlightTeamId.map(id => String(id)) 
+        : (highlightTeamId ? [String(highlightTeamId)] : []);
+
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${targetLeague.id}/standings`);
+        const data = await res.json();
+        
+        let groups = [];
+        if (data?.children && data.children.length > 0) {
+          groups = data.children.map(child => ({
+            name: child.name || child.displayName || 'Grup',
+            entries: child.standings?.entries || []
+          }));
+        } else if (data?.standings?.entries) {
+          groups = [{
+            name: targetLeague.name,
+            entries: data.standings.entries
+          }];
+        }
+
+        if (groups.length === 0 || groups.every(g => g.entries.length === 0)) {
+          container.innerHTML = `
+            <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40">
+              Klasemen untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name} tidak tersedia saat ini.
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = '';
+
+        groups.forEach(group => {
+          const entries = [...group.entries];
+          entries.sort((a, b) => getPointsFromEntry(b) - getPointsFromEntry(a));
+
+          const card = document.createElement('div');
+          card.className = 'bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl mb-4';
+
+          let tableRows = entries.map((entry, idx) => {
+            const stats = entry.stats || [];
+            const getStat = (names) => {
+              for (let name of names) {
+                const s = stats.find(st => st.name === name || st.abbreviation?.toLowerCase() === name.toLowerCase());
+                if (s) return s.displayValue ?? s.value ?? '0';
+              }
+              return '0';
+            };
+
+            const m = getStat(['gamesPlayed', 'gp', 'm']);
+            const w = getStat(['wins', 'w']);
+            const d = getStat(['ties', 'draws', 'd']);
+            const l = getStat(['losses', 'l']);
+            const gf = getStat(['pointsFor', 'goalsFor', 'gf', 'f']);
+            const ga = getStat(['pointsAgainst', 'goalsAgainst', 'ga', 'a']);
+            const gd = getStat(['pointDifferential', 'goalDifference', 'gd', 'diff']);
+            const pts = getStat(['points', 'pts']);
+
+            const teamLogo = entry.team?.logos?.[0]?.href || getTeamLogo(entry.team);
+            const teamId = String(entry.team?.id);
+            
+            const isHome = highlightIds[0] && String(highlightIds[0]) === teamId;
+            const isAway = highlightIds[1] && String(highlightIds[1]) === teamId;
+            const isHighlighted = isHome || isAway;
+            const isFav = isTeamFavorite(teamId);
+
+            return `
+              <tr class="border-b border-slate-800/50 hover:bg-slate-800/40 transition text-xs ${isHighlighted ? 'bg-emerald-950/80 font-bold border-l-4 border-emerald-500 text-emerald-300' : ''}">
+                <td class="p-2 text-center font-bold ${idx < 2 ? 'text-emerald-400' : 'text-slate-400'}">${idx + 1}</td>
+                <td class="p-2 flex items-center gap-2 font-semibold cursor-pointer min-w-[130px]" onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')">
+                  <img src="${teamLogo}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="">
+                  <span class="truncate text-slate-200 hover:text-emerald-400 transition">${entry.team?.displayName || 'Klub'}</span>
+                  ${isFav ? '<i class="fa-solid fa-star text-amber-400 text-[9px]"></i>' : ''}
+                  ${isHome ? '<span class="text-[8px] bg-blue-500/20 text-blue-400 border border-blue-500/40 px-1 py-0.5 rounded font-bold ml-1 shrink-0">HOME</span>' : ''}
+                  ${isAway ? '<span class="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-1 py-0.5 rounded font-bold ml-1 shrink-0">AWAY</span>' : ''}
+                </td>
+                <td class="p-2 text-center text-slate-300">${m}</td>
+                <td class="p-2 text-center text-emerald-400 font-medium">${w}</td>
+                <td class="p-2 text-center text-amber-400 font-medium">${d}</td>
+                <td class="p-2 text-center text-red-400 font-medium">${l}</td>
+                <td class="p-2 text-center text-slate-400 font-mono text-[11px]">${gf}:${ga}</td>
+                <td class="p-2 text-center font-medium ${parseInt(gd) > 0 ? 'text-emerald-400' : (parseInt(gd) < 0 ? 'text-red-400' : 'text-slate-400')}">${parseInt(gd) > 0 ? '+' + gd : gd}</td>
+                <td class="p-2 text-center font-black text-white bg-slate-950/50">${pts}</td>
+              </tr>
+            `;
+          }).join('');
+
+          card.innerHTML = `
+            <div class="p-3 border-b border-slate-800 bg-slate-950/40 flex items-center gap-2">
+              <img src="${targetLeague.logo}" loading="lazy" class="w-4 h-4 object-contain" alt="">
+              <h3 class="font-bold text-xs tracking-wide uppercase">${group.name}</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="text-[10px] text-slate-400 uppercase bg-slate-950/60 border-b border-slate-800">
+                    <th class="p-2 text-center w-7">#</th>
+                    <th class="p-2">Klub</th>
+                    <th class="p-2 text-center" title="Main">M</th>
+                    <th class="p-2 text-center text-emerald-400" title="Menang">M</th>
+                    <th class="p-2 text-center text-amber-400" title="Seri">S</th>
+                    <th class="p-2 text-center text-red-400" title="Kalah">K</th>
+                    <th class="p-2 text-center" title="Gol Masuk:Kemasukan">GM:GK</th>
+                    <th class="p-2 text-center" title="Selisih Gol">SG</th>
+                    <th class="p-2 text-center font-bold text-emerald-400" title="Poin">PTS</th>
+                  </tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+              </table>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+
+      } catch (err) {
+        container.innerHTML = `<p class="text-center text-slate-400 text-xs py-8">Tabel klasemen tidak tersedia untuk kategori ini.</p>`;
+      }
+    }
+
+    async function renderLeagueBracketUI(targetLeague, container) {
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat Bagan Bracket Knock-out...</p>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/scoreboard`);
+        const data = await res.json();
+        const events = data.events || [];
+
+        const roundGroups = {};
+
+        events.forEach(evt => {
+          const comp = evt.competitions?.[0];
+          const noteText = comp?.notes?.[0]?.headline || evt.status?.type?.description || '';
+          
+          let roundName = 'Fase Gugur';
+          const lower = noteText.toLowerCase();
+
+          if (lower.includes('final') && !lower.includes('semi') && !lower.includes('quarter')) roundName = '🏆 Final';
+          else if (lower.includes('semi')) roundName = 'Semifinal';
+          else if (lower.includes('quarter')) roundName = 'Perempat Final';
+          else if (lower.includes('16') || lower.includes('round of 16')) roundName = '16 Besar';
+          else if (lower.includes('playoff') || lower.includes('play-off')) roundName = 'Play-off';
+
+          if (!roundGroups[roundName]) roundGroups[roundName] = [];
+          roundGroups[roundName].push(evt);
+        });
+
+        const roundKeys = Object.keys(roundGroups);
+
+        if (roundKeys.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40 text-xs">
+              <i class="fa-solid fa-sitemap text-2xl mb-2 block text-slate-600"></i>
+              Bagan bracket Knock-out belum tersedia atau kompetisi sedang berlangsung dalam sistem liga murni.
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = '';
+
+        roundKeys.forEach(round => {
+          const roundBox = document.createElement('div');
+          roundBox.className = 'space-y-2 mb-4';
+          roundBox.innerHTML = `
+            <div class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2 pb-1 border-b border-slate-800">
+              <i class="fa-solid fa-trophy"></i> ${round}
+            </div>
+            <div id="bracket-grid-${round.replace(/[^a-zA-Z0-9]/g, '')}" class="space-y-2"></div>
+          `;
+          container.appendChild(roundBox);
+          renderMatchesCards(`bracket-grid-${round.replace(/[^a-zA-Z0-9]/g, '')}`, roundGroups[round], false);
+        });
+
+      } catch (e) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800 text-xs">
+            Gagal mengambil data bracket Knock-out.
+          </div>
+        `;
+      }
+    }
+
+    async function renderLeagueMatchesList(targetLeague, container) {
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat pertandingan ${targetLeague.name}...</p>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/scoreboard`);
+        const data = await res.json();
+        const events = (data.events || []).map(evt => ({ 
+          ...evt, 
+          leagueName: targetLeague.name, 
+          leagueId: targetLeague.id, 
+          leagueLogo: targetLeague.logo,
+          leagueFlag: targetLeague.flag 
+        }));
+
+        if (events.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40 text-xs">
+              Tidak ada jadwal pertandingan untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name}.
+            </div>
+          `;
+          return;
+        }
+
+        const finished = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'post'));
+        const live = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'in'));
+        const upcoming = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'pre'));
+
+        container.innerHTML = '';
+
+        if (live.length > 0) {
+          const liveBox = document.createElement('div');
+          liveBox.className = 'space-y-2';
+          liveBox.innerHTML = `
+            <div class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> Live Sekarang (${live.length})
+            </div>
+            <div id="league-live-grid" class="space-y-2"></div>
+          `;
+          container.appendChild(liveBox);
+          renderMatchesCards('league-live-grid', live, false);
+        }
+
+        if (upcoming.length > 0) {
+          const upcomingBox = document.createElement('div');
+          upcomingBox.className = 'space-y-2';
+          upcomingBox.innerHTML = `
+            <div class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-regular fa-clock"></i> Pertandingan Mendatang (${upcoming.length})
+            </div>
+            <div id="league-upcoming-grid" class="space-y-2"></div>
+          `;
+          container.appendChild(upcomingBox);
+          renderMatchesCards('league-upcoming-grid', upcoming, false);
+        }
+
+        if (finished.length > 0) {
+          const finishedBox = document.createElement('div');
+          finishedBox.className = 'space-y-2';
+          finishedBox.innerHTML = `
+            <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-circle-check"></i> Pertandingan Selesai (${finished.length})
+            </div>
+            <div id="league-finished-grid" class="space-y-2"></div>
+          `;
+          container.appendChild(finishedBox);
+          renderMatchesCards('league-finished-grid', finished, false);
+        }
+
+      } catch (err) {
+        container.innerHTML = `<p class="text-center text-red-400 text-xs py-8">Gagal memuat pertandingan.</p>`;
+      }
+    }
+
+    function selectStandingsLeague(leagueId) {
+      selectedStandingsLeague = leagueId;
+      selectedStandingsTab = 'table';
+      loadData(false);
+    }
+
+    function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) {
+      const container = document.getElementById(targetContainerId);
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (events.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-6 text-slate-500 border border-slate-800/40 rounded-xl bg-slate-900/30 text-xs">
+            Tidak ada pertandingan.
+          </div>
+        `;
+        return;
+      }
+
+      const sortedEvents = sortEventsByFavoriteAndDate([...events]);
+
+      sortedEvents.forEach(event => {
+        const comp = event.competitions[0];
+        const home = comp.competitors.find(c => c.homeAway === 'home');
+        const away = comp.competitors.find(c => c.homeAway === 'away');
+        
+        const homeLogo = getTeamLogo(home.team);
+        const awayLogo = getTeamLogo(away.team);
+
+        const homeFav = isTeamFavorite(home.team?.id);
+        const awayFav = isTeamFavorite(away.team?.id);
+        const hasFavTeam = homeFav || awayFav;
+
+        const state = event.status.type.state; 
+        const isPre = state === 'pre';
+        const isLive = state === 'in';
+        const liveMinuteText = event.status?.type?.shortDetail || 'LIVE';
+        const formattedTime = formatLocalDate(event.date);
+        const favorited = isFavorite(event.id);
+
+        const eventIdStr = String(event.id);
+        const hasRecentGoal = recentGoalCache[eventIdStr] && ((Date.now() - recentGoalCache[eventIdStr]) < 30000);
+
+        let scoreDisplay = isPre 
+          ? `<span class="text-xs font-extrabold text-emerald-400 whitespace-nowrap">VS</span>`
+          : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white'} whitespace-nowrap">${home.score ?? '0'} - ${away.score ?? '0'}</span>`;
+
+        const card = document.createElement('div');
+        card.className = `p-3.5 rounded-xl border bg-slate-900 hover:border-slate-700 transition cursor-pointer relative ${
+          hasFavTeam ? 'border-amber-500/80 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 shadow-md' : (favorited ? 'border-amber-500/60 bg-amber-950/20' : (isLive ? 'border-red-500/50 bg-red-950/10' : 'border-slate-800/80'))
+        }`;
+        
+        card.onclick = () => openMatchDetail(event.leagueId || 'idn.1', event.id, event.leagueName || 'Detail');
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2.5">
+            <div class="flex items-center gap-1.5 truncate max-w-[65%]">
+              ${hasFavTeam ? '<span class="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold shrink-0"><i class="fa-solid fa-star text-[8px] mr-1"></i>TIM FAVORIT</span>' : ''}
+              <span class="${isLive ? 'text-red-400 font-bold animate-pulse' : 'text-slate-400'} flex items-center truncate">
+                <i class="fa-regular fa-clock mr-1 shrink-0"></i><span class="truncate">${isLive ? liveMinuteText : formattedTime}</span>
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${showLeagueBadge ? `<span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded truncate max-w-[100px]">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>` : ''}
+              <button onclick="toggleFavorite('${event.id}', event)" class="p-1 hover:scale-125 transition text-xs" title="Favorit">
+                <i class="${favorited ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-500 hover:text-amber-400'}"></i>
+              </button>
+              <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400">Detail <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between gap-1.5">
+            <div class="flex items-center gap-2 w-[42%] min-w-0">
+              <img src="${homeLogo}" loading="lazy" class="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="">
+              <span class="font-semibold text-xs truncate leading-tight text-slate-100 flex items-center gap-1">
+                <span class="truncate">${home.team.shortDisplayName}</span>
+                ${homeFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
+              </span>
+            </div>
+
+            <div class="w-[16%] shrink-0 text-center bg-slate-950/80 py-1 px-1 rounded-lg border border-slate-800 flex items-center justify-center">
+              ${scoreDisplay}
+            </div>
+
+            <div class="flex items-center justify-end gap-2 w-[42%] min-w-0 text-right">
+              <span class="font-semibold text-xs truncate leading-tight text-slate-100 flex items-center justify-end gap-1">
+                ${awayFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
+                <span class="truncate">${away.team.shortDisplayName}</span>
+              </span>
+              <img src="${awayLogo}" loading="lazy" class="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="">
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function changeLeague(leagueId) {
+      selectedLeague = leagueId;
+      document.querySelectorAll('.league-btn').forEach(btn => {
+        btn.classList.remove('bg-emerald-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-300');
+      });
+      const activeBtn = document.getElementById(`btn-${leagueId}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-800', 'text-slate-300');
+        activeBtn.classList.add('bg-emerald-600', 'text-white');
+      }
+      loadData(false);
+    }
+
+    function openLeagueModal() {
+      renderLeagueModalGrid();
+      document.getElementById('league-modal').classList.remove('hidden');
+    }
+
+    function closeLeagueModal() {
+      document.getElementById('league-modal').classList.add('hidden');
+    }
+
+    function renderLeagueModalGrid() {
+      const grid = document.getElementById('league-selector-grid');
+      grid.innerHTML = `
+        <button onclick="selectLeagueFromModal('all')" class="w-full p-2.5 bg-slate-950 hover:bg-slate-800 border ${selectedLeague === 'all' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800'} rounded-xl flex items-center gap-2.5 transition text-left mb-3">
+          <i class="fa-solid fa-globe text-emerald-400 text-lg"></i>
+          <div>
+            <div class="text-xs font-bold text-white">Semua Liga</div>
+            <div class="text-[9px] text-slate-400">Tampilkan seluruh pertandingan global</div>
+          </div>
+        </button>
+        ${renderCategorizedLeagueGrid('selectLeagueFromModal')}
+      `;
+    }
+
+    function selectLeagueFromModal(leagueId) {
+      closeLeagueModal();
+      changeLeague(leagueId);
+    }
+
+    function updateActiveLeagueBadge() {
+      const badge = document.getElementById('active-league-badge');
+      if (selectedLeague === 'all') {
+        badge.innerHTML = `<i class="fa-solid fa-globe text-emerald-400"></i> Semua Liga`;
+      } else {
+        const found = LEAGUES.find(l => l.id === selectedLeague);
+        if (found) {
+          badge.innerHTML = `<img src="${found.logo}" loading="lazy" class="w-3.5 h-3.5 object-contain" alt=""> ${found.flag ? found.flag + ' ' : ''}${found.name}`;
+        }
+      }
+    }
+
+    async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) {
+      currentOpenModal = { leagueId, eventId, leagueName };
+      const modal = document.getElementById('detail-modal');
+      const loading = document.getElementById('modal-loading');
+      const container = document.getElementById('modal-data-container');
+      const flag = getLeagueFlag(leagueId);
+      
+      document.getElementById('modal-league-name').innerText = `${flag ? flag + ' ' : ''}${leagueName}`;
+
+      modal.classList.remove('hidden');
+
+      if (!isSilent) {
+        loading.classList.remove('hidden');
+        container.classList.add('hidden');
+        switchModalTab('summary');
+      }
+
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/summary?event=${eventId}`);
+        const data = await res.json();
+        
+        const header = data.header?.competitions?.[0];
+        const home = header?.competitors?.find(c => c.homeAway === 'home');
+        const away = header?.competitors?.find(c => c.homeAway === 'away');
+
+        renderModalCompleteData(data, leagueId);
+
+        if (!isSilent) {
+          if (leagueId && home?.team?.id && away?.team?.id) {
+            fetchModalStandings(leagueId, home.team.id, away.team.id);
+            fetchFormAndH2H(leagueId, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
+          } else {
+            document.getElementById('mcontent-standings').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
+            document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Data riwayat tidak tersedia.</p>`;
+          }
+        }
+
+        loading.classList.add('hidden');
+        container.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        if (!isSilent) {
+          document.getElementById('modal-body-wrapper').innerHTML = `<p class="text-center text-red-400 text-sm py-12">Gagal memuat detail pertandingan.</p>`;
+        }
+      }
+    }
+
+    async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
+      const container = document.getElementById('mcontent-standings');
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat klasemen liga...</p>
+        </div>
+      `;
+
+      try {
+        const targetLeague = LEAGUES.find(l => l.id === leagueId) || LEAGUES[0];
+        container.innerHTML = '';
+        await renderLeagueStandingsTable(targetLeague, container, [homeTeamId, awayTeamId]);
+      } catch (err) {
+        container.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
+      }
+    }
+
+    async function fetchTeamRecentMatches(leagueId, teamId) {
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${teamId}/schedule`);
+        const data = await res.json();
+        const events = data.events || [];
+        const finished = events
+          .filter(e => e.status?.type?.state === 'post')
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+        return finished.slice(0, 5);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function renderFormBlock(teamName, matches, teamId) {
+      if (!matches || matches.length === 0) {
+        return `
+          <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80">
+            <div class="text-xs font-bold text-white mb-1">${teamName}</div>
+            <p class="text-[10px] text-slate-500">Tidak ada riwayat pertandingan terbaru.</p>
+          </div>
+        `;
+      }
+
+      let formBadges = '';
+      let matchRows = matches.map(m => {
+        const comp = m.competitions?.[0];
+        const myTeam = comp?.competitors?.find(c => String(c.team.id) === String(teamId));
+        const oppTeam = comp?.competitors?.find(c => String(c.team.id) !== String(teamId));
+        
+        const myScore = parseInt(myTeam?.score || '0');
+        const oppScore = parseInt(oppTeam?.score || '0');
+
+        let resBadge = { label: 'S', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' };
+        if (myScore > oppScore) {
+          resBadge = { label: 'M', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' };
+        } else if (myScore < oppScore) {
+          resBadge = { label: 'K', color: 'bg-red-500/20 text-red-400 border-red-500/40' };
+        }
+
+        formBadges += `<span class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold border ${resBadge.color}">${resBadge.label}</span>`;
+
+        const oppLogo = getTeamLogo(oppTeam?.team);
+        const isHome = myTeam?.homeAway === 'home';
+        const formattedDate = new Date(m.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+
+        return `
+          <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-xs hover:bg-slate-800/60 transition">
+            <div class="flex items-center gap-2 truncate max-w-[62%]">
+              <span class="text-[9px] font-bold font-mono ${isHome ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/50' : 'text-blue-400 bg-blue-950/60 border-blue-800/50'} px-1.5 py-0.5 rounded border">${isHome ? 'HOME' : 'AWAY'}</span>
+              <img src="${oppLogo}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="">
+              <span class="truncate font-semibold text-slate-100">${oppTeam?.team?.shortDisplayName || oppTeam?.team?.displayName || 'Lawan'}</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-[10px] text-slate-400">${formattedDate}</span>
+              <span class="font-extrabold text-white bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800 text-[11px]">${myScore} - ${oppScore}</span>
+              <span class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold border ${resBadge.color}">${resBadge.label}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800/80 space-y-3 shadow-lg">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <span class="text-xs font-bold text-white truncate max-w-[170px]">${teamName}</span>
+            <div class="flex items-center gap-1.5">${formBadges}</div>
+          </div>
+          <div class="space-y-2">${matchRows}</div>
+        </div>
+      `;
+    }
+
+    async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
+      const container = document.getElementById('mcontent-h2h');
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat 5 laga terakhir & H2H...</p>
+        </div>
+      `;
+
+      const [homeRecent, awayRecent] = await Promise.all([
+        fetchTeamRecentMatches(leagueId, homeTeamId),
+        fetchTeamRecentMatches(leagueId, awayTeamId)
+      ]);
+
+      let h2hHtml = '';
+      if (h2hEvents && h2hEvents.length > 0) {
+        h2hHtml = `
+          <div class="space-y-2 pt-2">
+            <h4 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Pertemuan Head to Head</h4>
+            <div class="space-y-2">
+              ${h2hEvents.map(m => {
+                const hTeam = m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home');
+                const aTeam = m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away');
+                const matchDate = formatLocalDate(m.date);
+
+                return `
+                  <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs">
+                    <span class="text-[9px] text-slate-500 w-1/3">${matchDate}</span>
+                    <div class="flex items-center justify-center gap-1.5 w-2/3">
+                      <span class="font-semibold text-slate-300 text-right truncate w-5/12">${hTeam?.team?.shortDisplayName || ''}</span>
+                      <span class="font-bold bg-slate-800 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score || '0'} - ${aTeam?.score || '0'}</span>
+                      <span class="font-semibold text-slate-300 text-left truncate w-5/12">${aTeam?.team?.shortDisplayName || ''}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        h2hHtml = `
+          <div class="text-center py-4 text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800 text-xs">
+            Data H2H langsung tidak tersedia.
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="space-y-3">
+          <div class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> 5 Pertandingan Terakhir
+          </div>
+          ${renderFormBlock(homeName, homeRecent, homeTeamId)}
+          ${renderFormBlock(awayName, awayRecent, awayTeamId)}
+          ${h2hHtml}
+        </div>
+      `;
+    }
+
+    function parseClockMinute(clockStr) {
+      if (!clockStr) return 0;
+      const str = String(clockStr).replace(/['\s]/g, '');
+      if (str.includes('+')) {
+        const parts = str.split('+');
+        return (parseInt(parts[0]) || 0) + (parseInt(parts[1]) || 0);
+      }
+      return parseInt(str) || 0;
+    }
+
+    function getBaseMinute(clockStr) {
+      if (!clockStr) return 0;
+      const str = String(clockStr).replace(/['\s]/g, '');
+      if (str.includes('+')) {
+        return parseInt(str.split('+')[0]) || 0;
+      }
+      return parseInt(str) || 0;
+    }
+
+    function renderModalCompleteData(data, leagueId) {
+      const header = data.header?.competitions?.[0];
+      if (!header) return;
+
+      const home = header.competitors.find(c => c.homeAway === 'home');
+      const away = header.competitors.find(c => c.homeAway === 'away');
+      
+      const homeLogo = getTeamLogo(home.team);
+      const awayLogo = getTeamLogo(away.team);
+
+      const state = header.status?.type?.state;
+      const formattedTime = formatLocalDate(header.date);
+
+      const gameInfo = data.gameInfo || {};
+      const venue = gameInfo.venue || {};
+      const stadium = venue.fullName ? `${venue.fullName}${venue.address?.city ? ', ' + venue.address.city : ''}` : 'Belum ditentukan';
+
+      const officials = gameInfo.officials || [];
+      const refereeObj = officials.find(o => (o.position?.name || '').toLowerCase().includes('referee')) || officials[0];
+      const referee = refereeObj?.displayName || 'Belum dirilis';
+
+      const weatherObj = gameInfo.weather || {};
+      let weather = 'Tidak ada data';
+      if (weatherObj.displayValue) {
+        weather = weatherObj.displayValue;
+      } else if (weatherObj.temperature !== undefined) {
+        weather = `${weatherObj.temperature}°C`;
+        if (weatherObj.condition) weather += `, ${weatherObj.condition}`;
+      }
+
+      const matchInfoBadgeHtml = `
+        <div class="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center text-[10px] text-slate-400">
+          <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-800/80 truncate" title="${stadium}">
+            <i class="fa-solid fa-location-dot text-emerald-400 mb-1 block text-xs"></i>
+            <span class="font-bold text-slate-200 block truncate">${stadium}</span>
+            <span class="text-[8px] text-slate-500 uppercase font-semibold">Stadion</span>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-800/80 truncate" title="${referee}">
+            <i class="fa-solid fa-user-ninja text-blue-400 mb-1 block text-xs"></i>
+            <span class="font-bold text-slate-200 block truncate">${referee}</span>
+            <span class="text-[8px] text-slate-500 uppercase font-semibold">Wasit</span>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-800/80 truncate" title="${weather}">
+            <i class="fa-solid fa-cloud-sun text-amber-400 mb-1 block text-xs"></i>
+            <span class="font-bold text-slate-200 block truncate">${weather}</span>
+            <span class="text-[8px] text-slate-500 uppercase font-semibold">Cuaca</span>
+          </div>
+        </div>
+      `;
+
+      const rawEvents = data.details || data.keyEvents || header.details || [];
+      const homeGoals = [];
+      const awayGoals = [];
+
+      // MAPPING EVENT PEMAIN UNTUK TAMPILAN LINEUP
+      const playerEventsMap = {};
+      const registerPlayerEvent = (athleteId, type) => {
+        if (!athleteId) return;
+        const key = String(athleteId);
+        if (!playerEventsMap[key]) {
+          playerEventsMap[key] = { goals: 0, penGoals: 0, penMiss: 0, assists: 0, yellows: 0, reds: 0 };
+        }
+        playerEventsMap[key][type] = (playerEventsMap[key][type] || 0) + 1;
+      };
+
+      if (rawEvents && rawEvents.length > 0) {
+        rawEvents.forEach(item => {
+          const typeText = (item.type?.text || item.text || '').toLowerCase();
+          const p1 = item.participants?.[0]?.athlete?.id;
+          const p2 = item.participants?.[1]?.athlete?.id;
+
+          if (typeText.includes('missed penalty') || typeText.includes('penalty miss') || (typeText.includes('penalty') && typeText.includes('miss'))) {
+            registerPlayerEvent(p1, 'penMiss');
+          } else if (typeText.includes('goal') || typeText.includes('gol')) {
+            const clock = item.clock?.displayValue || item.time || '0';
+            const scorer = item.participants?.[0]?.athlete?.displayName || item.text || 'Goal';
+            const isHome = item.team?.id ? String(item.team.id) === String(home.team.id) : true;
+            const isOG = typeText.includes('own goal') || typeText.includes('og');
+            const isPen = typeText.includes('penalty') || typeText.includes('penalti');
+            
+            const goalObj = { scorer: `${scorer}${isOG ? '(OG)' : ''}`, clock: `${clock}'` };
+
+            if (isHome) homeGoals.push(goalObj);
+            else awayGoals.push(goalObj);
+
+            if (isPen) registerPlayerEvent(p1, 'penGoals');
+            else registerPlayerEvent(p1, 'goals');
+
+            if (p2) registerPlayerEvent(p2, 'assists');
+          } else if (typeText.includes('card') || typeText.includes('kartu')) {
+            const isRed = typeText.includes('red') || typeText.includes('merah');
+            if (isRed) registerPlayerEvent(p1, 'reds');
+            else registerPlayerEvent(p1, 'yellows');
+          }
+        });
+      }
+
+      let goalsHtml = '';
+      const maxLen = Math.max(homeGoals.length, awayGoals.length);
+      if (maxLen > 0) {
+        let rows = '';
+        for (let i = 0; i < maxLen; i++) {
+          const hG = homeGoals[i];
+          const aG = awayGoals[i];
+          rows += `
+            <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
+              <div class="text-right flex items-center justify-end gap-1.5 truncate">
+                ${hG ? `<span class="truncate font-medium">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-white shrink-0"></i>` : ''}
+              </div>
+              <div class="text-left flex items-center justify-start gap-1.5 truncate">
+                ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-white shrink-0"></i> <span class="truncate font-medium">${aG.clock} ${aG.scorer}</span>` : ''}
+              </div>
+            </div>
+          `;
+        }
+        goalsHtml = `<div class="mt-3 pt-3 border-t border-slate-800/80 space-y-1">${rows}</div>`;
+      }
+
+      const liveOrStatusText = state === 'pre' 
+        ? formattedTime 
+        : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : header.status?.type?.description);
+
+      document.getElementById('modal-score-header').innerHTML = `
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-md">
+          <div class="flex items-center justify-between">
+            <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
+              <img src="${homeLogo}" loading="lazy" class="w-10 h-10 object-contain group-hover:scale-110 transition-transform" alt="">
+              <span class="font-bold text-xs text-white mt-1 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
+                <span class="truncate">${home.team.displayName}</span>
+                ${isTeamFavorite(home.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
+              </span>
+            </div>
+
+            <div class="text-center w-2/12">
+              <span class="text-xl font-black text-white">${state === 'pre' ? 'VS' : (home.score || '0') + ' - ' + (away.score || '0')}</span>
+              <div class="text-[10px] text-emerald-400 font-bold mt-1">${liveOrStatusText}</div>
+            </div>
+
+            <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
+              <img src="${awayLogo}" loading="lazy" class="w-10 h-10 object-contain group-hover:scale-110 transition-transform" alt="">
+              <span class="font-bold text-xs text-white mt-1 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
+                <span class="truncate">${away.team.displayName}</span>
+                ${isTeamFavorite(away.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
+              </span>
+            </div>
+          </div>
+          ${goalsHtml}
+        </div>
+      `;
+
+      let statsBlockHtml = '';
+      if (state === 'pre') {
+        statsBlockHtml = `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-xl">
+            <i class="fa-solid fa-chart-line text-3xl text-slate-600 mb-2 block"></i>
+            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Statistik Belum Tersedia</h4>
+            <p class="text-[10px] text-slate-500 mt-1">Statistik live akan muncul secara otomatis ketika pertandingan telah dimulai.</p>
+          </div>
+        `;
+      } else {
+        const boxscoreTeams = data.boxscore?.teams || [];
+        const homeBox = boxscoreTeams.find(t => String(t.team?.id) === String(home.team?.id));
+        const awayBox = boxscoreTeams.find(t => String(t.team?.id) === String(away.team?.id));
+
+        const getStatVal = (teamBox, keys) => {
+          if (!teamBox || !teamBox.statistics) return 0;
+          for (let key of keys) {
+            const st = teamBox.statistics.find(s => s.name?.toLowerCase() === key.toLowerCase() || s.label?.toLowerCase() === key.toLowerCase());
+            if (st) {
+              const val = parseFloat(st.displayValue);
+              return isNaN(val) ? st.displayValue : val;
+            }
+          }
+          return 0;
+        };
+
+        const homePoss = getStatVal(homeBox, ['possessionPct', 'possession']) || 50;
+        const awayPoss = getStatVal(awayBox, ['possessionPct', 'possession']) || 50;
+        const homeShotsOn = getStatVal(homeBox, ['shotsOnTarget', 'shotsontarget']) || 0;
+        const awayShotsOn = getStatVal(awayBox, ['shotsOnTarget', 'shotsontarget']) || 0;
+        const homeTotalShots = getStatVal(homeBox, ['totalShots', 'shots']) || 0;
+        const awayTotalShots = getStatVal(awayBox, ['totalShots', 'shots']) || 0;
+        const homeShotsOff = Math.max(0, homeTotalShots - homeShotsOn) || getStatVal(homeBox, ['shotsOffTarget']) || 0;
+        const awayShotsOff = Math.max(0, awayTotalShots - awayShotsOn) || getStatVal(awayBox, ['shotsOffTarget']) || 0;
+        const homeCorners = getStatVal(homeBox, ['wonCorners', 'cornerKicks', 'corners']) || 0;
+        const awayCorners = getStatVal(awayBox, ['wonCorners', 'cornerKicks', 'corners']) || 0;
+        const homeYellows = getStatVal(homeBox, ['yellowCards', 'yellowcards']) || 0;
+        const awayYellows = getStatVal(awayBox, ['yellowCards', 'yellowcards']) || 0;
+        const homeReds = getStatVal(homeBox, ['redCards', 'redcards']) || 0;
+        const awayReds = getStatVal(awayBox, ['redCards', 'redcards']) || 0;
+        const homeFouls = getStatVal(homeBox, ['foulsCommitted', 'fouls']) || 0;
+        const awayFouls = getStatVal(awayBox, ['foulsCommitted', 'fouls']) || 0;
+
+        const renderStatRow = (label, homeVal, awayVal, isPercentage = false) => {
+          const hValNum = parseFloat(homeVal) || 0;
+          const aValNum = parseFloat(awayVal) || 0;
+          const total = (hValNum + aValNum) || 1;
+          const hPct = Math.min(100, Math.max(0, Math.round((hValNum / total) * 100)));
+          const aPct = 100 - hPct;
+
+          return `
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-xs font-bold">
+                <span class="text-blue-400 w-12">${homeVal}${isPercentage ? '%' : ''}</span>
+                <span class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">${label}</span>
+                <span class="text-emerald-400 w-12 text-right">${awayVal}${isPercentage ? '%' : ''}</span>
+              </div>
+              <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden flex">
+                <div class="bg-blue-500 h-full transition-all duration-300" style="width: ${hPct}%"></div>
+                <div class="bg-emerald-500 h-full transition-all duration-300" style="width: ${aPct}%"></div>
+              </div>
+            </div>
+          `;
+        };
+
+        statsBlockHtml = `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shadow-xl">
+            <div class="flex items-center justify-between text-xs font-black pb-2 border-b border-slate-800">
+              <div class="flex items-center gap-1.5 text-blue-400 truncate max-w-[45%]">
+                <span class="w-2 h-2 bg-blue-500 rounded-full shrink-0"></span>
+                <span class="truncate">${home.team.shortDisplayName || home.team.displayName}</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-emerald-400 truncate max-w-[45%] justify-end text-right">
+                <span class="truncate">${away.team.shortDisplayName || away.team.displayName}</span>
+                <span class="w-2 h-2 bg-emerald-500 rounded-full shrink-0"></span>
+              </div>
+            </div>
+
+            <div class="space-y-3 pt-1">
+              ${renderStatRow('Penguasaan Bola', homePoss, awayPoss, true)}
+              ${renderStatRow('Tembakan Tepat Sasaran', homeShotsOn, awayShotsOn)}
+              ${renderStatRow('Tembakan Meleset', homeShotsOff, awayShotsOff)}
+              ${renderStatRow('Tendangan Sudut', homeCorners, awayCorners)}
+              ${renderStatRow('Pelanggaran', homeFouls, awayFouls)}
+              ${renderStatRow('Kartu Kuning', homeYellows, awayYellows)}
+              ${renderStatRow('Kartu Merah', homeReds, awayReds)}
+            </div>
+          </div>
+        `;
+      }
+      document.getElementById('mcontent-stats').innerHTML = statsBlockHtml;
+
+      // TIMELINE KEJADIAN PERTANDINGAN
+      let eventsTimelineHtml = '';
+
+      if (rawEvents && rawEvents.length > 0) {
+        const validEvents = rawEvents.filter(item => {
+          const typeText = (item.type?.text || item.text || '').toLowerCase();
+          const rawText = (item.text || '').toLowerCase();
+
+          if (typeText.includes('delay') || rawText.includes('delay') ||
+              typeText.includes('begins') || rawText.includes('begins') ||
+              typeText.includes('end ') || rawText.includes('end ') ||
+              typeText.includes('half') || rawText.includes('half')) {
+            return false;
+          }
+
+          const isGoal = typeText.includes('goal') || typeText.includes('gol') || rawText.includes('goal');
+          const isCard = typeText.includes('card') || typeText.includes('kartu') || rawText.includes('card');
+          const isSub = typeText.includes('sub') || typeText.includes('substitution') || rawText.includes('substitution');
+          const isPenMiss = typeText.includes('penalty') || typeText.includes('penalti') || rawText.includes('penalty');
+          const isVar = typeText.includes('var') || typeText.includes('disallowed') || rawText.includes('var') || rawText.includes('disallowed');
+
+          return isGoal || isCard || isSub || isPenMiss || isVar;
+        });
+
+        const sortedEvents = validEvents.sort((a, b) => {
+          const timeA = parseClockMinute(a.clock?.displayValue || a.time);
+          const timeB = parseClockMinute(b.clock?.displayValue || b.time);
+          return timeB - timeA;
+        });
+
+        let htInserted = false;
+        const ftScoreStr = `${home.score || 0} - ${away.score || 0}`;
+
+        let timelineItems = `
+          <div class="relative flex items-center justify-center pt-2 pb-1">
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+            <div class="relative bg-slate-950 px-3 text-slate-400 text-sm">
+              <i class="fa-solid fa-stopwatch"></i>
+            </div>
+          </div>
+          <div class="relative flex items-center justify-center mb-3">
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+            <span class="relative bg-slate-950 px-3 text-xs font-black tracking-wider text-white uppercase">FT ${ftScoreStr}</span>
+          </div>
+        `;
+
+        timelineItems += sortedEvents.map(item => {
+          const clock = item.clock?.displayValue || item.time || '0\'';
+          const baseMin = getBaseMinute(clock);
+
+          let dividerHtml = '';
+          if (!htInserted && baseMin <= 45) {
+            htInserted = true;
+            dividerHtml = `
+              <div class="relative flex items-center justify-center my-3">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+                <span class="relative bg-slate-950 px-3 text-xs font-black tracking-wider text-slate-400 uppercase">HT</span>
+              </div>
+            `;
+          }
+
+          const isHomeEvent = item.team?.id ? String(item.team.id) === String(home.team.id) : true;
+          const typeText = (item.type?.text || item.text || '').toLowerCase();
+          const rawText = (item.text || '').toLowerCase();
+          let mainContent = '';
+
+          const getPlayerName = (idx = 0) => {
+            if (item.participants && item.participants[idx] && item.participants[idx].athlete) {
+              return item.participants[idx].athlete.displayName || item.participants[idx].athlete.shortName || '';
+            }
+            let raw = item.text || '';
+            if (raw.includes('(')) raw = raw.split('(')[0];
+            return raw.trim() || 'Pemain';
+          };
+
+          if (typeText.includes('var') || typeText.includes('disallowed') || typeText.includes('cancelled') || rawText.includes('var') || rawText.includes('disallowed')) {
+            const scorer = getPlayerName(0);
+            const varBadge = `
+              <span class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0">
+                <i class="fa-solid fa-tv"></i> VAR: Gol Dibatalkan
+              </span>
+            `;
+
+            mainContent = `
+              <div class="flex items-center gap-1.5 min-w-0 ${isHomeEvent ? '' : 'justify-end'}">
+                ${isHomeEvent ? varBadge : ''}
+                <span class="text-xs font-bold text-slate-300 truncate flex-1 min-w-0">${scorer}</span>
+                ${!isHomeEvent ? varBadge : ''}
+              </div>
+            `;
+
+          } else if (typeText.includes('missed penalty') || typeText.includes('penalty miss') || (typeText.includes('penalty') && typeText.includes('miss'))) {
+            const scorer = getPlayerName(0);
+            const missedIcon = `<i class="fa-solid fa-circle-xmark text-red-500 text-xs shrink-0"></i>`;
+
+            mainContent = `
+              <div class="flex items-center gap-1.5 min-w-0 ${isHomeEvent ? '' : 'justify-end'}">
+                ${isHomeEvent ? missedIcon : ''}
+                <div class="flex flex-col ${isHomeEvent ? 'text-left' : 'text-right'} min-w-0 flex-1">
+                  <span class="text-xs font-bold text-slate-200 truncate">${scorer}</span>
+                  <span class="text-[9px] font-bold text-red-400 uppercase tracking-tight flex items-center gap-1 ${isHomeEvent ? '' : 'justify-end'}"><i class="fa-solid fa-ban text-[8px]"></i> Penalti Gagal</span>
+                </div>
+                ${!isHomeEvent ? missedIcon : ''}
+              </div>
+            `;
+
+          } else if (typeText.includes('goal') || typeText.includes('gol')) {
+            const scorer = getPlayerName(0);
+            const assist = item.participants?.[1]?.athlete?.displayName || '';
+            const isOG = typeText.includes('own goal') || typeText.includes('og');
+            const isPen = typeText.includes('penalty') || typeText.includes('penalti');
+            const runningScore = item.scoreValue || 'GOL';
+
+            let goalIcon = `<i class="fa-solid fa-futbol text-white text-xs animate-bounce-ball shrink-0"></i>`;
+            let goalLabel = '';
+
+            if (isPen) {
+              goalLabel = 'Gol Penalti';
+              goalIcon = `<div class="relative flex items-center justify-center shrink-0"><i class="fa-solid fa-circle-dot text-emerald-400 text-sm"></i></div>`;
+            } else if (isOG) {
+              goalLabel = 'Gol Bunuh Diri';
+              goalIcon = `<i class="fa-solid fa-futbol text-red-400 text-xs shrink-0"></i>`;
+            }
+
+            if (isHomeEvent) {
+              mainContent = `
+                <div class="flex items-center gap-1.5 min-w-0">
+                  ${goalIcon}
+                  <div class="bg-blue-600 text-white font-black text-[9px] px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1">
+                    <i class="fa-solid fa-play text-[6px]"></i> ${runningScore}
+                  </div>
+                  <div class="flex flex-col text-left min-w-0 flex-1">
+                    <span class="text-xs font-black text-white leading-tight truncate">${scorer}</span>
+                    ${goalLabel ? `<span class="text-[8px] text-emerald-400 font-bold truncate">${goalLabel}</span>` : (assist ? `<span class="text-[8px] text-slate-400 truncate">${assist}</span>` : '')}
+                  </div>
+                </div>
+              `;
+            } else {
+              mainContent = `
+                <div class="flex items-center justify-end gap-1.5 min-w-0 text-right">
+                  <div class="flex flex-col text-right min-w-0 flex-1">
+                    <span class="text-xs font-black text-white leading-tight truncate">${scorer}</span>
+                    ${goalLabel ? `<span class="text-[8px] text-emerald-400 font-bold truncate">${goalLabel}</span>` : (assist ? `<span class="text-[8px] text-slate-400 truncate">${assist}</span>` : '')}
+                  </div>
+                  <div class="bg-blue-600 text-white font-black text-[9px] px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1">
+                    <i class="fa-solid fa-play text-[6px]"></i> ${runningScore}
+                  </div>
+                  ${goalIcon}
+                </div>
+              `;
+            }
+
+          } else if (typeText.includes('sub') || typeText.includes('substitution')) {
+            const playerIn = getPlayerName(0) || 'Pemain Masuk';
+            const playerOut = getPlayerName(1) || 'Pemain Keluar';
+
+            if (isHomeEvent) {
+              mainContent = `
+                <div class="flex flex-col text-left min-w-0 flex-1">
+                  <div class="flex items-center gap-1 text-xs font-bold text-emerald-400 min-w-0">
+                    <i class="fa-solid fa-circle-arrow-right text-emerald-500 text-xs shrink-0"></i>
+                    <span class="truncate">${playerIn}</span>
+                  </div>
+                  <div class="flex items-center gap-1 text-xs font-bold text-red-500/90 mt-0.5 min-w-0">
+                    <i class="fa-solid fa-circle-arrow-left text-red-500 text-xs shrink-0"></i>
+                    <span class="truncate">${playerOut}</span>
+                  </div>
+                </div>
+              `;
+            } else {
+              mainContent = `
+                <div class="flex flex-col text-right min-w-0 flex-1">
+                  <div class="flex items-center justify-end gap-1 text-xs font-bold text-emerald-400 min-w-0">
+                    <span class="truncate">${playerIn}</span>
+                    <i class="fa-solid fa-circle-arrow-right text-emerald-500 text-xs shrink-0"></i>
+                  </div>
+                  <div class="flex items-center justify-end gap-1 text-xs font-bold text-red-500/90 mt-0.5 min-w-0">
+                    <span class="truncate">${playerOut}</span>
+                    <i class="fa-solid fa-circle-arrow-left text-red-500 text-xs shrink-0"></i>
+                  </div>
+                </div>
+              `;
+            }
+
+          } else if (typeText.includes('card') || typeText.includes('kartu')) {
+            const isRed = typeText.includes('red') || typeText.includes('merah');
+            const playerName = getPlayerName(0);
+            const cardLabel = isRed ? 'Kartu Merah' : 'Kartu Kuning';
+            const cardBox = `<div class="w-2.5 h-3.5 ${isRed ? 'bg-red-500' : 'bg-amber-400'} rounded-sm shrink-0 shadow"></div>`;
+
+            mainContent = `
+              <div class="flex items-center gap-1.5 min-w-0 ${isHomeEvent ? '' : 'justify-end'}">
+                ${isHomeEvent ? cardBox : ''}
+                <div class="flex flex-col min-w-0 flex-1 ${isHomeEvent ? 'text-left' : 'text-right'}">
+                  <span class="text-xs font-bold text-slate-200 truncate">${playerName}</span>
+                  <span class="text-[9px] text-slate-400 truncate">${cardLabel}</span>
+                </div>
+                ${!isHomeEvent ? cardBox : ''}
+              </div>
+            `;
+          }
+
+          return `
+            ${dividerHtml}
+            <div class="grid grid-cols-12 items-center py-2 min-h-[44px] border-b border-slate-900/60 gap-1">
+              <div class="col-span-6 flex items-center pr-1 min-w-0">
+                ${isHomeEvent ? `
+                  <span class="text-[10px] font-mono font-bold text-slate-400 w-8 text-left shrink-0">${clock}</span>
+                  <div class="flex-1 min-w-0">${mainContent}</div>
+                ` : ''}
+              </div>
+
+              <div class="col-span-6 flex items-center justify-end pl-1 min-w-0">
+                ${!isHomeEvent ? `
+                  <div class="flex-1 min-w-0">${mainContent}</div>
+                  <span class="text-[10px] font-mono font-bold text-slate-400 w-8 text-right shrink-0">${clock}</span>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        eventsTimelineHtml = `
+          <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-1">
+            <div class="flex items-center justify-between text-xs font-extrabold text-slate-300 pb-2 mb-2 border-b border-slate-800/80">
+              <span>Kejadian Pertandingan</span>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-slate-400 font-normal">Gol</span>
+                <div class="w-2.5 h-2.5 bg-slate-200 rounded-full"></div>
+              </div>
+            </div>
+            ${timelineItems}
+            ${matchInfoBadgeHtml}
+          </div>
+        `;
+      } else {
+        eventsTimelineHtml = `
+          <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-3">
+            <div class="text-xs font-extrabold text-slate-300 pb-2 border-b border-slate-800/80">Kejadian Pertandingan</div>
+            <div class="text-center py-6 text-slate-500 text-xs">Belum ada catatan kejadian penting.</div>
+            ${matchInfoBadgeHtml}
+          </div>
+        `;
+      }
+
+      document.getElementById('mcontent-summary').innerHTML = eventsTimelineHtml;
+
+      // FORMASI LINEUP SATU LAPANGAN PENUH (FULL-PITCH)
+      const rosters = data.rosters || [];
+      let lineupHtml = '';
+
+      if (rosters && rosters.length >= 2) {
+        const homeRoster = rosters.find(r => String(r.team?.id) === String(home.team?.id)) || rosters[0];
+        const awayRoster = rosters.find(r => String(r.team?.id) === String(away.team?.id)) || rosters[1];
+
+        const parsePositionRows = (rosterList) => {
+          const starters = rosterList.filter(p => p.starter);
+          const gk = [], def = [], mid = [], fwd = [];
+
+          starters.forEach(p => {
+            const pos = (p.position?.abbreviation || p.position?.name || '').toUpperCase();
+            if (pos.includes('GK') || pos.includes('G')) gk.push(p);
+            else if (pos.includes('CB') || pos.includes('LB') || pos.includes('RB') || pos.includes('WB') || pos.includes('DF') || pos.includes('D')) def.push(p);
+            else if (pos.includes('CM') || pos.includes('DM') || pos.includes('AM') || pos.includes('LM') || pos.includes('RM') || pos.includes('MF') || pos.includes('M')) mid.push(p);
+            else fwd.push(p);
+          });
+          if (gk.length === 0 && starters.length > 0) gk.push(starters[0]);
+
+          return { gk, def, mid, fwd, subs: rosterList.filter(p => !p.starter) };
+        };
+
+        const homeData = parsePositionRows(homeRoster.roster || []);
+        const awayData = parsePositionRows(awayRoster.roster || []);
+
+        const getPlayerBadgeHtml = (athleteId) => {
+          if (!athleteId) return '';
+          const ev = playerEventsMap[String(athleteId)];
+          if (!ev) return '';
+
+          let badges = '';
+          if (ev.goals) badges += `<span title="Gol" class="bg-emerald-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 border border-emerald-300 shadow"><i class="fa-solid fa-futbol text-[7px]"></i>${ev.goals > 1 ? ev.goals : ''}</span>`;
+          if (ev.penGoals) badges += `<span title="Gol Penalti" class="bg-emerald-600 text-amber-300 text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 border border-amber-300 shadow"><i class="fa-solid fa-circle-dot text-[7px]"></i>${ev.penGoals > 1 ? ev.penGoals : ''}</span>`;
+          if (ev.penMiss) badges += `<span title="Penalti Gagal" class="bg-red-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 border border-red-300 shadow"><i class="fa-solid fa-circle-xmark text-[7px]"></i></span>`;
+          if (ev.assists) badges += `<span title="Assist" class="bg-blue-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 border border-blue-300 shadow"><i class="fa-solid fa-hands-clapping text-[7px]"></i>${ev.assists > 1 ? ev.assists : ''}</span>`;
+          if (ev.yellows) badges += `<div title="Kartu Kuning" class="w-2.5 h-3.5 bg-amber-400 rounded-sm shadow border border-amber-200"></div>`;
+          if (ev.reds) badges += `<div title="Kartu Merah" class="w-2.5 h-3.5 bg-red-500 rounded-sm shadow border border-red-200"></div>`;
+
+          return badges ? `<div class="absolute -bottom-1 -left-1 flex items-center gap-0.5 z-20">${badges}</div>` : '';
+        };
+
+        const renderPlayerRow = (players, borderColor = 'border-emerald-400') => {
+          if (!players || players.length === 0) return '';
+          return `
+            <div class="flex items-center justify-around w-full px-2 z-10 my-1">
+              ${players.map(p => {
+                const pId = p.athlete?.id;
+                const pName = p.athlete?.shortName || p.athlete?.displayName || 'Pemain';
+                const headshot = pId ? `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png` : 'https://a.espncdn.com/i/headshots/nophoto.png';
+                const jersey = p.jersey || '?';
+                const badgeHtml = getPlayerBadgeHtml(pId);
+
+                return `
+                  <div class="flex flex-col items-center group relative cursor-pointer min-w-[48px]">
+                    <div class="relative">
+                      <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 ${borderColor} bg-slate-900 overflow-hidden shadow-lg flex items-center justify-center">
+                        <img src="${headshot}" loading="lazy" class="w-full h-full object-cover" onError="this.src='https://a.espncdn.com/i/headshots/nophoto.png'">
+                      </div>
+                      <span class="absolute -top-1 -right-1 bg-slate-950 text-white font-black text-[7px] px-1 rounded-full shadow border border-slate-700">#${jersey}</span>
+                      ${badgeHtml}
+                    </div>
+                    <span class="text-[8px] font-bold text-white bg-slate-950/90 px-1 py-0.5 rounded shadow max-w-[58px] truncate text-center mt-0.5 border border-slate-800/80">${pName}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        };
+
+        const renderBenchList = (subs, teamName, isHome) => {
+          return `
+            <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <span class="text-[10px] font-bold ${isHome ? 'text-blue-400' : 'text-emerald-400'} uppercase tracking-wider block border-b border-slate-800 pb-1">
+                <i class="fa-solid fa-chair mr-1"></i> Cadangan ${teamName}
+              </span>
+              <div class="space-y-1 max-h-60 overflow-y-auto no-scrollbar">
+                ${subs.map(p => {
+                  const pId = p.athlete?.id;
+                  const pName = p.athlete?.displayName || 'Pemain';
+                  const headshot = pId ? `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png` : 'https://a.espncdn.com/i/headshots/nophoto.png';
+                  const badgeHtml = getPlayerBadgeHtml(pId);
+
+                  return `
+                    <div class="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-lg border border-slate-800 relative">
+                      <div class="w-5 h-5 rounded-full bg-slate-950 overflow-hidden shrink-0 border border-slate-700 relative">
+                        <img src="${headshot}" loading="lazy" class="w-full h-full object-cover" onError="this.src='https://a.espncdn.com/i/headshots/nophoto.png'">
+                      </div>
+                      <div class="truncate flex-1 min-w-0">
+                        <div class="text-[9px] font-bold text-slate-200 truncate">${pName}</div>
+                        <div class="text-[7px] text-slate-500">#${p.jersey || '?'}</div>
+                      </div>
+                      ${badgeHtml}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        };
+
+        lineupHtml = `
+          <div class="space-y-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl shadow-xl">
+            <!-- HEADER FORMASI KEDUA TIM -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2 text-[10px]">
+              <div class="flex items-center gap-1.5 text-blue-400 font-bold">
+                <img src="${homeLogo}" loading="lazy" class="w-4 h-4 object-contain">
+                <span>${home.team.displayName} (${homeRoster.formation || 'Formasi'})</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-emerald-400 font-bold">
+                <span>(${awayRoster.formation || 'Formasi'}) ${away.team.displayName}</span>
+                <img src="${awayLogo}" loading="lazy" class="w-4 h-4 object-contain">
+              </div>
+            </div>
+
+            <!-- LAPANGAN PENUH SATU WADAH -->
+            <div class="soccer-full-pitch rounded-xl p-2 py-3 overflow-hidden shadow-inner flex flex-col justify-between relative">
+              <div class="pitch-center-line-full"></div>
+              <div class="pitch-center-circle"></div>
+              <div class="pitch-center-dot"></div>
+              <div class="pitch-penalty-box-top"></div>
+              <div class="pitch-penalty-box-bottom"></div>
+
+              <!-- ATAS: TIM HOME (GK -> DEF -> MID -> FWD) -->
+              <div class="space-y-1 z-10">
+                ${renderPlayerRow(homeData.gk, 'border-blue-500')}
+                ${renderPlayerRow(homeData.def, 'border-blue-400')}
+                ${renderPlayerRow(homeData.mid, 'border-blue-400')}
+                ${renderPlayerRow(homeData.fwd, 'border-blue-400')}
+              </div>
+
+              <!-- BAWAH: TIM AWAY (FWD -> MID -> DEF -> GK) -->
+              <div class="space-y-1 z-10">
+                ${renderPlayerRow(awayData.fwd, 'border-emerald-400')}
+                ${renderPlayerRow(awayData.mid, 'border-emerald-400')}
+                ${renderPlayerRow(awayData.def, 'border-emerald-400')}
+                ${renderPlayerRow(awayData.gk, 'border-emerald-500')}
+              </div>
+            </div>
+
+            <!-- CADANGAN: KIRI (HOME) & KANAN (AWAY) -->
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              ${renderBenchList(homeData.subs, home.team.shortDisplayName || 'Home', true)}
+              ${renderBenchList(awayData.subs, away.team.shortDisplayName || 'Away', false)}
+            </div>
+          </div>
+        `;
+      } else {
+        lineupHtml = `<div class="text-center py-8 text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800"><i class="fa-solid fa-user-slash text-2xl mb-2 block"></i>Susunan pemain resmi belum dirilis oleh official.</div>`;
+      }
+      document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
+    }
+
+    function switchModalTab(tabName) {
+      const tabs = ['summary', 'stats', 'lineup', 'standings', 'h2h'];
+
+      tabs.forEach(t => {
+        const btn = document.getElementById(`mtab-${t}`);
+        const content = document.getElementById(`mcontent-${t}`);
+
+        if (btn && content) {
+          if (t === tabName) {
+            btn.className = "flex-1 py-2 px-2 text-[11px] font-bold text-emerald-400 border-b-2 border-emerald-500 transition whitespace-nowrap";
+            content.classList.remove('hidden');
+          } else {
+            btn.className = "flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap";
+            content.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    function closeModal() {
+      currentOpenModal = null;
+      document.getElementById('detail-modal').classList.add('hidden');
+    }
+
+    async function openTeamDetail(leagueId, teamId, teamName, event) {
+      if (event) event.stopPropagation();
+      currentOpenTeam = { leagueId, teamId, teamName };
+
+      const modal = document.getElementById('team-detail-modal');
+      document.getElementById('team-modal-title').innerText = teamName;
+      modal.classList.remove('hidden');
+
+      switchTeamModalTab('player');
+
+      const isFavTeam = isTeamFavorite(teamId);
+      const banner = document.getElementById('team-modal-banner');
+      banner.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 bg-slate-900 rounded-xl p-1.5 border border-slate-800 flex items-center justify-center shrink-0">
+            <img src="https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png" loading="lazy" class="w-full h-full object-contain" onError="this.src='https://a.espncdn.com/i/leaguelogos/soccer/500/4.png'">
+          </div>
+          <div>
+            <h2 class="text-sm font-black text-white leading-tight flex items-center gap-1.5">
+              <span>${teamName}</span>
+              ${isFavTeam ? '<i class="fa-solid fa-star text-amber-400 text-xs"></i>' : ''}
+            </h2>
+            <p class="text-[10px] text-emerald-400 font-semibold mt-0.5">${LEAGUES.find(l=>l.id===leagueId)?.name || 'Klub Sepak Bola'}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleTeamFavorite('${teamId}', event); openTeamDetail('${leagueId}', '${teamId}', '${teamName.replace(/'/g, "\\'")}');" class="p-2 bg-slate-900 border border-slate-800 rounded-xl hover:border-amber-400 transition" title="Jadikan Tim Favorit">
+            <i class="${isFavTeam ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-400'} text-base"></i>
+          </button>
+        </div>
+      `;
+
+      await Promise.all([
+        loadTeamMatchesSummary(leagueId, teamId),
+        loadStyledSquadRosterUI(leagueId, teamId),
+        loadTeamStandingsHighlight(leagueId, teamId)
+      ]);
+    }
+
+    function closeTeamModal() {
+      currentOpenTeam = null;
+      document.getElementById('team-detail-modal').classList.add('hidden');
+    }
+
+    function switchTeamModalTab(tabName) {
+      const tabs = ['summary', 'player', 'standings'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`ttab-${t}`);
+        const content = document.getElementById(`tcontent-${t}`);
+
+        if (btn && content) {
+          if (t === tabName) {
+            btn.className = "flex-1 py-2 text-xs font-bold text-emerald-400 border-b-2 border-emerald-500 transition";
+            content.classList.remove('hidden');
+          } else {
+            btn.className = "flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white transition";
+            content.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    async function loadTeamMatchesSummary(leagueId, teamId) {
+      const container = document.getElementById('tcontent-summary');
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat pertandingan klub...</p>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${teamId}/schedule`);
+        const data = await res.json();
+        const events = data.events || [];
+
+        const upcoming = events.filter(e => e.status?.type?.state === 'pre').slice(0, 5);
+        const finished = events.filter(e => e.status?.type?.state === 'post').reverse().slice(0, 5);
+
+        container.innerHTML = '';
+
+        if (upcoming.length > 0) {
+          const upSec = document.createElement('div');
+          upSec.className = 'space-y-2';
+          upSec.innerHTML = `
+            <h4 class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-regular fa-calendar-days"></i> Pertandingan Selanjutnya
+            </h4>
+            <div id="team-upcoming-grid" class="space-y-2"></div>
+          `;
+          container.appendChild(upSec);
+          renderMatchesCards('team-upcoming-grid', upcoming, true);
+        } else {
+          container.innerHTML += `<div class="p-3 bg-slate-950 rounded-xl text-xs text-slate-500 border border-slate-800">Tidak ada jadwal pertandingan selanjutnya.</div>`;
+        }
+
+        if (finished.length > 0) {
+          const finSec = document.createElement('div');
+          finSec.className = 'space-y-2 pt-2';
+          finSec.innerHTML = `
+            <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-circle-check"></i> Pertandingan Selesai
+            </h4>
+            <div id="team-finished-grid" class="space-y-2"></div>
+          `;
+          container.appendChild(finSec);
+          renderMatchesCards('team-finished-grid', finished, true);
+        }
+      } catch (err) {
+        container.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Gagal memuat pertandingan klub.</p>`;
+      }
+    }
+
+    async function loadStyledSquadRosterUI(leagueId, teamId) {
+      const container = document.getElementById('tcontent-player');
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat skuad pemain...</p>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${teamId}/roster`);
+        const data = await res.json();
+        
+        const rawCoach = data.coach?.[0];
+        const coach = rawCoach ? {
+          displayName: rawCoach.displayName || rawCoach.fullName || '-',
+          nationality: rawCoach.citizenship || rawCoach.nationality || '',
+          flag: getCountryFlag(rawCoach.citizenship || rawCoach.nationality)
+        } : null;
+
+        let rawAthletes = data.athletes || [];
+        let players = [];
+
+        if (rawAthletes.length > 0) {
+          rawAthletes.forEach(p => {
+            if (p.items) {
+              p.items.forEach(item => players.push(formatPlayerData(item, p.position)));
+            } else {
+              players.push(formatPlayerData(p, p.position?.name));
+            }
+          });
+        } else {
+          players = generateFallbackSquadData();
+        }
+
+        renderExactScreenshotSquadUI(coach, players, container);
+      } catch (err) {
+        renderExactScreenshotSquadUI(null, generateFallbackSquadData(), container);
+      }
+    }
+
+    function formatPlayerData(p, posGroupStr = '') {
+      const posStr = (p.position?.name || p.position?.abbreviation || posGroupStr || '').toLowerCase();
+      let category = 'Midfielder';
+
+      if (posStr.includes('goal') || posStr.includes('keeper') || posStr === 'gk') {
+        category = 'Goalkeeper';
+      } else if (posStr.includes('defen') || posStr.includes('back') || posStr === 'df' || posStr === 'cb') {
+        category = 'Defender';
+      } else if (posStr.includes('mid') || posStr === 'mf' || posStr === 'cm') {
+        category = 'Midfielder';
+      } else if (posStr.includes('forw') || posStr.includes('striker') || posStr.includes('wing') || posStr === 'fw') {
+        category = 'Forward';
+      }
+
+      const country = p.citizenship || p.birthPlace?.country || 'England';
+      const isInjured = (p.injuries && p.injuries.length > 0) || false;
+
+      return {
+        id: p.id || Math.floor(Math.random()*90000),
+        name: p.displayName || p.fullName || 'Pemain',
+        jersey: p.jersey ? `#${p.jersey}` : `#${Math.floor(Math.random()*40)+1}`,
+        category,
+        country,
+        isInjured,
+        headshot: `https://a.espncdn.com/i/headshots/soccer/players/full/${p.id}.png`
+      };
+    }
+
+    function generateFallbackSquadData() {
+      return [
+        { id: 101, name: 'Senne Lammens', jersey: '#1', category: 'Goalkeeper', country: 'Belgium', isInjured: false },
+        { id: 102, name: 'Karl Darlow', jersey: '#12', category: 'Goalkeeper', country: 'Wales', isInjured: false },
+        { id: 103, name: 'Tom Heaton', jersey: '#22', category: 'Goalkeeper', country: 'England', isInjured: true },
+        { id: 104, name: 'Dermot William Mee', jersey: '#45', category: 'Goalkeeper', country: 'Northern Ireland', isInjured: false },
+
+        { id: 201, name: 'Leny Yoro', jersey: '#15', category: 'Defender', country: 'France', isInjured: false },
+        { id: 202, name: 'Lisandro Martínez', jersey: '#6', category: 'Defender', country: 'Argentina', isInjured: false },
+        { id: 203, name: 'Patrick Dorgu', jersey: '#13', category: 'Defender', country: 'Denmark', isInjured: false },
+        { id: 204, name: 'Diogo Dalot', jersey: '#2', category: 'Defender', country: 'Portugal', isInjured: false },
+        { id: 205, name: 'Matthijs De Ligt', jersey: '#4', category: 'Defender', country: 'Netherlands', isInjured: true },
+
+        { id: 301, name: 'Kobbie Mainoo', jersey: '#37', category: 'Midfielder', country: 'England', isInjured: false },
+        { id: 302, name: 'Andrey Santos', jersey: '#17', category: 'Midfielder', country: 'Brazil', isInjured: false },
+        { id: 303, name: 'Youri Tielemans', jersey: '#18', category: 'Midfielder', country: 'Belgium', isInjured: false },
+        { id: 304, name: 'Bruno Fernandes', jersey: '#8', category: 'Midfielder', country: 'Portugal', isInjured: false },
+        { id: 305, name: 'Mason Mount', jersey: '#7', category: 'Midfielder', country: 'England', isInjured: true },
+        { id: 306, name: 'Manuel Ugarte', jersey: '#25', category: 'Midfielder', country: 'Uruguay', isInjured: true },
+
+        { id: 401, name: 'Matheus Cunha', jersey: '#10', category: 'Forward', country: 'Brazil', isInjured: false },
+        { id: 402, name: 'Bryan Mbeumo', jersey: '#19', category: 'Forward', country: 'Cameroon', isInjured: false },
+        { id: 403, name: 'Benjamin Šeško', jersey: '#30', category: 'Forward', country: 'Slovenia', isInjured: false }
+      ];
+    }
+
+    function renderExactScreenshotSquadUI(coach, players, container) {
+      container.innerHTML = '';
+
+      const coachName = coach ? coach.displayName : '-';
+      const coachNation = coach && coach.nationality ? `${coach.flag || ''} ${coach.nationality}` : '-';
+
+      const coachCard = document.createElement('div');
+      coachCard.className = 'bg-slate-900 border border-slate-800/80 rounded-2xl p-3 flex items-center gap-3 shadow-md mb-3';
+      coachCard.innerHTML = `
+        <div class="w-10 h-10 rounded-full bg-slate-800 shrink-0 border border-slate-700 flex items-center justify-center text-slate-400">
+          <i class="fa-solid fa-user-tie text-base"></i>
+        </div>
+        <div class="truncate">
+          <div class="text-xs font-bold text-white truncate">${coachName}</div>
+          <div class="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+            <span>Coach</span> • <span>${coachNation}</span>
+          </div>
+        </div>
+      `;
+      container.appendChild(coachCard);
+
+      const posCategories = [
+        { name: 'Goalkeeper', color: 'text-amber-500' },
+        { name: 'Defender', color: 'text-blue-500' },
+        { name: 'Midfielder', color: 'text-emerald-500' },
+        { name: 'Forward', color: 'text-red-500' }
+      ];
+
+      posCategories.forEach(cat => {
+        const catPlayers = players.filter(p => p.category === cat.name);
+        if (catPlayers.length === 0) return;
+
+        const posBlock = document.createElement('div');
+        posBlock.className = 'bg-slate-900 border border-slate-800/80 rounded-2xl p-4 space-y-3 mb-4 shadow-xl';
+
+        let rowsHtml = catPlayers.map(p => `
+          <div class="flex items-center justify-between py-2 px-1 hover:bg-slate-800/40 rounded-xl transition">
+            <div class="flex items-center gap-2.5 truncate max-w-[85%]">
+              <span class="${cat.color} font-black text-xs w-7 shrink-0 text-left">${p.jersey}</span>
+              <div class="w-8 h-8 rounded-full bg-slate-950 overflow-hidden shrink-0 border border-slate-800/80 flex items-center justify-center">
+                <img src="${p.headshot || ''}" loading="lazy" class="w-full h-full object-cover" onError="this.src='https://a.espncdn.com/i/headshots/nophoto.png'">
+              </div>
+              <div class="truncate">
+                <div class="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                  <span class="truncate">${p.name}</span>
+                  ${p.isInjured ? '<i class="fa-solid fa-plus text-red-500 text-[10px]" title="Cedera"></i>' : ''}
+                </div>
+                <div class="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1">
+                  <span>${getCountryFlag(p.country)}</span>
+                  <span>${p.country}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+        posBlock.innerHTML = `
+          <h3 class="text-sm font-black ${cat.color} mb-1">${cat.name}</h3>
+          <div class="divide-y divide-slate-800/40">${rowsHtml}</div>
+        `;
+        container.appendChild(posBlock);
+      });
+    }
+
+    async function loadTeamStandingsHighlight(leagueId, teamId) {
+      const container = document.getElementById('tcontent-standings');
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat klasemen...</p>
+        </div>
+      `;
+
+      const targetLeague = LEAGUES.find(l => l.id === leagueId) || LEAGUES[0];
+      container.innerHTML = '';
+      await renderLeagueStandingsTable(targetLeague, container, teamId);
+    }
+
+    displayTimezoneInfo();
+    renderDateStrip();
+    bottomNavSwitch('all');
+
+    setInterval(() => {
+      if (activeNav === 'live' || (activeNav === 'all' && selectedDateFilter === getFormattedDate(new Date()))) {
+        loadData(true);
+      }
+    }, 10000);
+  </script>
+</body>
+</html>
