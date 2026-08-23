@@ -110,28 +110,41 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen pb-28 select-none">
 
-  <!-- HEADER ATAS -->
+  <!-- HEADER ATAS (RAPI & TERPROPORSIONAL) -->
   <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-30">
-    <div class="max-w-2xl mx-auto px-4 pt-3 pb-2 flex items-center justify-between border-b border-slate-800/50">
+    <div class="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between border-b border-slate-800/50">
+      <!-- Sisi Kiri: Logo + Judul + Zona HP -->
       <div class="flex items-center gap-2.5">
-        <div class="p-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
-          <i class="fa-solid fa-futbol text-lg"></i>
-        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-9 h-9 shrink-0">
+          <defs>
+            <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#1E293B" />
+              <stop offset="100%" stop-color="#0F172A" />
+            </linearGradient>
+          </defs>
+          <rect x="20" y="20" width="160" height="160" rx="36" fill="url(#badgeGrad)" stroke="#334155" stroke-width="4" />
+          <path d="M 40 140 C 60 60, 140 60, 160 140" fill="none" stroke="#10B981" stroke-width="8" stroke-linecap="round" />
+          <circle cx="100" cy="75" r="22" fill="#10B981" />
+          <polygon points="100,63 110,70 106,82 94,82 90,70" fill="#0F172A" />
+          <text x="100" y="150" font-family="'Impact', 'Arial Black', sans-serif" font-size="34" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="3">BGS</text>
+        </svg>
         <div>
-          <h1 class="text-base font-black tracking-wider text-white">BGS SCOREHUB</h1>
-          <p class="text-[10px] text-slate-400" id="user-timezone-info">Zona HP</p>
+          <h1 class="text-sm font-black tracking-wider text-white leading-none">BGS SCOREHUB</h1>
+          <p class="text-[9px] text-slate-400 mt-0.5" id="user-timezone-info">Zona HP</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="data-saver-btn" onclick="toggleDataSaver()" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition flex items-center gap-1.5 text-xs font-bold" title="Toggle Hemat Data">
+
+      <!-- Sisi Kanan: Tombol Aksi -->
+      <div class="flex items-center gap-1.5">
+        <button id="data-saver-btn" onclick="toggleDataSaver()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition flex items-center gap-1.5 text-xs font-bold" title="Toggle Hemat Data">
           <i class="fa-solid fa-bolt text-xs"></i>
           <span id="data-saver-label">Normal</span>
         </button>
-        <button onclick="openSettingsModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-amber-400 transition" title="Pengaturan Suara">
-          <i class="fa-solid fa-gear text-sm"></i>
+        <button onclick="openSettingsModal()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-amber-400 transition flex items-center justify-center w-8 h-8" title="Pengaturan Suara">
+          <i class="fa-solid fa-gear text-xs"></i>
         </button>
-        <button onclick="loadData(true)" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition" title="Refresh Data">
-          <i id="refresh-icon" class="fa-solid fa-rotate-right text-sm"></i>
+        <button onclick="loadData(true)" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition flex items-center justify-center w-8 h-8" title="Refresh Data">
+          <i id="refresh-icon" class="fa-solid fa-rotate-right text-xs"></i>
         </button>
       </div>
     </div>
@@ -140,7 +153,7 @@
     <div class="max-w-2xl mx-auto px-4 py-2 border-b border-slate-800/40">
       <div class="relative">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-        <input type="text" id="search-input" oninput="handleSearch(this.value)" placeholder="Cari liga, klub, atau pertandingan..." class="w-full bg-slate-800/80 border border-slate-700/80 text-xs text-slate-100 pl-9 pr-9 py-2.5 rounded-xl focus:outline-none focus:border-emerald-500 placeholder-slate-500 transition">
+        <input type="text" id="search-input" oninput="handleSearch(this.value)" placeholder="Cari liga, klub, atau pertandingan..." class="w-full bg-slate-800/80 border border-slate-700/80 text-xs text-slate-100 pl-9 pr-9 py-2 rounded-xl focus:outline-none focus:border-emerald-500 placeholder-slate-500 transition">
         <button id="search-clear-btn" onclick="clearSearch()" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white hidden text-xs">
           <i class="fa-solid fa-xmark"></i>
         </button>
@@ -495,6 +508,52 @@
     let favoriteTeams = JSON.parse(localStorage.getItem('bgs_favorite_teams') || '[]');
     let recentGoalCache = {};
     let matchStateCache = {};
+    
+    // Cache memori sementara
+    let playerPhotoCache = {};
+
+    // --- INDEXEDDB PENYIMPANAN FOTO INTERNAL BROWSER (TIDAK MASUK GALERI) ---
+    let dbPromise = null;
+    function openPhotoDB() {
+      if (!dbPromise) {
+        dbPromise = new Promise((resolve, reject) => {
+          const request = indexedDB.open('BGS_Photo_Storage', 1);
+          request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('photos')) {
+              db.createObjectStore('photos');
+            }
+          };
+          request.onsuccess = (e) => resolve(e.target.result);
+          request.onerror = (e) => reject(e.target.error);
+        });
+      }
+      return dbPromise;
+    }
+
+    async function getPhotoFromCache(key) {
+      try {
+        const db = await openPhotoDB();
+        return new Promise((resolve) => {
+          const tx = db.transaction('photos', 'readonly');
+          const store = tx.objectStore('photos');
+          const request = store.get(key);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function savePhotoToCache(key, data) {
+      try {
+        const db = await openPhotoDB();
+        const tx = db.transaction('photos', 'readwrite');
+        const store = tx.objectStore('photos');
+        store.put(data, key);
+      } catch (e) {}
+    }
 
     let soundSettings = JSON.parse(localStorage.getItem('bgs_sound_settings') || JSON.stringify({
       master: true, goal: true, kickoff1: true, halftime: true, kickoff2: true, fulltime: true, corner: true, yellow: true, red: true
@@ -519,10 +578,10 @@
       const btn = document.getElementById('data-saver-btn');
       const label = document.getElementById('data-saver-label');
       if (dataSaverMode) {
-        btn.className = "p-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 rounded-xl text-emerald-400 transition flex items-center gap-1.5 text-xs font-bold";
+        btn.className = "px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 rounded-xl text-emerald-400 transition flex items-center gap-1.5 text-xs font-bold";
         label.innerText = "Hemat Data: ON";
       } else {
-        btn.className = "p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition flex items-center gap-1.5 text-xs font-bold";
+        btn.className = "px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition flex items-center gap-1.5 text-xs font-bold";
         label.innerText = "Normal";
       }
     }
@@ -545,24 +604,137 @@
         .trim();
     }
 
-    // PEMUATAN FOTO PEMAIN OPTIMAL DISK CACHE (Menggunakan URL langsung tanpa Base64 localStorage)
-    function loadMultiTierPlayerPhoto(img, pId, pName) {
+    function isPlayerNameMatching(requestedName, apiPlayerName) {
+      if (!requestedName || !apiPlayerName) return false;
+
+      const req = cleanPlayerName(requestedName).toLowerCase().split(' ').filter(Boolean);
+      const api = cleanPlayerName(apiPlayerName).toLowerCase().split(' ').filter(Boolean);
+
+      if (req.length === 0 || api.length === 0) return false;
+
+      const reqFirst = req[0];
+      const apiFirst = api[0];
+
+      if (reqFirst.length > 1 && apiFirst.length > 1) {
+        if (reqFirst !== apiFirst && !apiFirst.startsWith(reqFirst) && !reqFirst.startsWith(apiFirst)) {
+          return false;
+        }
+      }
+
+      const reqLast = req[req.length - 1];
+      return api.some(part => part === reqLast || part.includes(reqLast));
+    }
+
+    async function getBase64FromUrl(url) {
+      try {
+        if (url.startsWith('data:')) return url;
+        const res = await fetch(url);
+        const blob = await res.blob();
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = () => resolve(url);
+          reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+        return url;
+      }
+    }
+
+    async function loadMultiTierPlayerPhoto(img, pId, pName) {
       if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
       img.dataset.photoProcessed = 'true';
 
-      if (pId) {
-        img.src = `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png`;
+      const cleanedName = cleanPlayerName(pName);
+
+      // 1. Cek Cache Memori Sementara
+      if (playerPhotoCache[cleanedName]) {
+        img.src = playerPhotoCache[cleanedName];
         return;
       }
 
-      const cleanedName = cleanPlayerName(pName);
-      img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanedName)}&background=0f172a&color=38bdf8&bold=true`;
+      // 2. Cek IndexedDB Internal Browser
+      const dbCached = await getPhotoFromCache(cleanedName);
+      if (dbCached) {
+        playerPhotoCache[cleanedName] = dbCached;
+        img.src = dbCached;
+        return;
+      }
+
+      // 3. Sumber Foto ESPN Headshot
+      if (pId) {
+        const espnUrl = `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png`;
+        const espnLoaded = await new Promise(resolve => {
+          const tester = new Image();
+          tester.src = espnUrl;
+          tester.onload = () => resolve(true);
+          tester.onerror = () => resolve(false);
+        });
+
+        if (espnLoaded) {
+          const base64Data = await getBase64FromUrl(espnUrl);
+          playerPhotoCache[cleanedName] = base64Data;
+          await savePhotoToCache(cleanedName, base64Data);
+          img.src = base64Data;
+          return;
+        }
+      }
+
+      // 4. Sumber Foto TheSportsDB
+      try {
+        const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(cleanedName)}`);
+        const data = await res.json();
+        if (data?.player && Array.isArray(data.player)) {
+          const matchedPlayer = data.player.find(p => 
+            p.strSport && 
+            p.strSport.toLowerCase() === 'soccer' && 
+            isPlayerNameMatching(pName, p.strPlayer)
+          );
+
+          const tsdbPhoto = matchedPlayer?.strCutout || matchedPlayer?.strRender || matchedPlayer?.strThumb;
+          if (tsdbPhoto) {
+            const base64Data = await getBase64FromUrl(tsdbPhoto);
+            playerPhotoCache[cleanedName] = base64Data;
+            await savePhotoToCache(cleanedName, base64Data);
+            img.src = base64Data;
+            return;
+          }
+        }
+      } catch (e) {}
+
+      // 5. Sumber Foto Wikipedia
+      try {
+        const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(cleanedName + ' footballer')}&prop=pageimages&format=json&pithumbsize=250&origin=*`;
+        const res = await fetch(wikiUrl);
+        const data = await res.json();
+        const pages = data.query?.pages;
+        if (pages) {
+          const pageId = Object.keys(pages)[0];
+          if (pageId && pageId !== "-1" && pages[pageId]?.thumbnail?.source) {
+            const title = pages[pageId].title || '';
+            if (isPlayerNameMatching(pName, title)) {
+              const wikiPhoto = pages[pageId].thumbnail.source;
+              const base64Data = await getBase64FromUrl(wikiPhoto);
+              playerPhotoCache[cleanedName] = base64Data;
+              await savePhotoToCache(cleanedName, base64Data);
+              img.src = base64Data;
+              return;
+            }
+          }
+        }
+      } catch (e) {}
+
+      // Fallback UI Avatar
+      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f172a&color=38bdf8&bold=true`;
+      playerPhotoCache[cleanedName] = avatarUrl;
+      await savePhotoToCache(cleanedName, avatarUrl);
+      img.src = avatarUrl;
     }
 
     function handlePlayerImgError(img, pName) {
       img.onerror = null;
       if (pName && !dataSaverMode) {
-        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanPlayerName(pName))}&background=0f172a&color=38bdf8&bold=true`;
+        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f172a&color=38bdf8&bold=true`;
       } else {
         img.src = PLAIN_PERSON_HEADSHOT;
       }
