@@ -3090,5 +3090,41 @@
       }
     }, 10000);
   </script>
+
+  <!-- SERVICE WORKER ENGINE UNTUK INTEGRASI FULL AUTOMATIC CACHING GOL/LOGOS/ASET -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const swCode = `
+          const CACHE_NAME = 'bgs-scorehub-v1';
+          self.addEventListener('install', (e) => self.skipWaiting());
+          self.addEventListener('activate', (e) => self.clients.claim());
+          
+          self.addEventListener('fetch', (e) => {
+            if (e.request.destination === 'image') {
+              e.respondWith(
+                caches.match(e.request).then((cachedResponse) => {
+                  if (cachedResponse) return cachedResponse;
+                  return fetch(e.request).then((networkResponse) => {
+                    return caches.open(CACHE_NAME).then((cache) => {
+                      cache.put(e.request, networkResponse.clone());
+                      return networkResponse;
+                    });
+                  });
+                })
+              );
+            }
+          });
+        `;
+
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+
+        navigator.serviceWorker.register(swUrl)
+          .then(() => console.log('BGS Cache Engine Registered!'))
+          .catch(err => console.error('ServiceWorker Error:', err));
+      });
+    }
+  </script>
 </body>
 </html>
