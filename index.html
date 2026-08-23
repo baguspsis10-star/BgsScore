@@ -903,18 +903,33 @@
     }
 
     function sendPushNotification(title, body) {
-      if (!soundSettings.master) return;
-      if ('Notification' in window && Notification.permission === 'granted') {
-        try {
-          new Notification(title, {
-            body: body,
-            icon: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png'
-          });
-        } catch (e) {
-          console.error("Gagal mengirim push notification:", e);
-        }
+  if (!soundSettings.master) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const options = {
+        body: body,
+        icon: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png',
+        badge: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png',
+        vibrate: [200, 100, 200]
+      };
+
+      // Gunakan Service Worker jika tersedia (Wajib untuk Chrome Android / Mobile)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.showNotification(title, options);
+        }).catch(() => {
+          new Notification(title, options);
+        });
+      } else {
+        // Fallback untuk Browser Desktop
+        new Notification(title, options);
       }
+    } catch (e) {
+      console.error("Gagal mengirim push notification:", e);
     }
+  }
+}
+
 
     function playWhistlePattern(pattern) {
       try {
