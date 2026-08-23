@@ -495,8 +495,6 @@
     let favoriteTeams = JSON.parse(localStorage.getItem('bgs_favorite_teams') || '[]');
     let recentGoalCache = {};
     let matchStateCache = {};
-    
-    let playerPhotoCache = JSON.parse(localStorage.getItem('bgs_photo_cache') || '{}');
 
     let soundSettings = JSON.parse(localStorage.getItem('bgs_sound_settings') || JSON.stringify({
       master: true, goal: true, kickoff1: true, halftime: true, kickoff2: true, fulltime: true, corner: true, yellow: true, red: true
@@ -547,131 +545,24 @@
         .trim();
     }
 
-    function isPlayerNameMatching(requestedName, apiPlayerName) {
-      if (!requestedName || !apiPlayerName) return false;
-
-      const req = cleanPlayerName(requestedName).toLowerCase().split(' ').filter(Boolean);
-      const api = cleanPlayerName(apiPlayerName).toLowerCase().split(' ').filter(Boolean);
-
-      if (req.length === 0 || api.length === 0) return false;
-
-      const reqFirst = req[0];
-      const apiFirst = api[0];
-
-      if (reqFirst.length > 1 && apiFirst.length > 1) {
-        if (reqFirst !== apiFirst && !apiFirst.startsWith(reqFirst) && !reqFirst.startsWith(apiFirst)) {
-          return false;
-        }
-      }
-
-      const reqLast = req[req.length - 1];
-      return api.some(part => part === reqLast || part.includes(reqLast));
-    }
-
-    async function getBase64FromUrl(url) {
-      try {
-        if (url.startsWith('data:')) return url;
-        const res = await fetch(url);
-        const blob = await res.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = () => resolve(url);
-          reader.readAsDataURL(blob);
-        });
-      } catch (e) {
-        return url;
-      }
-    }
-
-    function savePhotoToLocalCache(nameKey, photoData) {
-      try {
-        playerPhotoCache[nameKey] = photoData;
-        const keys = Object.keys(playerPhotoCache);
-        if (keys.length > 250) {
-          delete playerPhotoCache[keys[0]];
-        }
-        localStorage.setItem('bgs_photo_cache', JSON.stringify(playerPhotoCache));
-      } catch (e) {}
-    }
-
-    async function loadMultiTierPlayerPhoto(img, pId, pName) {
+    // PEMUATAN FOTO PEMAIN OPTIMAL DISK CACHE (Menggunakan URL langsung tanpa Base64 localStorage)
+    function loadMultiTierPlayerPhoto(img, pId, pName) {
       if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
       img.dataset.photoProcessed = 'true';
 
-      const cleanedName = cleanPlayerName(pName);
-
-      if (playerPhotoCache[cleanedName]) {
-        img.src = playerPhotoCache[cleanedName];
+      if (pId) {
+        img.src = `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png`;
         return;
       }
 
-      if (pId) {
-        const espnUrl = `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png`;
-        const espnLoaded = await new Promise(resolve => {
-          const tester = new Image();
-          tester.src = espnUrl;
-          tester.onload = () => resolve(true);
-          tester.onerror = () => resolve(false);
-        });
-
-        if (espnLoaded) {
-          const base64Data = await getBase64FromUrl(espnUrl);
-          savePhotoToLocalCache(cleanedName, base64Data);
-          img.src = base64Data;
-          return;
-        }
-      }
-
-      try {
-        const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(cleanedName)}`);
-        const data = await res.json();
-        if (data?.player && Array.isArray(data.player)) {
-          const matchedPlayer = data.player.find(p => 
-            p.strSport && 
-            p.strSport.toLowerCase() === 'soccer' && 
-            isPlayerNameMatching(pName, p.strPlayer)
-          );
-
-          const tsdbPhoto = matchedPlayer?.strCutout || matchedPlayer?.strRender || matchedPlayer?.strThumb;
-          if (tsdbPhoto) {
-            const base64Data = await getBase64FromUrl(tsdbPhoto);
-            savePhotoToLocalCache(cleanedName, base64Data);
-            img.src = base64Data;
-            return;
-          }
-        }
-      } catch (e) {}
-
-      try {
-        const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(cleanedName + ' footballer')}&prop=pageimages&format=json&pithumbsize=250&origin=*`;
-        const res = await fetch(wikiUrl);
-        const data = await res.json();
-        const pages = data.query?.pages;
-        if (pages) {
-          const pageId = Object.keys(pages)[0];
-          if (pageId && pageId !== "-1" && pages[pageId]?.thumbnail?.source) {
-            const title = pages[pageId].title || '';
-            if (isPlayerNameMatching(pName, title)) {
-              const wikiPhoto = pages[pageId].thumbnail.source;
-              const base64Data = await getBase64FromUrl(wikiPhoto);
-              savePhotoToLocalCache(cleanedName, base64Data);
-              img.src = base64Data;
-              return;
-            }
-          }
-        }
-      } catch (e) {}
-
-      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f172a&color=38bdf8&bold=true`;
-      savePhotoToLocalCache(cleanedName, avatarUrl);
-      img.src = avatarUrl;
+      const cleanedName = cleanPlayerName(pName);
+      img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanedName)}&background=0f172a&color=38bdf8&bold=true`;
     }
 
     function handlePlayerImgError(img, pName) {
       img.onerror = null;
       if (pName && !dataSaverMode) {
-        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f172a&color=38bdf8&bold=true`;
+        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanPlayerName(pName))}&background=0f172a&color=38bdf8&bold=true`;
       } else {
         img.src = PLAIN_PERSON_HEADSHOT;
       }
@@ -2284,7 +2175,7 @@
       }
       document.getElementById('mcontent-stats').innerHTML = statsBlockHtml;
 
-      // TIMELINE KEJADIAN PERTANDINGAN (PERBAIKAN ICON GOL UTAMA, PENALTI, DAN GAGAL PENALTI)
+      // TIMELINE KEJADIAN PERTANDINGAN
       let eventsTimelineHtml = '';
 
       if (rawEvents && rawEvents.length > 0) {
@@ -2377,7 +2268,6 @@
 
           } else if (typeText.includes('missed penalty') || typeText.includes('penalty miss') || (typeText.includes('penalty') && typeText.includes('miss'))) {
             const scorer = getPlayerName(0);
-            // ICON GAGAL PENALTI: BOLA HIJAU DENGAN TANDA X MERAH DI ATASNYA, ANIMASI LOMPAT SAMA
             const missedPenIcon = `
               <div class="relative inline-flex items-center justify-center shrink-0 animate-bounce-ball">
                 <i class="fa-solid fa-futbol text-emerald-400 text-sm"></i>
@@ -2403,7 +2293,6 @@
             const isPen = typeText.includes('penalty') || typeText.includes('penalti');
             const runningScore = item.scoreValue || 'GOL';
 
-            // ICON GOL REGULER (PUTIH), PENALTI (HIJAU), BUNUH DIRI (MERAH)
             let goalIcon = `<i class="fa-solid fa-futbol text-white text-sm animate-bounce-ball shrink-0"></i>`;
             let goalLabel = '';
 
