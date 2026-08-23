@@ -113,7 +113,6 @@
   <!-- HEADER ATAS (RAPI & TERPROPORSIONAL) -->
   <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-30">
     <div class="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between border-b border-slate-800/50">
-      <!-- Sisi Kiri: Logo + Judul + Zona HP -->
       <div class="flex items-center gap-2.5">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-9 h-9 shrink-0">
           <defs>
@@ -134,14 +133,13 @@
         </div>
       </div>
 
-      <!-- Sisi Kanan: Tombol Aksi -->
       <div class="flex items-center gap-1.5">
         <button id="data-saver-btn" onclick="toggleDataSaver()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition flex items-center gap-1.5 text-xs font-bold" title="Toggle Hemat Data">
           <i class="fa-solid fa-bolt text-xs"></i>
           <span id="data-saver-label">Normal</span>
         </button>
-        <button onclick="openSettingsModal()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-amber-400 transition flex items-center justify-center w-8 h-8" title="Pengaturan Suara">
-          <i class="fa-solid fa-gear text-xs"></i>
+        <button onclick="openSettingsModal()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-amber-400 transition flex items-center justify-center w-8 h-8" title="Pengaturan Notifikasi">
+          <i class="fa-solid fa-bell text-xs"></i>
         </button>
         <button onclick="loadData(true)" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition flex items-center justify-center w-8 h-8" title="Refresh Data">
           <i id="refresh-icon" class="fa-solid fa-rotate-right text-xs"></i>
@@ -239,12 +237,12 @@
     </div>
   </nav>
 
-  <!-- MODAL PENGATURAN SUARA -->
+  <!-- MODAL PENGATURAN NOTIFIKASI & SUARA -->
   <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md flex flex-col overflow-hidden shadow-2xl">
       <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
         <div class="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
-          <i class="fa-solid fa-volume-high"></i> Pengaturan Suara Favorit
+          <i class="fa-solid fa-bell"></i> Pengaturan Notifikasi Favorit
         </div>
         <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
           <i class="fa-solid fa-xmark text-base"></i>
@@ -253,20 +251,31 @@
 
       <div class="p-4 space-y-3 overflow-y-auto max-h-[75vh]">
         <p class="text-[11px] text-slate-400 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-          <i class="fa-solid fa-circle-info text-amber-400 mr-1"></i> Suara berbunyi saat terjadi momen pada laga ber-<strong>Bintang (Favorit)</strong>.
+          <i class="fa-solid fa-circle-info text-amber-400 mr-1"></i> Notifikasi & Suara muncul untuk laga ber-<strong>Bintang (Favorit)</strong> atau tim favorit Anda.
         </p>
+
+        <!-- Status Notifikasi Sistem -->
+        <div class="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-emerald-400 flex items-center gap-1.5"><i class="fa-solid fa-mobile-screen-button"></i> Notifikasi Sistem (Push)</div>
+            <div class="text-[9px] text-slate-400" id="notif-permission-status">Minta izin notifikasi HP/Browser</div>
+          </div>
+          <button onclick="requestNotificationPermission()" id="btn-request-notif" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition">
+            Aktifkan
+          </button>
+        </div>
 
         <div class="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
           <div>
-            <div class="text-xs font-bold text-white">Master Suara</div>
-            <div class="text-[9px] text-slate-400">Aktifkan seluruh suara</div>
+            <div class="text-xs font-bold text-white">Master Notifikasi & Suara</div>
+            <div class="text-[9px] text-slate-400">Aktifkan/Matikan seluruh notifikasi</div>
           </div>
           <input type="checkbox" id="snd-master" onchange="updateSoundSetting('master', this.checked)" class="w-4 h-4 accent-emerald-500 cursor-pointer">
         </div>
 
         <div class="space-y-2 pt-1">
           <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-bullhorn text-emerald-400 w-5"></i> Gol (Sorakan Fans)</span>
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-bullhorn text-emerald-400 w-5"></i> Gol</span>
             <div class="flex items-center gap-2">
               <button onclick="playEventSound('goal')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
               <input type="checkbox" id="snd-goal" onchange="updateSoundSetting('goal', this.checked)" class="w-4 h-4 accent-emerald-500">
@@ -274,7 +283,14 @@
           </div>
 
           <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-play text-blue-400 w-5"></i> Mulai Babak 1 (1x Peluit)</span>
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-users text-purple-400 w-5"></i> Lineup / Susunan Pemain</span>
+            <div class="flex items-center gap-2">
+              <input type="checkbox" id="snd-lineup" onchange="updateSoundSetting('lineup', this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-play text-blue-400 w-5"></i> Babak Pertama Dimulai</span>
             <div class="flex items-center gap-2">
               <button onclick="playEventSound('kickoff1')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
               <input type="checkbox" id="snd-kickoff1" onchange="updateSoundSetting('kickoff1', this.checked)" class="w-4 h-4 accent-emerald-500">
@@ -282,7 +298,7 @@
           </div>
 
           <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-pause text-amber-400 w-5"></i> Akhir Babak 1 / HT (2x Peluit)</span>
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-pause text-amber-400 w-5"></i> Babak Pertama Selesai (HT)</span>
             <div class="flex items-center gap-2">
               <button onclick="playEventSound('halftime')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
               <input type="checkbox" id="snd-halftime" onchange="updateSoundSetting('halftime', this.checked)" class="w-4 h-4 accent-emerald-500">
@@ -290,7 +306,7 @@
           </div>
 
           <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-forward text-blue-400 w-5"></i> Mulai Babak 2 (1x Peluit)</span>
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-forward text-blue-400 w-5"></i> Babak Kedua Dimulai</span>
             <div class="flex items-center gap-2">
               <button onclick="playEventSound('kickoff2')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
               <input type="checkbox" id="snd-kickoff2" onchange="updateSoundSetting('kickoff2', this.checked)" class="w-4 h-4 accent-emerald-500">
@@ -298,7 +314,7 @@
           </div>
 
           <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-flag-checkered text-emerald-400 w-5"></i> Selesai / FT (3x Peluit)</span>
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-flag-checkered text-emerald-400 w-5"></i> Pertandingan Selesai (FT)</span>
             <div class="flex items-center gap-2">
               <button onclick="playEventSound('fulltime')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
               <input type="checkbox" id="snd-fulltime" onchange="updateSoundSetting('fulltime', this.checked)" class="w-4 h-4 accent-emerald-500">
@@ -306,7 +322,7 @@
           </div>
 
           <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-flag text-cyan-400 w-5"></i> Corner (Sudut)</span>
+            <span class="text-xs font-medium text-slate-200"><i class="fa-solid fa-flag text-cyan-400 w-5"></i> Corner (Tendangan Sudut)</span>
             <div class="flex items-center gap-2">
               <button onclick="playEventSound('corner')" class="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">Tes</button>
               <input type="checkbox" id="snd-corner" onchange="updateSoundSetting('corner', this.checked)" class="w-4 h-4 accent-emerald-500">
@@ -508,11 +524,9 @@
     let favoriteTeams = JSON.parse(localStorage.getItem('bgs_favorite_teams') || '[]');
     let recentGoalCache = {};
     let matchStateCache = {};
-    
-    // Cache memori sementara
     let playerPhotoCache = {};
 
-    // --- INDEXEDDB PENYIMPANAN FOTO INTERNAL BROWSER (TIDAK MASUK GALERI) ---
+    // INDEXEDDB PENYIMPANAN FOTO BROWSER
     let dbPromise = null;
     function openPhotoDB() {
       if (!dbPromise) {
@@ -556,7 +570,7 @@
     }
 
     let soundSettings = JSON.parse(localStorage.getItem('bgs_sound_settings') || JSON.stringify({
-      master: true, goal: true, kickoff1: true, halftime: true, kickoff2: true, fulltime: true, corner: true, yellow: true, red: true
+      master: true, goal: true, lineup: true, kickoff1: true, halftime: true, kickoff2: true, fulltime: true, corner: true, yellow: true, red: true
     }));
 
     const PLAIN_SHIELD_LOGO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748b'><path d='M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3z'/></svg>";
@@ -647,13 +661,11 @@
 
       const cleanedName = cleanPlayerName(pName);
 
-      // 1. Cek Cache Memori Sementara
       if (playerPhotoCache[cleanedName]) {
         img.src = playerPhotoCache[cleanedName];
         return;
       }
 
-      // 2. Cek IndexedDB Internal Browser
       const dbCached = await getPhotoFromCache(cleanedName);
       if (dbCached) {
         playerPhotoCache[cleanedName] = dbCached;
@@ -661,7 +673,6 @@
         return;
       }
 
-      // 3. Sumber Foto ESPN Headshot
       if (pId) {
         const espnUrl = `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png`;
         const espnLoaded = await new Promise(resolve => {
@@ -680,7 +691,6 @@
         }
       }
 
-      // 4. Sumber Foto TheSportsDB
       try {
         const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(cleanedName)}`);
         const data = await res.json();
@@ -702,7 +712,6 @@
         }
       } catch (e) {}
 
-      // 5. Sumber Foto Wikipedia
       try {
         const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(cleanedName + ' footballer')}&prop=pageimages&format=json&pithumbsize=250&origin=*`;
         const res = await fetch(wikiUrl);
@@ -724,7 +733,6 @@
         }
       } catch (e) {}
 
-      // Fallback UI Avatar
       const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f172a&color=38bdf8&bold=true`;
       playerPhotoCache[cleanedName] = avatarUrl;
       await savePhotoToCache(cleanedName, avatarUrl);
@@ -836,6 +844,7 @@
     function openSettingsModal() {
       document.getElementById('snd-master').checked = soundSettings.master;
       document.getElementById('snd-goal').checked = soundSettings.goal;
+      document.getElementById('snd-lineup').checked = soundSettings.lineup ?? true;
       document.getElementById('snd-kickoff1').checked = soundSettings.kickoff1;
       document.getElementById('snd-halftime').checked = soundSettings.halftime;
       document.getElementById('snd-kickoff2').checked = soundSettings.kickoff2;
@@ -843,6 +852,8 @@
       document.getElementById('snd-corner').checked = soundSettings.corner;
       document.getElementById('snd-yellow').checked = soundSettings.yellow;
       document.getElementById('snd-red').checked = soundSettings.red;
+
+      updateNotifPermissionUI();
       document.getElementById('settings-modal').classList.remove('hidden');
     }
 
@@ -853,6 +864,56 @@
     function updateSoundSetting(key, val) {
       soundSettings[key] = val;
       localStorage.setItem('bgs_sound_settings', JSON.stringify(soundSettings));
+    }
+
+    function updateNotifPermissionUI() {
+      const statusLabel = document.getElementById('notif-permission-status');
+      const btn = document.getElementById('btn-request-notif');
+
+      if (!('Notification' in window)) {
+        statusLabel.innerText = 'Browser tidak mendukung push notification.';
+        btn.classList.add('hidden');
+        return;
+      }
+
+      if (Notification.permission === 'granted') {
+        statusLabel.innerText = 'Izin Notifikasi Aktif';
+        btn.innerText = 'Aktif';
+        btn.className = 'px-2.5 py-1 bg-slate-800 text-emerald-400 rounded-lg text-[10px] font-bold cursor-default';
+        btn.disabled = true;
+      } else if (Notification.permission === 'denied') {
+        statusLabel.innerText = 'Izin ditolak di pengaturan browser/HP';
+        btn.innerText = 'Ditolak';
+        btn.className = 'px-2.5 py-1 bg-red-950 text-red-400 rounded-lg text-[10px] font-bold cursor-default';
+        btn.disabled = true;
+      } else {
+        statusLabel.innerText = 'Izin belum diberikan';
+        btn.innerText = 'Aktifkan';
+        btn.className = 'px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition';
+        btn.disabled = false;
+      }
+    }
+
+    function requestNotificationPermission() {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(() => {
+          updateNotifPermissionUI();
+        });
+      }
+    }
+
+    function sendPushNotification(title, body) {
+      if (!soundSettings.master) return;
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification(title, {
+            body: body,
+            icon: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png'
+          });
+        } catch (e) {
+          console.error("Gagal mengirim push notification:", e);
+        }
+      }
     }
 
     function playWhistlePattern(pattern) {
@@ -951,6 +1012,7 @@
 
       if (!isFavTeamMatch && !isFavMatch) return;
 
+      const matchName = `${home?.team?.shortDisplayName || 'Home'} vs ${away?.team?.shortDisplayName || 'Away'}`;
       const homeScore = parseInt(home?.score || '0');
       const awayScore = parseInt(away?.score || '0');
       const totalScore = homeScore + awayScore;
@@ -958,6 +1020,9 @@
       const state = event.status?.type?.state; 
       const period = event.status?.period || 0;
       const detailStr = (event.status?.type?.shortDetail || event.status?.type?.description || '').toLowerCase();
+
+      // Cek Lineup
+      const hasLineup = Boolean(comp.rostersAvailable || (event.rosters && event.rosters.length >= 2));
 
       let corners = 0, yellows = 0, reds = 0;
       [home, away].forEach(team => {
@@ -974,23 +1039,81 @@
       const prev = matchStateCache[eventId];
 
       if (prev) {
+        // GOL
         if (totalScore > prev.totalScore) {
           recentGoalCache[eventId] = Date.now();
-          playEventSound('goal');
+          if (soundSettings.goal) {
+            playEventSound('goal');
+            sendPushNotification(`⚽ GOL! (${matchName})`, `Skor saat ini: ${homeScore} - ${awayScore}`);
+          }
         }
 
-        if (prev.state === 'pre' && state === 'in' && period === 1) playEventSound('kickoff1');
-        if (prev.period === 1 && (detailStr.includes('ht') || detailStr.includes('half')) && !prev.isHT) playEventSound('halftime');
-        if (prev.isHT && state === 'in' && period === 2) playEventSound('kickoff2');
-        if (prev.state === 'in' && state === 'post') playEventSound('fulltime');
+        // LINEUP DIRILIS
+        if (!prev.hasLineup && hasLineup) {
+          if (soundSettings.lineup) {
+            sendPushNotification(`📋 Lineup Dirilis!`, `Susunan pemain untuk ${matchName} sudah dirilis.`);
+          }
+        }
 
-        if (corners > prev.corners) playEventSound('corner');
-        if (yellows > prev.yellows) playEventSound('yellow');
-        if (reds > prev.reds) playEventSound('red');
+        // PERTANDINGAN BABAK 1 DIMULAI
+        if (prev.state === 'pre' && state === 'in' && period === 1) {
+          if (soundSettings.kickoff1) {
+            playEventSound('kickoff1');
+            sendPushNotification(`🏁 Kick-off Babak 1`, `Pertandingan ${matchName} telah dimulai!`);
+          }
+        }
+
+        // BABAK 1 SELESAI (HT)
+        if (prev.period === 1 && (detailStr.includes('ht') || detailStr.includes('half')) && !prev.isHT) {
+          if (soundSettings.halftime) {
+            playEventSound('halftime');
+            sendPushNotification(`⏸ Babak 1 Selesai (HT)`, `Skor babak pertama ${matchName}: ${homeScore} - ${awayScore}`);
+          }
+        }
+
+        // BABAK 2 DIMULAI
+        if (prev.isHT && state === 'in' && period === 2) {
+          if (soundSettings.kickoff2) {
+            playEventSound('kickoff2');
+            sendPushNotification(`▶ Kick-off Babak 2`, `Babak kedua ${matchName} telah dimulai!`);
+          }
+        }
+
+        // PERTANDINGAN SELESAI (FT)
+        if (prev.state === 'in' && state === 'post') {
+          if (soundSettings.fulltime) {
+            playEventSound('fulltime');
+            sendPushNotification(`🔚 Pertandingan Selesai (FT)`, `Hasil akhir ${matchName}: ${homeScore} - ${awayScore}`);
+          }
+        }
+
+        // CORNER
+        if (corners > prev.corners) {
+          if (soundSettings.corner) {
+            playEventSound('corner');
+            sendPushNotification(`🚩 Tendangan Sudut (Corner)`, `Terjadi corner pada laga ${matchName}`);
+          }
+        }
+
+        // KARTU KUNING
+        if (yellows > prev.yellows) {
+          if (soundSettings.yellow) {
+            playEventSound('yellow');
+            sendPushNotification(`🟨 Kartu Kuning`, `Kartu kuning diberikan pada laga ${matchName}`);
+          }
+        }
+
+        // KARTU MERAH
+        if (reds > prev.reds) {
+          if (soundSettings.red) {
+            playEventSound('red');
+            sendPushNotification(`🟥 Kartu Merah`, `Kartu merah dikeluarkan pada laga ${matchName}`);
+          }
+        }
       }
 
       matchStateCache[eventId] = { 
-        state, period, isHT: detailStr.includes('ht') || detailStr.includes('half'), homeScore, awayScore, totalScore, corners, yellows, reds 
+        state, period, isHT: detailStr.includes('ht') || detailStr.includes('half'), homeScore, awayScore, totalScore, corners, yellows, reds, hasLineup 
       };
     }
 
@@ -3064,20 +3187,6 @@
         `;
         container.appendChild(posBlock);
       });
-    }
-
-    async function loadTeamStandingsHighlight(leagueId, teamId) {
-      const container = document.getElementById('tcontent-standings');
-      container.innerHTML = `
-        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
-          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
-          <p class="text-xs">Memuat klasemen...</p>
-        </div>
-      `;
-
-      const targetLeague = LEAGUES.find(l => l.id === leagueId) || LEAGUES[0];
-      container.innerHTML = '';
-      await renderLeagueStandingsTable(targetLeague, container, teamId);
     }
 
     displayTimezoneInfo();
