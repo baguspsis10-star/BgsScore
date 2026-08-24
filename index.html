@@ -128,7 +128,7 @@
     </div>
   </nav>
 
-  <!-- MODAL: LEAGUE SELECTOR -->
+  <!-- MODAL: LEAGUE SELECTOR (DILENGKAPI LIGA POPULER TEKS KUNING) -->
   <div id="league-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
     <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
       <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
@@ -139,7 +139,68 @@
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div id="league-selector-grid" class="p-3 overflow-y-auto space-y-2"></div>
+      
+      <!-- List Liga Populer (Kuning) & Pilihan Semua Liga -->
+      <div class="p-3 overflow-y-auto space-y-3">
+        <div>
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
+            🔥 Liga Populer
+          </div>
+          <div class="popular-leagues-container space-y-1">
+            <div onclick="selectLeague('uefa.champions')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">UEFA Champions League</span>
+              <span class="popular-league-badge">UCL</span>
+            </div>
+            <div onclick="selectLeague('uefa.europa')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">UEFA Europa League</span>
+              <span class="popular-league-badge">UEL</span>
+            </div>
+            <div onclick="selectLeague('uefa.europa.conf')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">UEFA Conference League</span>
+              <span class="popular-league-badge">UECL</span>
+            </div>
+            <div onclick="selectLeague('eng.1')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">English Premier League</span>
+              <span class="popular-league-badge">EPL</span>
+            </div>
+            <div onclick="selectLeague('esp.1')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">Spain La Liga</span>
+              <span class="popular-league-badge">La Liga</span>
+            </div>
+            <div onclick="selectLeague('ger.1')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">Bundesliga</span>
+              <span class="popular-league-badge">GER</span>
+            </div>
+            <div onclick="selectLeague('ita.1')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">Italian Serie A</span>
+              <span class="popular-league-badge">ITA</span>
+            </div>
+            <div onclick="selectLeague('fra.1')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">French Ligue 1</span>
+              <span class="popular-league-badge">FRA</span>
+            </div>
+            <div onclick="selectLeague('idn.1')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">Liga 1 Indonesia</span>
+              <span class="popular-league-badge">IDN</span>
+            </div>
+            <div onclick="selectLeague('fifa.world')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">FIFA World Cup</span>
+              <span class="popular-league-badge">FIFA</span>
+            </div>
+            <div onclick="selectLeague('afc.asian.cup')" class="popular-league-card">
+              <span class="league-title-yellow text-xs">AFC Asian Cup</span>
+              <span class="popular-league-badge">AFC</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-800 pt-2">
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
+            🌐 Semua Liga
+          </div>
+          <div id="league-selector-grid" class="space-y-1.5"></div>
+        </div>
+      </div>
     </div>
   </div>
 
