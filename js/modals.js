@@ -1022,32 +1022,61 @@ function closeModal() {
   currentOpenModal = null;
   document.getElementById('detail-modal').classList.add('hidden');
 }
-
 // ==========================================
 // TEAM / CLUB DETAIL MODAL CONTROLLER
 // ==========================================
 
 let currentClubTab = 'matches';
 
+/**
+ * Buka Modal Detail Klub ketika Logo / Nama Klub Ditekan
+ */
 async function openTeamDetail(leagueId, teamId, teamName) {
   const modal = document.getElementById('club-modal');
-  if (!modal) return;
+  if (!modal) {
+    console.error("Element #club-modal tidak ditemukan di index.html");
+    return;
+  }
 
-  window.currentSelectedTeam = { id: teamId, name: teamName, leagueId: leagueId };
-  
+  // Pastikan League ID valid (Fallback ke Premier League jika 'all' atau kosong)
+  const validLeague = (!leagueId || leagueId === 'all') ? 'eng.1' : leagueId;
+  window.currentSelectedTeam = { id: teamId, name: teamName, leagueId: validLeague };
+
+  // Update Judul Header Modal
   const modalTitle = document.getElementById('club-modal-title');
-  if (modalTitle) modalTitle.textContent = teamName;
+  if (modalTitle) modalTitle.textContent = teamName || 'Detail Klub';
 
+  // Buka Modal (Hapus class hidden Tailwind & Set Flex)
   modal.classList.remove('hidden');
   modal.style.display = 'flex';
 
-  // Fetch jadwal pertandingan klub jika ada data global atau dari API
-  const allMatches = window.allGlobalMatches || window.cachedMatches || [];
-  window.currentTeamMatches = allMatches;
+  // Tampilkan Indikator Memuat Data (Loading)
+  const container = document.getElementById('club-tab-content');
+  if (container) {
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+        <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-500"></i>
+        <p class="text-xs">Memuat jadwal ${teamName || 'klub'}...</p>
+      </div>
+    `;
+  }
+
+  // Fetch Jadwal Lengkap Klub Langsung dari API ESPN
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${validLeague}/teams/${teamId}/schedule`);
+    const data = await res.json();
+    window.currentTeamMatches = data.events || [];
+  } catch (err) {
+    console.error("Gagal memuat jadwal klub:", err);
+    window.currentTeamMatches = [];
+  }
 
   switchClubTab('matches');
 }
 
+/**
+ * Tutup Modal Klub
+ */
 function closeClubModal() {
   const modal = document.getElementById('club-modal');
   if (modal) {
@@ -1056,6 +1085,9 @@ function closeClubModal() {
   }
 }
 
+/**
+ * Pindah Tab (Skuad Pemain / Pertandingan / Klasemen)
+ */
 function switchClubTab(tabName) {
   currentClubTab = tabName;
 
@@ -1085,50 +1117,48 @@ function switchClubTab(tabName) {
 }
 
 /**
- * Render Pertandingan Klub (5 Mendatang & Semua Selesai dengan Accordion Buka/Tutup)
+ * Render Pertandingan Klub (5 Mendatang & Semua Selesai dengan Fitur Sembunyikan/Munculkan)
  */
 function renderClubMatches(teamId, allMatches, container) {
   if (!container) return;
 
-  // Filter seluruh pertandingan milik klub ini
-  const clubMatches = allMatches.filter(m => {
-    const homeId = m.homeTeam?.id || m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
-    const awayId = m.awayTeam?.id || m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
-    return String(homeId) === String(teamId) || String(awayId) === String(teamId);
-  });
+  if (!allMatches || allMatches.length === 0) {
+    container.innerHTML = `<div class="empty-card text-center py-6 text-slate-500 text-xs">Tidak ada riwayat pertandingan ditemukan.</div>`;
+    return;
+  }
 
-  // 1. Pertandingan Selesai (Semua laga yang sudah usai)
-  const finishedMatches = clubMatches
+  // 1. Pertandingan Selesai
+  const finishedMatches = allMatches
     .filter(m => {
-      const status = m.status?.type?.state || m.status;
-      return status === 'post' || status === 'FINISHED' || status === 'FT';
+      const state = m.status?.type?.state;
+      return state === 'post' || m.status === 'FINISHED' || m.status === 'FT';
     })
-    .sort((a, b) => new Date(b.utcDate || b.date) - new Date(a.utcDate || a.date));
+    .sort((a, b) => new Date(b.date || b.utcDate) - new Date(a.date || a.utcDate));
 
-  // 2. Pertandingan Mendatang (Maksimal 5 Laga)
-  const upcomingMatches = clubMatches
+  // 2. Pertandingan Mendatang (Maksimal 5 Laga Terdekat)
+  const upcomingMatches = allMatches
     .filter(m => {
-      const status = m.status?.type?.state || m.status;
-      return status !== 'post' && status !== 'FINISHED' && status !== 'FT';
+      const state = m.status?.type?.state;
+      return state !== 'post' && m.status !== 'FINISHED' && m.status !== 'FT';
     })
-    .sort((a, b) => new Date(a.utcDate || a.date) - new Date(b.utcDate || b.date))
+    .sort((a, b) => new Date(a.date || a.utcDate) - new Date(b.date || b.utcDate))
     .slice(0, 5);
 
   const createMatchCardHTML = (match) => {
-    const comp = match.competitions?.[0];
+    const comp = match.competitions?.[0] || match;
     const homeComp = comp?.competitors?.find(c => c.homeAway === 'home');
     const awayComp = comp?.competitors?.find(c => c.homeAway === 'away');
 
-    const homeName = match.homeTeam?.name || homeComp?.team?.displayName || 'Home';
-    const awayName = match.awayTeam?.name || awayComp?.team?.displayName || 'Away';
+    const homeName = homeComp?.team?.shortDisplayName || homeComp?.team?.displayName || match.homeTeam?.name || 'Home';
+    const awayName = awayComp?.team?.shortDisplayName || awayComp?.team?.displayName || match.awayTeam?.name || 'Away';
 
-    const homeScore = match.score?.fullTime?.home ?? homeComp?.score ?? '-';
-    const awayScore = match.score?.fullTime?.away ?? awayComp?.score ?? '-';
+    const homeScore = homeComp?.score?.value ?? homeComp?.score ?? '-';
+    const awayScore = awayComp?.score?.value ?? awayComp?.score ?? '-';
 
-    const statusStr = match.status?.type?.state || match.status;
-    const isFinished = statusStr === 'post' || statusStr === 'FINISHED' || statusStr === 'FT';
+    const state = match.status?.type?.state || match.status;
+    const isFinished = state === 'post' || state === 'FINISHED' || state === 'FT';
 
-    const matchDate = new Date(match.utcDate || match.date).toLocaleDateString('id-ID', {
+    const matchDate = new Date(match.date || match.utcDate).toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'short'
     });
@@ -1181,3 +1211,4 @@ function renderClubSquad(team, container) {
 function renderClubStandings(team, container) {
   container.innerHTML = `<div class="empty-card text-center py-6 text-slate-500 text-xs">Data klasemen tidak tersedia.</div>`;
 }
+
