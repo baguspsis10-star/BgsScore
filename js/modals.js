@@ -1022,3 +1022,162 @@ function closeModal() {
   currentOpenModal = null;
   document.getElementById('detail-modal').classList.add('hidden');
 }
+
+// ==========================================
+// TEAM / CLUB DETAIL MODAL CONTROLLER
+// ==========================================
+
+let currentClubTab = 'matches';
+
+async function openTeamDetail(leagueId, teamId, teamName) {
+  const modal = document.getElementById('club-modal');
+  if (!modal) return;
+
+  window.currentSelectedTeam = { id: teamId, name: teamName, leagueId: leagueId };
+  
+  const modalTitle = document.getElementById('club-modal-title');
+  if (modalTitle) modalTitle.textContent = teamName;
+
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+
+  // Fetch jadwal pertandingan klub jika ada data global atau dari API
+  const allMatches = window.allGlobalMatches || window.cachedMatches || [];
+  window.currentTeamMatches = allMatches;
+
+  switchClubTab('matches');
+}
+
+function closeClubModal() {
+  const modal = document.getElementById('club-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+
+function switchClubTab(tabName) {
+  currentClubTab = tabName;
+
+  document.querySelectorAll('.club-tab-btn').forEach(btn => {
+    if (btn.dataset.tab === tabName) {
+      btn.classList.add('active', 'border-b-2', 'border-emerald-500', 'text-emerald-400');
+      btn.classList.remove('text-slate-400');
+    } else {
+      btn.classList.remove('active', 'border-b-2', 'border-emerald-500', 'text-emerald-400');
+      btn.classList.add('text-slate-400');
+    }
+  });
+
+  const container = document.getElementById('club-tab-content');
+  if (!container) return;
+
+  const team = window.currentSelectedTeam || {};
+  const matches = window.currentTeamMatches || [];
+
+  if (tabName === 'squad') {
+    renderClubSquad(team, container);
+  } else if (tabName === 'matches') {
+    renderClubMatches(team.id, matches, container);
+  } else if (tabName === 'standings') {
+    renderClubStandings(team, container);
+  }
+}
+
+/**
+ * Render Pertandingan Klub (5 Mendatang & Semua Selesai dengan Accordion Buka/Tutup)
+ */
+function renderClubMatches(teamId, allMatches, container) {
+  if (!container) return;
+
+  // Filter seluruh pertandingan milik klub ini
+  const clubMatches = allMatches.filter(m => {
+    const homeId = m.homeTeam?.id || m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
+    const awayId = m.awayTeam?.id || m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
+    return String(homeId) === String(teamId) || String(awayId) === String(teamId);
+  });
+
+  // 1. Pertandingan Selesai (Semua laga yang sudah usai)
+  const finishedMatches = clubMatches
+    .filter(m => {
+      const status = m.status?.type?.state || m.status;
+      return status === 'post' || status === 'FINISHED' || status === 'FT';
+    })
+    .sort((a, b) => new Date(b.utcDate || b.date) - new Date(a.utcDate || a.date));
+
+  // 2. Pertandingan Mendatang (Maksimal 5 Laga)
+  const upcomingMatches = clubMatches
+    .filter(m => {
+      const status = m.status?.type?.state || m.status;
+      return status !== 'post' && status !== 'FINISHED' && status !== 'FT';
+    })
+    .sort((a, b) => new Date(a.utcDate || a.date) - new Date(b.utcDate || b.date))
+    .slice(0, 5);
+
+  const createMatchCardHTML = (match) => {
+    const comp = match.competitions?.[0];
+    const homeComp = comp?.competitors?.find(c => c.homeAway === 'home');
+    const awayComp = comp?.competitors?.find(c => c.homeAway === 'away');
+
+    const homeName = match.homeTeam?.name || homeComp?.team?.displayName || 'Home';
+    const awayName = match.awayTeam?.name || awayComp?.team?.displayName || 'Away';
+
+    const homeScore = match.score?.fullTime?.home ?? homeComp?.score ?? '-';
+    const awayScore = match.score?.fullTime?.away ?? awayComp?.score ?? '-';
+
+    const statusStr = match.status?.type?.state || match.status;
+    const isFinished = statusStr === 'post' || statusStr === 'FINISHED' || statusStr === 'FT';
+
+    const matchDate = new Date(match.utcDate || match.date).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short'
+    });
+
+    return `
+      <div class="match-item-card flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-xs">
+        <div class="team-name home flex-1 text-right font-medium text-slate-200 truncate pr-2">${homeName}</div>
+        <div class="match-score-badge px-2.5 py-1 rounded bg-slate-950 font-bold text-emerald-400 text-center min-w-[50px]">
+          ${isFinished ? `${homeScore} - ${awayScore}` : 'VS'}
+        </div>
+        <div class="team-name away flex-1 text-left font-medium text-slate-200 truncate pl-2">${awayName}</div>
+        <div class="match-date-tag text-[10px] text-slate-400 ml-2 shrink-0">${matchDate}</div>
+      </div>
+    `;
+  };
+
+  container.innerHTML = `
+    <!-- 5 Pertandingan Mendatang -->
+    <details class="match-accordion bg-slate-900 border border-slate-800 rounded-xl mb-3 overflow-hidden" open>
+      <summary class="accordion-header p-3 font-bold text-xs text-emerald-400 bg-slate-800/80 cursor-pointer flex justify-between items-center select-none list-none">
+        <span>📅 5 Pertandingan Mendatang (${upcomingMatches.length})</span>
+        <span class="icon text-[10px] text-slate-400">▼</span>
+      </summary>
+      <div class="match-list p-3 space-y-2">
+        ${upcomingMatches.length > 0 
+          ? upcomingMatches.map(createMatchCardHTML).join('') 
+          : '<div class="empty-card text-center py-4 text-slate-500 text-xs">Tidak ada jadwal pertandingan selanjutnya.</div>'}
+      </div>
+    </details>
+
+    <!-- Pertandingan Selesai -->
+    <details class="match-accordion bg-slate-900 border border-slate-800 rounded-xl mb-3 overflow-hidden" open>
+      <summary class="accordion-header p-3 font-bold text-xs text-emerald-400 bg-slate-800/80 cursor-pointer flex justify-between items-center select-none list-none">
+        <span>🏁 Pertandingan Selesai (${finishedMatches.length})</span>
+        <span class="icon text-[10px] text-slate-400">▼</span>
+      </summary>
+      <div class="match-list p-3 space-y-2">
+        ${finishedMatches.length > 0 
+          ? finishedMatches.map(createMatchCardHTML).join('') 
+          : '<div class="empty-card text-center py-4 text-slate-500 text-xs">Belum ada pertandingan selesai.</div>'}
+      </div>
+    </details>
+  `;
+}
+
+function renderClubSquad(team, container) {
+  container.innerHTML = `<div class="empty-card text-center py-6 text-slate-500 text-xs">Data skuad pemain tidak tersedia.</div>`;
+}
+
+function renderClubStandings(team, container) {
+  container.innerHTML = `<div class="empty-card text-center py-6 text-slate-500 text-xs">Data klasemen tidak tersedia.</div>`;
+}
