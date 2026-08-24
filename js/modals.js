@@ -1,5 +1,23 @@
 // MODALS & DIALOG CONTROLLER MODULE
 
+// Dynamic Z-Index Manager for Stacking Modals
+let globalModalZIndex = 50;
+
+function getNextZIndex() {
+  globalModalZIndex += 2;
+  return globalModalZIndex;
+}
+
+function checkResetZIndex() {
+  const detailHidden = document.getElementById('detail-modal')?.classList.contains('hidden');
+  const teamHidden = document.getElementById('team-detail-modal')?.classList.contains('hidden');
+  const leagueHidden = document.getElementById('league-modal')?.classList.contains('hidden');
+  const settingsHidden = document.getElementById('settings-modal')?.classList.contains('hidden');
+  if (detailHidden && teamHidden && leagueHidden && settingsHidden) {
+    globalModalZIndex = 50;
+  }
+}
+
 // Global Web Audio Context Instance
 let globalAudioCtx = null;
 
@@ -28,11 +46,14 @@ function openSettingsModal() {
   document.getElementById('snd-red').checked = soundSettings.red;
 
   updateNotifPermissionUI();
-  document.getElementById('settings-modal').classList.remove('hidden');
+  const modal = document.getElementById('settings-modal');
+  modal.style.zIndex = getNextZIndex();
+  modal.classList.remove('hidden');
 }
 
 function closeSettingsModal() {
   document.getElementById('settings-modal').classList.add('hidden');
+  checkResetZIndex();
 }
 
 function updateSoundSetting(key, val) {
@@ -174,11 +195,14 @@ function playEventSound(type) {
 // League Selector Modal Handlers
 function openLeagueModal() {
   renderLeagueModalGrid();
-  document.getElementById('league-modal').classList.remove('hidden');
+  const modal = document.getElementById('league-modal');
+  modal.style.zIndex = getNextZIndex();
+  modal.classList.remove('hidden');
 }
 
 function closeLeagueModal() {
   document.getElementById('league-modal').classList.add('hidden');
+  checkResetZIndex();
 }
 
 function renderLeagueModalGrid() {
@@ -208,8 +232,8 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   const container = document.getElementById('modal-data-container');
   const flag = getLeagueFlag(leagueId);
   
-  // FIXED: Hapus style zIndex inline 9999 yang memblokir modal klub
-  modal.style.zIndex = '';
+  // Naikkan layer z-index secara dinamis agar selalu di atas modal aktif lainnya
+  modal.style.zIndex = getNextZIndex();
   
   document.getElementById('modal-league-name').innerText = `${flag ? flag + ' ' : ''}${leagueName}`;
 
@@ -1044,4 +1068,5 @@ function switchModalTab(tabName) {
 function closeModal() {
   currentOpenModal = null;
   document.getElementById('detail-modal').classList.add('hidden');
+  checkResetZIndex();
 }
