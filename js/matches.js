@@ -2,6 +2,7 @@
 
 // Check if Match is Favorited
 function isFavorite(eventId) {
+  if (typeof favoriteMatches === 'undefined') return false;
   return favoriteMatches.some(id => String(id) === String(eventId));
 }
 
@@ -15,7 +16,7 @@ function toggleFavorite(eventId, e) {
     favoriteMatches.push(idStr);
   }
   localStorage.setItem('bgs_favorites', JSON.stringify(favoriteMatches));
-  loadData(true);
+  if (typeof loadData === 'function') loadData(true);
 }
 
 // Sort Events Prioritizing Favorite Teams, Favorite Matches, and Date
@@ -24,8 +25,8 @@ function sortEventsByFavoriteAndDate(events) {
     const compA = a.competitions?.[0];
     const compB = b.competitions?.[0];
 
-    const aHasFavTeam = compA?.competitors?.some(c => isTeamFavorite(c.team?.id)) ? 1 : 0;
-    const bHasFavTeam = compB?.competitors?.some(c => isTeamFavorite(c.team?.id)) ? 1 : 0;
+    const aHasFavTeam = compA?.competitors?.some(c => typeof isTeamFavorite === 'function' && isTeamFavorite(c.team?.id)) ? 1 : 0;
+    const bHasFavTeam = compB?.competitors?.some(c => typeof isTeamFavorite === 'function' && isTeamFavorite(c.team?.id)) ? 1 : 0;
 
     if (bHasFavTeam !== aHasFavTeam) return bHasFavTeam - aHasFavTeam;
 
@@ -46,7 +47,7 @@ function monitorLiveFavoriteEvents(event) {
   const home = comp.competitors?.find(c => c.homeAway === 'home');
   const away = comp.competitors?.find(c => c.homeAway === 'away');
 
-  const isFavTeamMatch = isTeamFavorite(home?.team?.id) || isTeamFavorite(away?.team?.id);
+  const isFavTeamMatch = (typeof isTeamFavorite === 'function') && (isTeamFavorite(home?.team?.id) || isTeamFavorite(away?.team?.id));
   const isFavMatch = isFavorite(eventId);
 
   if (!isFavTeamMatch && !isFavMatch) return;
@@ -79,62 +80,62 @@ function monitorLiveFavoriteEvents(event) {
   if (prev) {
     if (totalScore > prev.totalScore) {
       recentGoalCache[eventId] = Date.now();
-      if (soundSettings.goal) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.goal) {
         playEventSound('goal');
         sendPushNotification(`⚽ GOL! (${matchName})`, `Skor saat ini: ${homeScore} - ${awayScore}`);
       }
     }
 
     if (!prev.hasLineup && hasLineup) {
-      if (soundSettings.lineup) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.lineup) {
         sendPushNotification(`📋 Lineup Dirilis!`, `Susunan pemain untuk ${matchName} sudah dirilis.`);
       }
     }
 
     if (prev.state === 'pre' && state === 'in' && period === 1) {
-      if (soundSettings.kickoff1) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.kickoff1) {
         playEventSound('kickoff1');
         sendPushNotification(`🏁 Kick-off Babak 1`, `Pertandingan ${matchName} telah dimulai!`);
       }
     }
 
     if (prev.period === 1 && (detailStr.includes('ht') || detailStr.includes('half')) && !prev.isHT) {
-      if (soundSettings.halftime) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.halftime) {
         playEventSound('halftime');
         sendPushNotification(`⏸ Babak 1 Selesai (HT)`, `Skor babak pertama ${matchName}: ${homeScore} - ${awayScore}`);
       }
     }
 
     if (prev.isHT && state === 'in' && period === 2) {
-      if (soundSettings.kickoff2) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.kickoff2) {
         playEventSound('kickoff2');
         sendPushNotification(`▶ Kick-off Babak 2`, `Babak kedua ${matchName} telah dimulai!`);
       }
     }
 
     if (prev.state === 'in' && state === 'post') {
-      if (soundSettings.fulltime) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.fulltime) {
         playEventSound('fulltime');
         sendPushNotification(`🔚 Pertandingan Selesai (FT)`, `Hasil akhir ${matchName}: ${homeScore} - ${awayScore}`);
       }
     }
 
     if (corners > prev.corners) {
-      if (soundSettings.corner) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.corner) {
         playEventSound('corner');
         sendPushNotification(`🚩 Tendangan Sudut (Corner)`, `Terjadi corner pada laga ${matchName}`);
       }
     }
 
     if (yellows > prev.yellows) {
-      if (soundSettings.yellow) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.yellow) {
         playEventSound('yellow');
         sendPushNotification(`🟨 Kartu Kuning`, `Kartu kuning diberikan pada laga ${matchName}`);
       }
     }
 
     if (reds > prev.reds) {
-      if (soundSettings.red) {
+      if (typeof soundSettings !== 'undefined' && soundSettings.red) {
         playEventSound('red');
         sendPushNotification(`🟥 Kartu Merah`, `Kartu merah dikeluarkan pada laga ${matchName}`);
       }
@@ -175,8 +176,8 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
     const homeLogo = getTeamLogo(home.team);
     const awayLogo = getTeamLogo(away.team);
 
-    const homeFav = isTeamFavorite(home.team.id);
-    const awayFav = isTeamFavorite(away.team.id);
+    const homeFav = typeof isTeamFavorite === 'function' ? isTeamFavorite(home.team.id) : false;
+    const awayFav = typeof isTeamFavorite === 'function' ? isTeamFavorite(away.team.id) : false;
     const hasFavTeam = homeFav || awayFav;
 
     const state = event.status?.type?.state || 'pre'; 
@@ -193,15 +194,22 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
       ? `<span class="text-xs font-extrabold text-emerald-400 whitespace-nowrap">VS</span>`
       : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white'} whitespace-nowrap">${home.score ?? '0'} - ${away.score ?? '0'}</span>`;
 
-    const leagueDisplayName = event.leagueName || comp.league?.name || '';
+    const leagueDisplayName = event.leagueName || comp.league?.name || 'Detail';
     const leagueFlag = event.leagueFlag || '';
+    const matchLeagueId = event.leagueId || comp.league?.id || 'all';
 
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border bg-slate-900 hover:border-slate-700 transition cursor-pointer relative ${
       hasFavTeam ? 'border-amber-500/80 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 shadow-md' : (favorited ? 'border-amber-500/60 bg-amber-950/20' : (isLive ? 'border-red-500/50 bg-red-950/10' : 'border-slate-800/80'))
     }`;
     
-    card.onclick = () => openMatchDetail(event.leagueId || 'idn.1', event.id, leagueDisplayName || 'Detail');
+    // Explicit event handler binding
+    card.onclick = (e) => {
+      e.stopPropagation();
+      if (typeof window.openMatchDetail === 'function') {
+        window.openMatchDetail(matchLeagueId, event.id, leagueDisplayName);
+      }
+    };
 
     card.innerHTML = `
       <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2.5">
@@ -245,3 +253,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
     container.appendChild(card);
   });
 }
+
+// Global Window Bindings
+window.toggleFavorite = toggleFavorite;
+window.renderMatchesCards = renderMatchesCards;

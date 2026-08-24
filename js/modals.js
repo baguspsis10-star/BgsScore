@@ -34,26 +34,32 @@ function updateNotifPermissionUI() {
   const btn = document.getElementById('btn-request-notif');
 
   if (!('Notification' in window)) {
-    statusLabel.innerText = 'Browser tidak mendukung push notification.';
-    btn.classList.add('hidden');
+    if (statusLabel) statusLabel.innerText = 'Browser tidak mendukung push notification.';
+    if (btn) btn.classList.add('hidden');
     return;
   }
 
   if (Notification.permission === 'granted') {
-    statusLabel.innerText = 'Izin Notifikasi Aktif';
-    btn.innerText = 'Aktif';
-    btn.className = 'px-2.5 py-1 bg-slate-800 text-emerald-400 rounded-lg text-[10px] font-bold cursor-default';
-    btn.disabled = true;
+    if (statusLabel) statusLabel.innerText = 'Izin Notifikasi Aktif';
+    if (btn) {
+      btn.innerText = 'Aktif';
+      btn.className = 'px-2.5 py-1 bg-slate-800 text-emerald-400 rounded-lg text-[10px] font-bold cursor-default';
+      btn.disabled = true;
+    }
   } else if (Notification.permission === 'denied') {
-    statusLabel.innerText = 'Izin ditolak di pengaturan browser/HP';
-    btn.innerText = 'Ditolak';
-    btn.className = 'px-2.5 py-1 bg-red-950 text-red-400 rounded-lg text-[10px] font-bold cursor-default';
-    btn.disabled = true;
+    if (statusLabel) statusLabel.innerText = 'Izin ditolak di pengaturan browser/HP';
+    if (btn) {
+      btn.innerText = 'Ditolak';
+      btn.className = 'px-2.5 py-1 bg-red-950 text-red-400 rounded-lg text-[10px] font-bold cursor-default';
+      btn.disabled = true;
+    }
   } else {
-    statusLabel.innerText = 'Izin belum diberikan';
-    btn.innerText = 'Aktifkan';
-    btn.className = 'px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition';
-    btn.disabled = false;
+    if (statusLabel) statusLabel.innerText = 'Izin belum diberikan';
+    if (btn) {
+      btn.innerText = 'Aktifkan';
+      btn.className = 'px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition';
+      btn.disabled = false;
+    }
   }
 }
 
@@ -165,15 +171,18 @@ function playEventSound(type) {
 // League Selector Modal Handlers
 function openLeagueModal() {
   renderLeagueModalGrid();
-  document.getElementById('league-modal').classList.remove('hidden');
+  const el = document.getElementById('league-modal');
+  if (el) el.classList.remove('hidden');
 }
 
 function closeLeagueModal() {
-  document.getElementById('league-modal').classList.add('hidden');
+  const el = document.getElementById('league-modal');
+  if (el) el.classList.add('hidden');
 }
 
 function renderLeagueModalGrid() {
   const grid = document.getElementById('league-selector-grid');
+  if (!grid) return;
   grid.innerHTML = `
     <button onclick="selectLeagueFromModal('all')" class="w-full p-2 bg-slate-950 hover:bg-slate-800 border ${selectedLeague === 'all' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800'} rounded-xl flex items-center gap-2.5 transition text-left mb-2">
       <i class="fa-solid fa-globe text-emerald-400 text-base"></i>
@@ -191,56 +200,73 @@ function selectLeagueFromModal(leagueId) {
   changeLeague(leagueId);
 }
 
-// Match Detail Modal Handlers
-async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) {
+// Match Detail Modal Handlers (Dengan Fallback API 'soccer/all/summary')
+async function openMatchDetail(leagueId, eventId, leagueName = 'Detail', isSilent = false) {
+  if (!eventId) return;
   currentOpenModal = { leagueId, eventId, leagueName };
+
   const modal = document.getElementById('detail-modal');
   const loading = document.getElementById('modal-loading');
   const container = document.getElementById('modal-data-container');
-  const flag = getLeagueFlag(leagueId);
-  
-  document.getElementById('modal-league-name').innerText = `${flag ? flag + ' ' : ''}${leagueName}`;
+  const titleEl = document.getElementById('modal-league-name');
 
-  modal.classList.remove('hidden');
+  const flag = getLeagueFlag(leagueId);
+  if (titleEl) titleEl.innerText = `${flag ? flag + ' ' : ''}${leagueName}`;
+
+  if (modal) modal.classList.remove('hidden');
 
   if (!isSilent) {
-    loading.classList.remove('hidden');
-    container.classList.add('hidden');
+    if (loading) loading.classList.remove('hidden');
+    if (container) container.classList.add('hidden');
     switchModalTab('summary');
   }
 
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/summary?event=${eventId}`);
+    const targetLeague = (leagueId && leagueId !== 'undefined' && leagueId !== 'null') ? leagueId : 'all';
+    let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/summary?event=${eventId}`);
+    
+    if (!res.ok) {
+      res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${eventId}`);
+    }
+
     const data = await res.json();
     
     const header = data.header?.competitions?.[0];
     const home = header?.competitors?.find(c => c.homeAway === 'home');
     const away = header?.competitors?.find(c => c.homeAway === 'away');
 
-    renderModalCompleteData(data, leagueId);
+    renderModalCompleteData(data, targetLeague);
 
     if (!isSilent) {
-      if (leagueId && home?.team?.id && away?.team?.id) {
-        fetchModalStandings(leagueId, home.team.id, away.team.id);
-        fetchFormAndH2H(leagueId, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
+      if (home?.team?.id && away?.team?.id) {
+        fetchModalStandings(targetLeague, home.team.id, away.team.id);
+        fetchFormAndH2H(targetLeague, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
       } else {
-        document.getElementById('mcontent-standings').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
-        document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Data riwayat tidak tersedia.</p>`;
+        const stdEl = document.getElementById('mcontent-standings');
+        const h2hEl = document.getElementById('mcontent-h2h');
+        if (stdEl) stdEl.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
+        if (h2hEl) h2hEl.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Data riwayat tidak tersedia.</p>`;
       }
     }
 
-    loading.classList.add('hidden');
-    container.classList.remove('hidden');
+    if (loading) loading.classList.add('hidden');
+    if (container) container.classList.remove('hidden');
   } catch (err) {
-    console.error(err);
+    console.error("Gagal membuka detail pertandingan:", err);
     if (!isSilent) {
-      document.getElementById('modal-body-wrapper').innerHTML = `<p class="text-center text-red-400 text-sm py-12">Gagal memuat detail pertandingan.</p>`;
+      if (loading) loading.classList.add('hidden');
+      const bodyWrapper = document.getElementById('modal-body-wrapper');
+      if (bodyWrapper) {
+        bodyWrapper.innerHTML = `<p class="text-center text-red-400 text-sm py-12">Gagal memuat detail pertandingan.</p>`;
+      }
     }
   }
 }
 
 async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
   const container = document.getElementById('mcontent-standings');
+  if (!container) return;
+
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
       <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
@@ -249,7 +275,7 @@ async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
   `;
 
   try {
-    const targetLeague = LEAGUES.find(l => l.id === leagueId) || LEAGUES[0];
+    const targetLeague = (typeof LEAGUES !== 'undefined' ? LEAGUES.find(l => l.id === leagueId) : null) || { id: leagueId || 'eng.1', name: 'Klasemen' };
     container.innerHTML = '';
     await renderLeagueStandingsTable(targetLeague, container, [homeTeamId, awayTeamId]);
   } catch (err) {
@@ -459,33 +485,36 @@ function renderModalCompleteData(data, leagueId) {
     ? formattedTime 
     : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : header.status?.type?.description);
 
-  document.getElementById('modal-score-header').innerHTML = `
-    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl">
-      <div class="flex items-center justify-between">
-        <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
-          <img src="${homeLogo}" loading="lazy" class="w-12 h-12 object-contain group-hover:scale-110 transition-transform" alt="">
-          <span class="font-bold text-xs text-white mt-1 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
-            <span class="truncate">${home.team.displayName}</span>
-            ${isTeamFavorite(home.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
-          </span>
-        </div>
+  const scoreHeaderEl = document.getElementById('modal-score-header');
+  if (scoreHeaderEl) {
+    scoreHeaderEl.innerHTML = `
+      <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl">
+        <div class="flex items-center justify-between">
+          <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
+            <img src="${homeLogo}" loading="lazy" class="w-12 h-12 object-contain group-hover:scale-110 transition-transform" alt="">
+            <span class="font-bold text-xs text-white mt-1 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
+              <span class="truncate">${home.team.displayName}</span>
+              ${isTeamFavorite(home.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
+            </span>
+          </div>
 
-        <div class="text-center w-2/12">
-          <span class="text-xl sm:text-2xl font-black text-white">${state === 'pre' ? 'VS' : (home.score || '0') + ' - ' + (away.score || '0')}</span>
-          <div class="text-[10px] text-emerald-400 font-bold mt-1">${liveOrStatusText}</div>
-        </div>
+          <div class="text-center w-2/12">
+            <span class="text-xl sm:text-2xl font-black text-white">${state === 'pre' ? 'VS' : (home.score || '0') + ' - ' + (away.score || '0')}</span>
+            <div class="text-[10px] text-emerald-400 font-bold mt-1">${liveOrStatusText}</div>
+          </div>
 
-        <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
-          <img src="${awayLogo}" loading="lazy" class="w-12 h-12 object-contain group-hover:scale-110 transition-transform" alt="">
-          <span class="font-bold text-xs text-white mt-1 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
-            <span class="truncate">${away.team.displayName}</span>
-            ${isTeamFavorite(away.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
-          </span>
+          <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
+            <img src="${awayLogo}" loading="lazy" class="w-12 h-12 object-contain group-hover:scale-110 transition-transform" alt="">
+            <span class="font-bold text-xs text-white mt-1 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
+              <span class="truncate">${away.team.displayName}</span>
+              ${isTeamFavorite(away.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
+            </span>
+          </div>
         </div>
+        ${goalsHtml}
       </div>
-      ${goalsHtml}
-    </div>
-  `;
+    `;
+  }
 
   let statsBlockHtml = '';
   if (state === 'pre') {
@@ -581,7 +610,8 @@ function renderModalCompleteData(data, leagueId) {
       </div>
     `;
   }
-  document.getElementById('mcontent-stats').innerHTML = statsBlockHtml;
+  const statsContainer = document.getElementById('mcontent-stats');
+  if (statsContainer) statsContainer.innerHTML = statsBlockHtml;
 
   let eventsTimelineHtml = '';
 
@@ -832,7 +862,8 @@ function renderModalCompleteData(data, leagueId) {
     `;
   }
 
-  document.getElementById('mcontent-summary').innerHTML = eventsTimelineHtml;
+  const summaryContainer = document.getElementById('mcontent-summary');
+  if (summaryContainer) summaryContainer.innerHTML = eventsTimelineHtml;
 
   const rosters = data.rosters || [];
   let lineupHtml = '';
@@ -999,7 +1030,8 @@ function renderModalCompleteData(data, leagueId) {
   } else {
     lineupHtml = `<div class="text-center py-8 text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800"><i class="fa-solid fa-user-slash text-2xl mb-2 block"></i>Susunan pemain resmi belum dirilis oleh official.</div>`;
   }
-  document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
+  const lineupContainer = document.getElementById('mcontent-lineup');
+  if (lineupContainer) lineupContainer.innerHTML = lineupHtml;
 }
 
 function switchModalTab(tabName) {
@@ -1023,85 +1055,16 @@ function switchModalTab(tabName) {
 
 function closeModal() {
   currentOpenModal = null;
-  document.getElementById('detail-modal').classList.add('hidden');
-}
-
-// Team Detail Modal Controller & Upcoming Match Integration
-async function openTeamDetail(leagueId, teamId, teamName) {
-  currentOpenTeamModal = { leagueId, teamId, teamName };
-  const modal = document.getElementById('team-modal');
-  if (!modal) return;
-
-  const nameEl = document.getElementById('team-modal-name');
-  if (nameEl) nameEl.innerText = teamName;
-
-  modal.classList.remove('hidden');
-  switchTeamModalTab('matches');
-}
-
-async function switchTeamModalTab(tabName) {
-  const tabs = ['squad', 'matches', 'standings'];
-  tabs.forEach(t => {
-    const btn = document.getElementById(`ttab-${t}`);
-    const content = document.getElementById(`tcontent-${t}`);
-    if (btn && content) {
-      if (t === tabName) {
-        btn.className = "flex-1 py-2.5 px-2 text-[11px] font-bold text-emerald-400 border-b-2 border-emerald-500 transition whitespace-nowrap";
-        content.classList.remove('hidden');
-      } else {
-        btn.className = "flex-1 py-2.5 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap";
-        content.classList.add('hidden');
-      }
-    }
-  });
-
-  if (!currentOpenTeamModal) return;
-  const { leagueId, teamId } = currentOpenTeamModal;
-
-  if (tabName === 'matches') {
-    const container = document.getElementById('tcontent-matches');
-    if (container) {
-      container.innerHTML = `
-        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
-          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
-          <p class="text-xs">Memuat jadwal pertandingan mendatang...</p>
-        </div>
-      `;
-      const upcoming = await fetchTeamUpcomingMatches(teamId);
-      if (upcoming && upcoming.length > 0) {
-        container.innerHTML = '<div id="team-upcoming-list" class="space-y-2.5"></div>';
-        renderMatchesCards('team-upcoming-list', upcoming, true);
-      } else {
-        container.innerHTML = `
-          <div class="text-center py-8 px-4 bg-slate-900/50 border border-slate-800 rounded-2xl text-slate-500 text-xs">
-            <i class="fa-solid fa-calendar-xmark text-2xl mb-2 block text-slate-600"></i>
-            Tidak ada jadwal pertandingan selanjutnya.
-          </div>
-        `;
-      }
-    }
-  } else if (tabName === 'standings') {
-    const container = document.getElementById('tcontent-standings');
-    if (container) {
-      container.innerHTML = `
-        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
-          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
-          <p class="text-xs">Memuat klasemen...</p>
-        </div>
-      `;
-      try {
-        const targetLeague = LEAGUES.find(l => l.id === leagueId) || LEAGUES[0];
-        container.innerHTML = '';
-        await renderLeagueStandingsTable(targetLeague, container, [teamId]);
-      } catch (err) {
-        container.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
-      }
-    }
-  }
-}
-
-function closeTeamModal() {
-  currentOpenTeamModal = null;
-  const modal = document.getElementById('team-modal');
+  const modal = document.getElementById('detail-modal');
   if (modal) modal.classList.add('hidden');
 }
+
+// Window Scope Registration
+window.openMatchDetail = openMatchDetail;
+window.switchModalTab = switchModalTab;
+window.closeModal = closeModal;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.openLeagueModal = openLeagueModal;
+window.closeLeagueModal = closeLeagueModal;
+window.selectLeagueFromModal = selectLeagueFromModal;
