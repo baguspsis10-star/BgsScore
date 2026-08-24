@@ -1,8 +1,5 @@
-/* ==========================================
-   BGS SCOREHUB - GLOBAL UTILITIES & STYLES
-   ========================================== */
+/* GLOBAL UTILITIES & ANIMATIONS */
 
-/* HIDE SCROLLBAR */
 .no-scrollbar::-webkit-scrollbar { 
   display: none; 
 }
@@ -12,7 +9,6 @@
   scrollbar-width: none; 
 }
 
-/* ANIMATIONS & EFFECTS */
 @keyframes goalGlowPulse {
   0%, 100% {
     transform: scale(1);
@@ -43,62 +39,4 @@
 
 .animate-bounce-ball {
   animation: bounceBall 0.6s infinite ease-in-out;
-}
-
-/* ==========================================
-   POPULAR LEAGUES STYLING (YELLOW TEXT & CARD)
-   ========================================== */
-
-/* Class teks kuning untuk nama liga populer */
-.league-title-yellow,
-.league-name-popular,
-.popular-league-text {
-  color: #facc15 !important; /* Yellow Gold Accent */
-  font-weight: 700 !important;
-  text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.6);
-  letter-spacing: 0.3px;
-}
-
-/* Hover state untuk teks & item liga populer */
-.league-title-yellow:hover,
-.league-item-popular:hover .league-title-yellow {
-  color: #fef08a !important; /* Kuning lebih terang saat di-hover */
-  text-shadow: 0px 0px 8px rgba(250, 204, 21, 0.6);
-}
-
-/* Container & Card Liga Populer */
-.popular-leagues-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-}
-
-.popular-league-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
-  border: 1px solid rgba(250, 204, 21, 0.25);
-  border-radius: 10px;
-  padding: 10px 14px;
-  transition: all 0.25s ease-in-out;
-  cursor: pointer;
-}
-
-.popular-league-card:hover {
-  border-color: #facc15;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(250, 204, 21, 0.15);
-}
-
-/* Badge singkat liga populer (contoh: UCL, EPL) */
-.popular-league-badge {
-  background-color: #facc15;
-  color: #0f172a;
-  font-weight: 800;
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 6px;
-  text-transform: uppercase;
 }
