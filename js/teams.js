@@ -86,7 +86,7 @@ function switchTeamModalTab(tabName) {
   });
 }
 
-// Load Team Matches Summary in Team Modal
+// Load Team Matches Summary in Team Modal (Multi-Source Scoreboard Fetch)
 async function loadTeamMatchesSummary(leagueId, teamId) {
   const container = document.getElementById('tcontent-summary');
   container.innerHTML = `
@@ -97,61 +97,91 @@ async function loadTeamMatchesSummary(leagueId, teamId) {
   `;
 
   try {
-    // 1. Tentukan ID liga target (Gunakan leagueId spesifik, bukan 'all')
-    let targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'esp.1';
-    let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/schedule`);
-    let data = await res.json();
-    let events = data.events || [];
+    const now = new Date();
+    const past2Weeks = new Date(now.getTime() - (14 * 24 * 60 * 60 * 1000));
+    const next3Weeks = new Date(now.getTime() + (21 * 24 * 60 * 60 * 1000));
+    const dateRangeStr = `${getFormattedDate(past2Weeks)}-${getFormattedDate(next3Weeks)}`;
 
-    // 2. Fallback: Jika data kosong, cari di liga-liga utama lain
-    if (events.length === 0) {
-      const fallbackLeagues = ['esp.1', 'eng.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions', 'idn.1'];
-      for (const fLeague of fallbackLeagues) {
-        if (fLeague === targetLeague) continue;
-        try {
-          const fRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${fLeague}/teams/${teamId}/schedule`);
-          const fData = await fRes.json();
-          if (fData.events && fData.events.length > 0) {
-            events = fData.events;
-            targetLeague = fLeague;
-            break;
-          }
-        } catch (e) {}
-      }
+    let targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'esp.1';
+    
+    // Daftar liga utama & piala yang berpotensi diikuti klub
+    const leagueList = Array.from(new Set([
+      targetLeague,
+      'esp.1', 'eng.1', 'ita.1', 'ger.1', 'fra.1', 'idn.1',
+      'uefa.champions', 'uefa.europa', 'esp.copa_del_rey', 'eng.fa'
+    ]));
+
+    const allEventsMap = new Map();
+
+    // 1. Ambil dari memori aplikasi (cachedEvents) jika sudah pernah ter-load di halaman utama
+    if (typeof cachedEvents !== 'undefined' && Array.isArray(cachedEvents)) {
+      cachedEvents.forEach(evt => {
+        const comp = evt.competitions?.[0];
+        const hId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
+        const aId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
+        if (String(hId) === String(teamId) || String(aId) === String(teamId)) {
+          allEventsMap.set(evt.id, evt);
+        }
+      });
     }
 
-    // Normalisasi properti liga untuk setiap event
-    const leagueInfo = LEAGUES.find(l => l.id === targetLeague) || {};
-    const formattedEvents = events.map(evt => ({
-      ...evt,
-      leagueName: evt.leagueName || leagueInfo.name || 'Kompetisi',
-      leagueId: evt.leagueId || targetLeague,
-      leagueLogo: evt.leagueLogo || leagueInfo.logo || '',
-      leagueFlag: evt.leagueFlag || leagueInfo.flag || ''
-    }));
+    // 2. Fetch Scoreboard dengan Rentang Tanggal (-14 hari s/d +21 hari)
+    const scoreboardPromises = leagueList.slice(0, 6).map(lId => 
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lId}/scoreboard?dates=${dateRangeStr}`)
+        .then(res => res.json())
+        .then(data => (data.events || []).map(evt => {
+          const lInfo = LEAGUES.find(l => l.id === lId) || {};
+          return {
+            ...evt,
+            leagueName: evt.leagueName || lInfo.name || 'Kompetisi',
+            leagueId: lId,
+            leagueLogo: evt.leagueLogo || lInfo.logo || '',
+            leagueFlag: evt.leagueFlag || lInfo.flag || ''
+          };
+        }))
+        .catch(() => [])
+    );
 
-    const now = new Date();
-    const twoWeeksLater = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
+    // 3. Backup: Fetch langsung dari endpoint Schedule tim
+    const schedulePromise = fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/schedule`)
+      .then(res => res.json())
+      .then(data => (data.events || []).map(evt => {
+        const lInfo = LEAGUES.find(l => l.id === targetLeague) || {};
+        return {
+          ...evt,
+          leagueName: evt.leagueName || lInfo.name || 'Kompetisi',
+          leagueId: targetLeague,
+          leagueLogo: evt.leagueLogo || lInfo.logo || '',
+          leagueFlag: evt.leagueFlag || lInfo.flag || ''
+        };
+      }))
+      .catch(() => []);
 
-    // Filter Pertandingan 2 Minggu ke depan
-    const upcoming = formattedEvents
+    const results = await Promise.all([...scoreboardPromises, schedulePromise]);
+
+    // Masukkan seluruh hasil match ke Map untuk eliminasi duplikasi ID
+    results.flat().forEach(evt => {
+      const comp = evt.competitions?.[0];
+      const hId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
+      const aId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
+      if (String(hId) === String(teamId) || String(aId) === String(teamId)) {
+        allEventsMap.set(evt.id, evt);
+      }
+    });
+
+    const allEvents = Array.from(allEventsMap.values());
+
+    // Filter Upcoming (state 'pre' atau 'in')
+    const upcoming = allEvents
       .filter(e => {
         const d = new Date(e.date);
         const state = e.status?.type?.state;
-        return (state === 'pre' || state === 'in') && d >= new Date(now.getTime() - 12 * 3600 * 1000) && d <= twoWeeksLater;
+        return (state === 'pre' || state === 'in') && d >= new Date(now.getTime() - 12 * 3600 * 1000);
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Fallback: Jika dalam 2 minggu persis kosong, ambil 5 pertandingan mendatang terdekat
-    const displayUpcoming = upcoming.length > 0 
-      ? upcoming 
-      : formattedEvents
-          .filter(e => (e.status?.type?.state === 'pre' || e.status?.type?.state === 'in') && new Date(e.date) >= new Date(now.getTime() - 12 * 3600 * 1000))
-          .sort((a, b) => new Date(a.date) - new Date(b.date))
-          .slice(0, 5);
-
-    // Filter 5 Pertandingan Terakhir yang sudah selesai
-    const finished = formattedEvents
+    // Filter Finished (state 'post') -> Ambil 5 laga terbaru
+    const finished = allEvents
       .filter(e => e.status?.type?.state === 'post')
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 5);
@@ -159,18 +189,18 @@ async function loadTeamMatchesSummary(leagueId, teamId) {
     container.innerHTML = '';
 
     // Render Pertandingan Mendatang
-    if (displayUpcoming.length > 0) {
+    if (upcoming.length > 0) {
       const upSec = document.createElement('div');
       upSec.className = 'space-y-2';
       upSec.innerHTML = `
         <h4 class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center justify-between">
           <span class="flex items-center gap-1.5"><i class="fa-regular fa-calendar-days"></i> Pertandingan Mendatang</span>
-          <span class="text-[10px] text-slate-400 lowercase font-normal">(2 minggu ke depan: ${displayUpcoming.length})</span>
+          <span class="text-[10px] text-slate-400 lowercase font-normal">(${upcoming.length} laga)</span>
         </h4>
         <div id="team-upcoming-grid" class="space-y-2"></div>
       `;
       container.appendChild(upSec);
-      renderMatchesCards('team-upcoming-grid', displayUpcoming, true);
+      renderMatchesCards('team-upcoming-grid', upcoming, true);
     } else {
       container.innerHTML += `
         <div class="p-3 bg-slate-900 rounded-xl text-xs text-slate-500 border border-slate-800 text-center">
