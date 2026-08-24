@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BGS ScoreHub - Live Score & Klasemen</title>
+  <title>BGS ScoreHub - Live Score & League</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -231,7 +231,7 @@
 
       <button onclick="bottomNavSwitch('league')" id="bnav-league" class="bnav-item flex flex-col items-center gap-1 text-slate-400 hover:text-white w-1/3">
         <i class="fa-solid fa-chart-simple text-base"></i>
-        <span class="text-[10px]">Klasemen</span>
+        <span class="text-[10px]">League</span>
       </button>
     </div>
   </nav>
@@ -358,7 +358,7 @@
           <i class="fa-solid fa-xmark text-base"></i>
         </button>
       </div>
-      <div class="p-4 overflow-y-auto space-y-4" id="league-selector-grid"></div>
+      <div class="p-4 overflow-y-auto space-y-3" id="league-selector-grid"></div>
     </div>
   </div>
 
@@ -393,7 +393,7 @@
               <i class="fa-solid fa-users mr-1"></i> Lineup
             </button>
             <button onclick="switchModalTab('standings')" id="mtab-standings" class="flex-1 py-2.5 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">
-              <i class="fa-solid fa-trophy mr-1"></i> Klasemen
+              <i class="fa-solid fa-trophy mr-1"></i> League
             </button>
             <button onclick="switchModalTab('h2h')" id="mtab-h2h" class="flex-1 py-2.5 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">
               <i class="fa-solid fa-clock-rotate-left mr-1"></i> Form & H2H
@@ -432,7 +432,7 @@
             <i class="fa-solid fa-user-group mr-1"></i> Squad
           </button>
           <button onclick="switchTeamModalTab('standings')" id="ttab-standings" class="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white transition">
-            <i class="fa-solid fa-trophy mr-1"></i> Klasemen
+            <i class="fa-solid fa-trophy mr-1"></i> League
           </button>
         </div>
 
@@ -667,7 +667,7 @@
     let leagueLogoCache = {};
 
     const PLAIN_SHIELD_LOGO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748b'><path d='M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3z'/></svg>";
-    const PLAIN_PERSON_HEADSHOT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+    const PLAIN_PERSON_HEADSHOT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
     // GENERATOR LOGO CUSTOM SANGAT RINGAN & Bebas Lisensi
     function generateUnlicensedLeagueBadge(leagueId, leagueName = '', country = '') {
@@ -827,6 +827,7 @@
       img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
     }
 
+    // LIST LIGA BERDASARKAN KATEGORI (COLLAPSIBLE ACCORDION SANGAT RINGKAS)
     function renderCategorizedLeagueGrid(onSelectFunctionName) {
       const categories = [
         'Eropa',
@@ -841,23 +842,26 @@
         if (catLeagues.length === 0) return '';
 
         return `
-          <div class="space-y-1.5 mb-3">
-            <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider pb-1 border-b border-slate-800/80 flex items-center gap-1.5">
-              <i class="fa-solid fa-layer-group text-[9px]"></i> ${cat}
-            </h4>
-            <div class="flex flex-col gap-1.5">
+          <details class="mb-2.5 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group">
+            <summary class="p-2.5 font-bold text-xs text-emerald-400 uppercase tracking-wider flex items-center justify-between cursor-pointer select-none bg-slate-900/90 hover:bg-slate-800 transition">
+              <span class="flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-[10px]"></i> ${cat} <span class="text-[10px] text-slate-400 font-normal">(${catLeagues.length})</span>
+              </span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-open:rotate-180 transition-transform"></i>
+            </summary>
+            <div class="p-2 flex flex-col gap-1.5 bg-slate-950/50 border-t border-slate-800/80">
               ${catLeagues.map(l => `
-                <button onclick="${onSelectFunctionName}('${l.id}')" class="p-2 bg-slate-900 hover:bg-slate-800/90 border border-slate-800 hover:border-emerald-500/50 rounded-xl flex items-center gap-2.5 text-left transition group shadow-sm w-full">
-                  <img src="${generateUnlicensedLeagueBadge(l.id, l.name, l.country)}" loading="lazy" class="w-5 h-5 object-contain shrink-0 group-hover:scale-105 transition-transform" alt="">
+                <button onclick="${onSelectFunctionName}('${l.id}')" class="p-2 bg-slate-900 hover:bg-slate-800/90 border border-slate-800 hover:border-emerald-500/50 rounded-xl flex items-center gap-2.5 text-left transition group/btn shadow-sm w-full">
+                  <img src="${generateUnlicensedLeagueBadge(l.id, l.name, l.country)}" loading="lazy" class="w-5 h-5 object-contain shrink-0 group-hover/btn:scale-105 transition-transform" alt="">
                   <div class="flex-1 min-w-0 pr-1">
                     <div class="text-xs font-bold text-white leading-snug whitespace-normal break-words">${l.flag ? l.flag + ' ' : ''}${l.name}</div>
                     <div class="text-[9px] text-slate-400 leading-tight mt-0.5">${l.country}</div>
                   </div>
-                  <i class="fa-solid fa-chevron-right text-[9px] text-slate-600 group-hover:text-emerald-400 transition shrink-0"></i>
+                  <i class="fa-solid fa-chevron-right text-[9px] text-slate-600 group-hover/btn:text-emerald-400 transition shrink-0"></i>
                 </button>
               `).join('')}
             </div>
-          </div>
+          </details>
         `;
       }).join('');
     }
@@ -1448,7 +1452,7 @@
       } else if (navType === 'league') {
         topHeader.classList.add('hidden');
         document.getElementById('active-badge-container').classList.remove('hidden');
-        document.getElementById('active-mode-tag').innerText = "Klasemen Liga";
+        document.getElementById('active-mode-tag').innerText = "League";
         selectedStandingsLeague = null;
         selectedStandingsTab = 'table';
       }
@@ -1731,7 +1735,7 @@
           <div class="space-y-3">
             <div class="p-3 bg-slate-900/80 border border-slate-800 rounded-xl text-center">
               <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-center gap-2">
-                <i class="fa-solid fa-trophy"></i> Pilih Liga Untuk Melihat Klasemen
+                <i class="fa-solid fa-trophy"></i> Pilih Liga / League
               </h3>
             </div>
             ${renderCategorizedLeagueGrid('selectStandingsLeague')}
@@ -1757,7 +1761,7 @@
 
         <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
           <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
-            <i class="fa-solid fa-list-ol mr-1"></i> Klasemen
+            <i class="fa-solid fa-list-ol mr-1"></i> League
           </button>
           <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
             <i class="fa-solid fa-calendar-days mr-1"></i> Match
@@ -1809,7 +1813,7 @@
         if (groups.length === 0 || groups.every(g => g.entries.length === 0)) {
           container.innerHTML = `
             <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40">
-              Klasemen untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name} tidak tersedia saat ini.
+              Tabel Klasemen untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name} tidak tersedia saat ini.
             </div>
           `;
           return;
@@ -1899,7 +1903,7 @@
         });
 
       } catch (err) {
-        container.innerHTML = `<p class="text-center text-slate-400 text-xs py-8">Tabel klasemen tidak tersedia untuk kategori ini.</p>`;
+        container.innerHTML = `<p class="text-center text-slate-400 text-xs py-8">Tabel Klasemen tidak tersedia untuk kategori ini.</p>`;
       }
     }
 
@@ -2105,7 +2109,7 @@
     function renderLeagueModalGrid() {
       const grid = document.getElementById('league-selector-grid');
       grid.innerHTML = `
-        <button onclick="selectLeagueFromModal('all')" class="w-full p-2 bg-slate-950 hover:bg-slate-800 border ${selectedLeague === 'all' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800'} rounded-xl flex items-center gap-2.5 transition text-left mb-3">
+        <button onclick="selectLeagueFromModal('all')" class="w-full p-2 bg-slate-950 hover:bg-slate-800 border ${selectedLeague === 'all' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800'} rounded-xl flex items-center gap-2.5 transition text-left mb-2">
           <i class="fa-solid fa-globe text-emerald-400 text-base"></i>
           <div>
             <div class="text-xs font-bold text-white">Semua Liga</div>
