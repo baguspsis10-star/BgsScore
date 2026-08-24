@@ -166,13 +166,14 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
   sortedEvents.forEach(event => {
     const comp = event.competitions[0];
     const home = comp.competitors.find(c => c.homeAway === 'home');
-    const away = comp.competitors.find(c => c.awayAway === 'away' || c.homeAway !== 'home');
+    // FIXED: Typo c.awayAway diperbaiki menjadi c.homeAway === 'away'
+    const away = comp.competitors.find(c => c.homeAway === 'away');
     
-    const homeLogo = getTeamLogo(home.team);
-    const awayLogo = getTeamLogo(away.team);
+    const homeLogo = getTeamLogo(home?.team);
+    const awayLogo = getTeamLogo(away?.team);
 
-    const homeFav = isTeamFavorite(home.team?.id);
-    const awayFav = isTeamFavorite(away.team?.id);
+    const homeFav = isTeamFavorite(home?.team?.id);
+    const awayFav = isTeamFavorite(away?.team?.id);
     const hasFavTeam = homeFav || awayFav;
 
     const state = event.status.type.state; 
@@ -180,7 +181,6 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
     const isLive = state === 'in';
     const liveMinuteText = event.status?.type?.shortDetail || 'LIVE';
     
-    // Format tanggal lokal
     const formattedTime = formatLocalDate(event.date);
     const favorited = isFavorite(event.id);
 
@@ -189,7 +189,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
 
     let scoreDisplay = isPre 
       ? `<span class="text-xs font-extrabold text-emerald-400 whitespace-nowrap bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">VS</span>`
-      : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800'} whitespace-nowrap">${home.score ?? '0'} - ${away.score ?? '0'}</span>`;
+      : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
 
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border bg-slate-900 hover:border-slate-700 transition cursor-pointer relative ${
@@ -202,7 +202,6 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
     };
 
     card.innerHTML = `
-      <!-- Header Atas: Hanya Badge Favorit & Liga -->
       <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2 gap-2">
         <div class="flex items-center gap-1.5 flex-1 min-w-0">
           ${hasFavTeam ? '<span class="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold shrink-0"><i class="fa-solid fa-star text-[8px] mr-1"></i>TIM FAVORIT</span>' : ''}
@@ -216,17 +215,15 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
         </div>
       </div>
 
-      <!-- Body Utama: Tim Kiri, Skor/VS & Tanggal Lengkap di Tengah, Tim Kanan -->
       <div class="flex items-center justify-between gap-1.5 pt-1">
         <div class="flex items-center gap-2 w-[36%] min-w-0">
           <img src="${homeLogo}" loading="lazy" class="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="">
           <span class="font-bold text-xs truncate leading-tight text-slate-100 flex items-center gap-1">
-            <span class="truncate">${home.team.shortDisplayName}</span>
+            <span class="truncate">${home?.team?.shortDisplayName || ''}</span>
             ${homeFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
           </span>
         </div>
 
-        <!-- Kolom Tengah (Skor + Tanggal Lengkap di Bawahnya) -->
         <div class="w-[28%] shrink-0 flex flex-col items-center justify-center text-center">
           ${scoreDisplay}
           <span class="mt-1.5 text-[10px] font-semibold text-slate-400 flex items-center justify-center gap-1 whitespace-nowrap">
@@ -238,7 +235,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
         <div class="flex items-center justify-end gap-2 w-[36%] min-w-0 text-right">
           <span class="font-bold text-xs truncate leading-tight text-slate-100 flex items-center justify-end gap-1">
             ${awayFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
-            <span class="truncate">${away.team.shortDisplayName}</span>
+            <span class="truncate">${away?.team?.shortDisplayName || ''}</span>
           </span>
           <img src="${awayLogo}" loading="lazy" class="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="">
         </div>

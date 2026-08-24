@@ -1,5 +1,19 @@
 // MODALS & DIALOG CONTROLLER MODULE
 
+// Global Web Audio Context Instance
+let globalAudioCtx = null;
+
+function getAudioContext() {
+  if (!globalAudioCtx) {
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtxClass) globalAudioCtx = new AudioCtxClass();
+  }
+  if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+    globalAudioCtx.resume();
+  }
+  return globalAudioCtx;
+}
+
 // Notification Settings Modal Handlers
 function openSettingsModal() {
   document.getElementById('snd-master').checked = soundSettings.master;
@@ -78,9 +92,8 @@ function sendPushNotification(title, body) {
 
 function playWhistlePattern(pattern) {
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
+    if (!ctx) return;
     let startTime = ctx.currentTime;
 
     pattern.forEach((dur) => {
@@ -111,11 +124,10 @@ function playWhistlePattern(pattern) {
 function playEventSound(type) {
   if (!soundSettings.master || !soundSettings[type]) return;
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
 
     if (type === 'goal') {
-      const ctx = new AudioContext();
       const bufferSize = ctx.sampleRate * 3.0; 
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const data = buffer.getChannelData(0);
@@ -196,8 +208,8 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   const container = document.getElementById('modal-data-container');
   const flag = getLeagueFlag(leagueId);
   
-  // PAKSA Z-INDEX PALING ATAS AGAR KELUAR DI ATAS MENU KLUB
-  modal.style.zIndex = '9999';
+  // FIXED: Hapus style zIndex inline 9999 yang memblokir modal klub
+  modal.style.zIndex = '';
   
   document.getElementById('modal-league-name').innerText = `${flag ? flag + ' ' : ''}${leagueName}`;
 
@@ -214,7 +226,6 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/summary?event=${eventId}`);
     let data = await res.json();
     
-    // Fallback universal jika endpoint liga spesifik gagal/kosong
     if (!data.header || !data.header.competitions) {
       const resAll = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${eventId}`);
       data = await resAll.json();
