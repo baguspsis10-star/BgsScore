@@ -179,33 +179,36 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
     const isPre = state === 'pre';
     const isLive = state === 'in';
     const liveMinuteText = event.status?.type?.shortDetail || 'LIVE';
+    
+    // Teks Tanggal yang akan dipindah ke tengah bawah
     const formattedTime = formatLocalDate(event.date);
+    
     const favorited = isFavorite(event.id);
 
     const eventIdStr = String(event.id);
     const hasRecentGoal = recentGoalCache[eventIdStr] && ((Date.now() - recentGoalCache[eventIdStr]) < 30000);
 
     let scoreDisplay = isPre 
-      ? `<span class="text-xs font-extrabold text-emerald-400 whitespace-nowrap">VS</span>`
-      : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white'} whitespace-nowrap">${home.score ?? '0'} - ${away.score ?? '0'}</span>`;
+      ? `<span class="text-xs font-extrabold text-emerald-400 whitespace-nowrap bg-slate-950/80 px-2 py-1 rounded-lg border border-slate-800">VS</span>`
+      : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white bg-slate-950/80 px-2 py-1 rounded-lg border border-slate-800'} whitespace-nowrap">${home.score ?? '0'} - ${away.score ?? '0'}</span>`;
 
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border bg-slate-900 hover:border-slate-700 transition cursor-pointer relative ${
       hasFavTeam ? 'border-amber-500/80 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 shadow-md' : (favorited ? 'border-amber-500/60 bg-amber-950/20' : (isLive ? 'border-red-500/50 bg-red-950/10' : 'border-slate-800/80'))
     }`;
     
-    card.onclick = () => openMatchDetail(event.leagueId || 'idn.1', event.id, event.leagueName || 'Detail');
+    card.onclick = (e) => {
+      e.stopPropagation();
+      openMatchDetail(event.leagueId || 'idn.1', event.id, event.leagueName || 'Detail');
+    };
 
     card.innerHTML = `
-      <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2.5 gap-2">
-        <div class="flex items-center gap-1.5 flex-1 min-w-0">
+      <div class="flex items-center justify-between text-[11px] text-slate-400 mb-3">
+        <div class="flex items-center gap-1.5">
           ${hasFavTeam ? '<span class="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold shrink-0"><i class="fa-solid fa-star text-[8px] mr-1"></i>TIM FAVORIT</span>' : ''}
-          <span class="${isLive ? 'text-red-400 font-bold animate-pulse' : 'text-slate-400'} flex items-center truncate">
-            <i class="fa-regular fa-clock mr-1 shrink-0"></i><span class="truncate">${isLive ? liveMinuteText : formattedTime}</span>
-          </span>
+          ${showLeagueBadge ? `<span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded truncate max-w-[120px]">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>` : ''}
         </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-          ${showLeagueBadge ? `<span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded truncate max-w-[80px]">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>` : ''}
+        <div class="flex items-center gap-2 shrink-0">
           <button onclick="toggleFavorite('${event.id}', event)" class="p-1 hover:scale-125 transition text-xs" title="Favorit">
             <i class="${favorited ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-500 hover:text-amber-400'}"></i>
           </button>
@@ -213,25 +216,28 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
         </div>
       </div>
 
-      <div class="flex items-center justify-between gap-1.5">
-        <div class="flex items-center gap-2 w-[42%] min-w-0">
-          <img src="${homeLogo}" loading="lazy" class="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="">
-          <span class="font-semibold text-xs truncate leading-tight text-slate-100 flex items-center gap-1">
+      <div class="flex items-start justify-between gap-1.5">
+        <div class="flex flex-col items-center gap-1.5 w-[35%] min-w-0">
+          <img src="${homeLogo}" loading="lazy" class="w-8 h-8 object-contain shrink-0" alt="">
+          <span class="font-bold text-xs text-center leading-tight text-slate-100 flex items-center justify-center gap-1 w-full">
             <span class="truncate">${home.team.shortDisplayName}</span>
             ${homeFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
           </span>
         </div>
 
-        <div class="w-[16%] shrink-0 text-center bg-slate-950/80 py-1 px-1 rounded-lg border border-slate-800 flex items-center justify-center">
+        <div class="w-[30%] shrink-0 flex flex-col items-center justify-center pt-1">
           ${scoreDisplay}
+          <span class="mt-2 text-[9px] font-semibold text-center ${isLive ? 'text-red-400 font-bold animate-pulse' : 'text-slate-400'}">
+            ${isLive ? `<i class="fa-solid fa-circle text-[6px] mr-1"></i>${liveMinuteText}` : formattedTime}
+          </span>
         </div>
 
-        <div class="flex items-center justify-end gap-2 w-[42%] min-w-0 text-right">
-          <span class="font-semibold text-xs truncate leading-tight text-slate-100 flex items-center justify-end gap-1">
+        <div class="flex flex-col items-center gap-1.5 w-[35%] min-w-0">
+          <img src="${awayLogo}" loading="lazy" class="w-8 h-8 object-contain shrink-0" alt="">
+          <span class="font-bold text-xs text-center leading-tight text-slate-100 flex items-center justify-center gap-1 w-full">
             ${awayFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
             <span class="truncate">${away.team.shortDisplayName}</span>
           </span>
-          <img src="${awayLogo}" loading="lazy" class="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="">
         </div>
       </div>
     `;

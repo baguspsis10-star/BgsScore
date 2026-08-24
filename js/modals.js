@@ -196,6 +196,10 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   const container = document.getElementById('modal-data-container');
   const flag = getLeagueFlag(leagueId);
   
+  // Pastikan Modal Detail Pertandingan muncul paling atas (di atas modal tim)
+  modal.classList.remove('z-50');
+  modal.classList.add('z-[60]');
+  
   document.getElementById('modal-league-name').innerText = `${flag ? flag + ' ' : ''}${leagueName}`;
 
   modal.classList.remove('hidden');
