@@ -24,10 +24,12 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
   if (event) event.stopPropagation();
   currentOpenTeam = { leagueId, teamId, teamName };
 
-  const modal = document.getElementById('team-detail-modal');
-  // Atur z-index dinamis agar modal klub berada di lapisan teratas jika dibuka dari detail match
-  modal.style.zIndex = getNextZIndex();
+  // PERBAIKAN: Tutup modal detail pertandingan jika sedang terbuka
+  if (typeof closeModal === 'function') {
+    closeModal();
+  }
 
+  const modal = document.getElementById('team-detail-modal');
   document.getElementById('team-modal-title').innerText = teamName;
   modal.classList.remove('hidden');
 
@@ -68,7 +70,6 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
 function closeTeamModal() {
   currentOpenTeam = null;
   document.getElementById('team-detail-modal').classList.add('hidden');
-  checkResetZIndex();
 }
 
 // Switch Team Modal Tabs (Summary / Player / Standings)
