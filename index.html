@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BGS ScoreHub</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/pitch.css">
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen pb-20 select-none">
+
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800/80 px-4 py-3 shadow-md">
+    <div class="max-w-md mx-auto flex items-center justify-between gap-2">
+      
+      <!-- Brand & Title dengan Logo SVG BGS Custom -->
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-inner overflow-hidden p-1">
+          <svg class="w-full h-full" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 5 L90 20 L90 60 C90 80 50 95 50 95 C50 95 10 80 10 60 L10 20 Z" fill="#047857" stroke="#10b981" stroke-width="6"/>
+            <text x="50" y="58" font-family="Arial, sans-serif" font-weight="900" font-size="28" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">BGS</text>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-sm font-black tracking-tight text-white leading-none">BGS <span class="text-emerald-400">ScoreHub</span></h1>
+          <span id="user-timezone-info" class="text-[9px] text-slate-400 font-medium">Zona HP: WIB</span>
+        </div>
+      </div>
+
+      <!-- Action Tools -->
+      <div class="flex items-center gap-1.5">
+        <button id="data-saver-btn" onclick="toggleDataSaver()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition flex items-center gap-1.5 text-xs font-bold">
+          <i class="fa-solid fa-bolt text-amber-400"></i>
+          <span id="data-saver-label">Normal</span>
+        </button>
+
+        <button onclick="openSettingsModal()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition text-xs" title="Pengaturan Notifikasi">
+          <i class="fa-solid fa-bell"></i>
+        </button>
+
+        <button onclick="loadData(false)" class="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition text-xs shadow-lg shadow-emerald-600/30">
+          <i id="refresh-icon" class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-md mx-auto px-3 pt-3 space-y-3">
+
+    <!-- SEARCH & FILTER BAR -->
+    <div class="space-y-2">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+        <input type="text" id="search-input" oninput="handleSearch(this.value)" placeholder="Cari tim atau liga..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition shadow-inner">
+        <button id="search-clear-btn" onclick="clearSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs hidden">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Header Controls & League Selector -->
+      <div id="top-all-matches-header" class="flex items-center justify-between gap-2">
+        <button onclick="openLeagueModal()" class="flex-1 bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-xl flex items-center justify-between text-xs text-slate-200 transition shadow-sm">
+          <span id="active-league-badge" class="font-bold truncate flex items-center gap-1.5">
+            <i class="fa-solid fa-globe text-emerald-400"></i> Semua Liga
+          </span>
+          <i class="fa-solid fa-chevron-down text-[10px] text-slate-500"></i>
+        </button>
+      </div>
+
+      <!-- Mode Info Badge -->
+      <div id="active-badge-container" class="flex items-center justify-between px-1 text-[10px] text-slate-400">
+        <span id="active-mode-tag" class="font-medium text-slate-400">Urut Waktu & Tim Favorit</span>
+      </div>
+
+      <!-- Horizontal Date Strip Container -->
+      <div id="date-strip-container" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1"></div>
+    </div>
+
+    <!-- LOADING SPINNER -->
+    <div id="loading" class="hidden py-12 text-center space-y-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400"></i>
+      <p class="text-xs text-slate-400 font-medium">Memuat data live...</p>
+    </div>
+
+    <!-- CONTENT VIEWS -->
+    <div id="matches-container" class="space-y-2.5"></div>
+    <div id="live-container" class="space-y-4 hidden"></div>
+    <div id="fav-container" class="space-y-4 hidden"></div>
+    <div id="standings-container" class="space-y-3 hidden"></div>
+    <div id="search-results-container" class="space-y-3 hidden"></div>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur border-t border-slate-800/80 px-2 py-2 shadow-lg">
+    <div class="max-w-md mx-auto grid grid-cols-4 gap-1 text-center">
+      
+      <button id="bnav-all" onclick="bottomNavSwitch('all')" class="bnav-item flex flex-col items-center justify-center text-emerald-400 font-bold transition">
+        <i class="fa-solid fa-house text-base mb-0.5"></i>
+        <span class="text-[10px]">Semua</span>
+      </button>
+
+      <button id="bnav-live" onclick="bottomNavSwitch('live')" class="bnav-item flex flex-col items-center justify-center text-slate-400 transition">
+        <i class="fa-solid fa-tower-broadcast text-base mb-0.5"></i>
+        <span class="text-[10px]">Live</span>
+      </button>
+
+      <button id="bnav-fav" onclick="bottomNavSwitch('fav')" class="bnav-item flex flex-col items-center justify-center text-slate-400 transition">
+        <i class="fa-solid fa-star text-base mb-0.5"></i>
+        <span class="text-[10px]">Favorit</span>
+      </button>
+
+      <button id="bnav-league" onclick="bottomNavSwitch('league')" class="bnav-item flex flex-col items-center justify-center text-slate-400 transition">
+        <i class="fa-solid fa-trophy text-base mb-0.5"></i>
+        <span class="text-[10px]">Klasemen</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- MODAL: LEAGUE SELECTOR -->
+  <div id="league-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+      <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+          <i class="fa-solid fa-trophy text-emerald-400"></i> Pilih Liga
+        </h3>
+        <button onclick="closeLeagueModal()" class="text-slate-400 hover:text-white p-1 text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="league-selector-grid" class="p-3 overflow-y-auto space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: MATCH DETAIL (FULL SCREEN MOBILE) -->
+  <div id="detail-modal" class="fixed inset-0 z-50 bg-slate-950 flex flex-col justify-center sm:items-center p-0 sm:p-4 hidden">
+    <div class="bg-slate-900 border-0 sm:border border-slate-800 w-full max-w-md h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      
+      <!-- Modal Header -->
+      <div class="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900 shrink-0">
+        <button onclick="closeModal()" class="text-emerald-400 hover:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-arrow-left"></i> Kembali
+        </button>
+        <span id="modal-league-name" class="text-xs font-bold text-emerald-400 truncate flex items-center gap-1.5 max-w-[65%]">Detail Pertandingan</span>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1 text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="modal-loading" class="py-12 text-center space-y-2 flex-1 flex flex-col items-center justify-center">
+        <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400"></i>
+        <p class="text-xs text-slate-400">Memuat rincian pertandingan...</p>
+      </div>
+
+      <!-- Modal Body Content -->
+      <div id="modal-data-container" class="flex-1 overflow-y-auto p-3 space-y-3 hidden">
+        <div id="modal-score-header"></div>
+
+        <!-- Detail Navigation Sub-Tabs -->
+        <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto no-scrollbar">
+          <button id="mtab-summary" onclick="switchModalTab('summary')" class="flex-1 py-2 px-2 text-[11px] font-bold text-emerald-400 border-b-2 border-emerald-500 transition whitespace-nowrap">Ringkasan</button>
+          <button id="mtab-stats" onclick="switchModalTab('stats')" class="flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">Statistik</button>
+          <button id="mtab-lineup" onclick="switchModalTab('lineup')" class="flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">Lineup</button>
+          <button id="mtab-standings" onclick="switchModalTab('standings')" class="flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">League</button>
+          <button id="mtab-h2h" onclick="switchModalTab('h2h')" class="flex-1 py-2 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">Form & H2H</button>
+        </div>
+
+        <div id="mcontent-summary" class="space-y-3"></div>
+        <div id="mcontent-stats" class="space-y-3 hidden"></div>
+        <div id="mcontent-lineup" class="space-y-3 hidden"></div>
+        <div id="mcontent-standings" class="space-y-3 hidden"></div>
+        <div id="mcontent-h2h" class="space-y-3 hidden"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: TEAM DETAIL (FULL SCREEN MOBILE) -->
+  <div id="team-detail-modal" class="fixed inset-0 z-50 bg-slate-950 flex flex-col justify-center sm:items-center p-0 sm:p-4 hidden">
+    <div class="bg-slate-900 border-0 sm:border border-slate-800 w-full max-w-md h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      
+      <div class="p-3.5 border-b border-slate-800 flex items-center justify-between shrink-0">
+        <button onclick="closeTeamModal()" class="text-emerald-400 hover:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-arrow-left"></i> Kembali
+        </button>
+        <span id="team-modal-title" class="text-xs font-bold text-white truncate max-w-[65%]">Detail Klub</span>
+        <button onclick="closeTeamModal()" class="text-slate-400 hover:text-white p-1 text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="team-modal-banner" class="p-3.5 bg-slate-950 border-b border-slate-800/80 flex items-center justify-between shrink-0"></div>
+
+      <div class="flex bg-slate-900 p-1 border-b border-slate-800 shrink-0">
+        <button id="ttab-player" onclick="switchTeamModalTab('player')" class="flex-1 py-2 text-xs font-bold text-emerald-400 border-b-2 border-emerald-500 transition">Skuad Pemain</button>
+        <button id="ttab-summary" onclick="switchTeamModalTab('summary')" class="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white transition">Pertandingan</button>
+        <button id="ttab-standings" onclick="switchTeamModalTab('standings')" class="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white transition">Klasemen</button>
+      </div>
+
+      <div id="team-modal-body" class="flex-1 overflow-y-auto p-3 space-y-3">
+        <div id="tcontent-player" class="space-y-3"></div>
+        <div id="tcontent-summary" class="space-y-3 hidden"></div>
+        <div id="tcontent-standings" class="space-y-3 hidden"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: SETTINGS -->
+  <div id="settings-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl space-y-3 p-4">
+      
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+          <i class="fa-solid fa-bell text-emerald-400"></i> Pengaturan Notifikasi & Suara
+        </h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-xs p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+        <div>
+          <div class="font-bold text-white">Izin Push Notification</div>
+          <div id="notif-permission-status" class="text-[9.5px] text-slate-400">Memeriksa izin...</div>
+        </div>
+        <button id="btn-request-notif" onclick="requestNotificationPermission()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition">Aktifkan</button>
+      </div>
+
+      <div class="space-y-2 text-xs max-h-[50vh] overflow-y-auto pr-1">
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="font-bold text-white">Master Suara & Push Notif</span>
+          <input type="checkbox" id="snd-master" onchange="updateSoundSetting('master', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+        
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Notifikasi Gol (Goal)</span>
+          <input type="checkbox" id="snd-goal" onchange="updateSoundSetting('goal', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Notifikasi Lineup Dirilis</span>
+          <input type="checkbox" id="snd-lineup" onchange="updateSoundSetting('lineup', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Pluit Kick-off Babak 1</span>
+          <input type="checkbox" id="snd-kickoff1" onchange="updateSoundSetting('kickoff1', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Pluit Babak Pertama (HT)</span>
+          <input type="checkbox" id="snd-halftime" onchange="updateSoundSetting('halftime', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Pluit Kick-off Babak 2</span>
+          <input type="checkbox" id="snd-kickoff2" onchange="updateSoundSetting('kickoff2', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Pluit Laga Selesai (FT)</span>
+          <input type="checkbox" id="snd-fulltime" onchange="updateSoundSetting('fulltime', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Suara Tendangan Sudut (Corner)</span>
+          <input type="checkbox" id="snd-corner" onchange="updateSoundSetting('corner', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Suara Kartu Kuning</span>
+          <input type="checkbox" id="snd-yellow" onchange="updateSoundSetting('yellow', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+
+        <label class="flex items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800/80 cursor-pointer">
+          <span class="text-slate-300">Suara Kartu Merah</span>
+          <input type="checkbox" id="snd-red" onchange="updateSoundSetting('red', this.checked)" class="accent-emerald-500 w-4 h-4">
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SCRIPT IMPORTS -->
+  <script src="js/data.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/matches.js"></script>
+  <script src="js/teams.js"></script>
+  <script src="js/standings.js"></script>
+  <script src="js/modals.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
