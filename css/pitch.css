@@ -1,0 +1,74 @@
+/* SOCCER PITCH LAYOUT STYLES */
+
+.soccer-full-pitch {
+  background: radial-gradient(circle at center, #065f46 0%, #022c22 100%);
+  border: 2px solid #059669;
+  position: relative;
+  overflow: hidden;
+  min-height: 760px !important;
+  padding: 16px 2px !important;
+}
+
+.pitch-center-line-full {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateY(-50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pitch-center-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 110px;
+  height: 110px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pitch-center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pitch-penalty-box-top {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 52%;
+  height: 55px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top: none;
+  transform: translateX(-50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pitch-penalty-box-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 52%;
+  height: 55px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-bottom: none;
+  transform: translateX(-50%);
+  z-index: 1;
+  pointer-events: none;
+}
