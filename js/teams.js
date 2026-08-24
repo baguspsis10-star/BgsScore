@@ -97,29 +97,12 @@ async function loadTeamMatchesSummary(leagueId, teamId) {
   `;
 
   try {
-    let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`);
-    if (!res.ok) {
-      res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${teamId}/schedule`);
-    }
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${teamId}/schedule`);
     const data = await res.json();
     const events = data.events || [];
 
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-
-    const upcoming = events
-      .filter(e => {
-        const state = e.status?.type?.state;
-        const matchDate = new Date(e.date);
-        return (state === 'pre' || matchDate >= now) && state !== 'post';
-      })
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .slice(0, 10);
-
-    const finished = events
-      .filter(e => e.status?.type?.state === 'post')
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 5);
+    const upcoming = events.filter(e => e.status?.type?.state === 'pre').slice(0, 5);
+    const finished = events.filter(e => e.status?.type?.state === 'post').reverse().slice(0, 5);
 
     container.innerHTML = '';
 
@@ -128,14 +111,14 @@ async function loadTeamMatchesSummary(leagueId, teamId) {
       upSec.className = 'space-y-2';
       upSec.innerHTML = `
         <h4 class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-          <i class="fa-regular fa-calendar-days"></i> Pertandingan Selanjutnya (${upcoming.length})
+          <i class="fa-regular fa-calendar-days"></i> Pertandingan Selanjutnya
         </h4>
         <div id="team-upcoming-grid" class="space-y-2"></div>
       `;
       container.appendChild(upSec);
       renderMatchesCards('team-upcoming-grid', upcoming, true);
     } else {
-      container.innerHTML += `<div class="p-3 bg-slate-900 rounded-xl text-xs text-slate-500 border border-slate-800 text-center">Tidak ada jadwal pertandingan selanjutnya.</div>`;
+      container.innerHTML += `<div class="p-3 bg-slate-900 rounded-xl text-xs text-slate-500 border border-slate-800">Tidak ada jadwal pertandingan selanjutnya.</div>`;
     }
 
     if (finished.length > 0) {

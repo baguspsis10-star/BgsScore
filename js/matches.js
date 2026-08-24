@@ -2,7 +2,6 @@
 
 // Check if Match is Favorited
 function isFavorite(eventId) {
-  if (typeof favoriteMatches === 'undefined') return false;
   return favoriteMatches.some(id => String(id) === String(eventId));
 }
 
@@ -16,7 +15,7 @@ function toggleFavorite(eventId, e) {
     favoriteMatches.push(idStr);
   }
   localStorage.setItem('bgs_favorites', JSON.stringify(favoriteMatches));
-  if (typeof loadData === 'function') loadData(true);
+  loadData(true);
 }
 
 // Sort Events Prioritizing Favorite Teams, Favorite Matches, and Date
@@ -25,8 +24,8 @@ function sortEventsByFavoriteAndDate(events) {
     const compA = a.competitions?.[0];
     const compB = b.competitions?.[0];
 
-    const aHasFavTeam = compA?.competitors?.some(c => typeof isTeamFavorite === 'function' && isTeamFavorite(c.team?.id)) ? 1 : 0;
-    const bHasFavTeam = compB?.competitors?.some(c => typeof isTeamFavorite === 'function' && isTeamFavorite(c.team?.id)) ? 1 : 0;
+    const aHasFavTeam = compA?.competitors?.some(c => isTeamFavorite(c.team?.id)) ? 1 : 0;
+    const bHasFavTeam = compB?.competitors?.some(c => isTeamFavorite(c.team?.id)) ? 1 : 0;
 
     if (bHasFavTeam !== aHasFavTeam) return bHasFavTeam - aHasFavTeam;
 
@@ -47,7 +46,7 @@ function monitorLiveFavoriteEvents(event) {
   const home = comp.competitors?.find(c => c.homeAway === 'home');
   const away = comp.competitors?.find(c => c.homeAway === 'away');
 
-  const isFavTeamMatch = (typeof isTeamFavorite === 'function') && (isTeamFavorite(home?.team?.id) || isTeamFavorite(away?.team?.id));
+  const isFavTeamMatch = isTeamFavorite(home?.team?.id) || isTeamFavorite(away?.team?.id);
   const isFavMatch = isFavorite(eventId);
 
   if (!isFavTeamMatch && !isFavMatch) return;
@@ -80,62 +79,62 @@ function monitorLiveFavoriteEvents(event) {
   if (prev) {
     if (totalScore > prev.totalScore) {
       recentGoalCache[eventId] = Date.now();
-      if (typeof soundSettings !== 'undefined' && soundSettings.goal) {
+      if (soundSettings.goal) {
         playEventSound('goal');
         sendPushNotification(`⚽ GOL! (${matchName})`, `Skor saat ini: ${homeScore} - ${awayScore}`);
       }
     }
 
     if (!prev.hasLineup && hasLineup) {
-      if (typeof soundSettings !== 'undefined' && soundSettings.lineup) {
+      if (soundSettings.lineup) {
         sendPushNotification(`📋 Lineup Dirilis!`, `Susunan pemain untuk ${matchName} sudah dirilis.`);
       }
     }
 
     if (prev.state === 'pre' && state === 'in' && period === 1) {
-      if (typeof soundSettings !== 'undefined' && soundSettings.kickoff1) {
+      if (soundSettings.kickoff1) {
         playEventSound('kickoff1');
         sendPushNotification(`🏁 Kick-off Babak 1`, `Pertandingan ${matchName} telah dimulai!`);
       }
     }
 
     if (prev.period === 1 && (detailStr.includes('ht') || detailStr.includes('half')) && !prev.isHT) {
-      if (typeof soundSettings !== 'undefined' && soundSettings.halftime) {
+      if (soundSettings.halftime) {
         playEventSound('halftime');
         sendPushNotification(`⏸ Babak 1 Selesai (HT)`, `Skor babak pertama ${matchName}: ${homeScore} - ${awayScore}`);
       }
     }
 
     if (prev.isHT && state === 'in' && period === 2) {
-      if (typeof soundSettings !== 'undefined' && soundSettings.kickoff2) {
+      if (soundSettings.kickoff2) {
         playEventSound('kickoff2');
         sendPushNotification(`▶ Kick-off Babak 2`, `Babak kedua ${matchName} telah dimulai!`);
       }
     }
 
     if (prev.state === 'in' && state === 'post') {
-      if (typeof soundSettings !== 'undefined' && soundSettings.fulltime) {
+      if (soundSettings.fulltime) {
         playEventSound('fulltime');
         sendPushNotification(`🔚 Pertandingan Selesai (FT)`, `Hasil akhir ${matchName}: ${homeScore} - ${awayScore}`);
       }
     }
 
     if (corners > prev.corners) {
-      if (typeof soundSettings !== 'undefined' && soundSettings.corner) {
+      if (soundSettings.corner) {
         playEventSound('corner');
         sendPushNotification(`🚩 Tendangan Sudut (Corner)`, `Terjadi corner pada laga ${matchName}`);
       }
     }
 
     if (yellows > prev.yellows) {
-      if (typeof soundSettings !== 'undefined' && soundSettings.yellow) {
+      if (soundSettings.yellow) {
         playEventSound('yellow');
         sendPushNotification(`🟨 Kartu Kuning`, `Kartu kuning diberikan pada laga ${matchName}`);
       }
     }
 
     if (reds > prev.reds) {
-      if (typeof soundSettings !== 'undefined' && soundSettings.red) {
+      if (soundSettings.red) {
         playEventSound('red');
         sendPushNotification(`🟥 Kartu Merah`, `Kartu merah dikeluarkan pada laga ${matchName}`);
       }
@@ -153,10 +152,10 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
   if (!container) return;
   container.innerHTML = '';
 
-  if (!events || events.length === 0) {
+  if (events.length === 0) {
     container.innerHTML = `
       <div class="text-center py-6 text-slate-500 border border-slate-800/40 rounded-xl bg-slate-900/30 text-xs">
-        Tidak ada jadwal pertandingan selanjutnya.
+        Tidak ada pertandingan.
       </div>
     `;
     return;
@@ -165,22 +164,18 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
   const sortedEvents = sortEventsByFavoriteAndDate([...events]);
 
   sortedEvents.forEach(event => {
-    const comp = event.competitions?.[0];
-    if (!comp) return;
-
-    const home = comp.competitors?.find(c => c.homeAway === 'home');
-    const away = comp.competitors?.find(c => c.homeAway === 'away');
+    const comp = event.competitions[0];
+    const home = comp.competitors.find(c => c.homeAway === 'home');
+    const away = comp.competitors.find(c => c.homeAway === 'away');
     
-    if (!home?.team || !away?.team) return;
-
     const homeLogo = getTeamLogo(home.team);
     const awayLogo = getTeamLogo(away.team);
 
-    const homeFav = typeof isTeamFavorite === 'function' ? isTeamFavorite(home.team.id) : false;
-    const awayFav = typeof isTeamFavorite === 'function' ? isTeamFavorite(away.team.id) : false;
+    const homeFav = isTeamFavorite(home.team?.id);
+    const awayFav = isTeamFavorite(away.team?.id);
     const hasFavTeam = homeFav || awayFav;
 
-    const state = event.status?.type?.state || 'pre'; 
+    const state = event.status.type.state; 
     const isPre = state === 'pre';
     const isLive = state === 'in';
     const liveMinuteText = event.status?.type?.shortDetail || 'LIVE';
@@ -194,22 +189,12 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
       ? `<span class="text-xs font-extrabold text-emerald-400 whitespace-nowrap">VS</span>`
       : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white'} whitespace-nowrap">${home.score ?? '0'} - ${away.score ?? '0'}</span>`;
 
-    const leagueDisplayName = event.leagueName || comp.league?.name || 'Detail';
-    const leagueFlag = event.leagueFlag || '';
-    const matchLeagueId = event.leagueId || comp.league?.id || 'all';
-
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border bg-slate-900 hover:border-slate-700 transition cursor-pointer relative ${
       hasFavTeam ? 'border-amber-500/80 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 shadow-md' : (favorited ? 'border-amber-500/60 bg-amber-950/20' : (isLive ? 'border-red-500/50 bg-red-950/10' : 'border-slate-800/80'))
     }`;
     
-    // Explicit event handler binding
-    card.onclick = (e) => {
-      e.stopPropagation();
-      if (typeof window.openMatchDetail === 'function') {
-        window.openMatchDetail(matchLeagueId, event.id, leagueDisplayName);
-      }
-    };
+    card.onclick = () => openMatchDetail(event.leagueId || 'idn.1', event.id, event.leagueName || 'Detail');
 
     card.innerHTML = `
       <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2.5">
@@ -220,7 +205,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
           </span>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
-          ${showLeagueBadge && leagueDisplayName ? `<span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded truncate max-w-[100px]">${leagueFlag ? leagueFlag + ' ' : ''}${leagueDisplayName}</span>` : ''}
+          ${showLeagueBadge ? `<span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded truncate max-w-[100px]">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>` : ''}
           <button onclick="toggleFavorite('${event.id}', event)" class="p-1 hover:scale-125 transition text-xs" title="Favorit">
             <i class="${favorited ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-500 hover:text-amber-400'}"></i>
           </button>
@@ -232,7 +217,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
         <div class="flex items-center gap-2 w-[42%] min-w-0">
           <img src="${homeLogo}" loading="lazy" class="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="">
           <span class="font-semibold text-xs truncate leading-tight text-slate-100 flex items-center gap-1">
-            <span class="truncate">${home.team.shortDisplayName || home.team.displayName || 'Home'}</span>
+            <span class="truncate">${home.team.shortDisplayName}</span>
             ${homeFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
           </span>
         </div>
@@ -244,7 +229,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
         <div class="flex items-center justify-end gap-2 w-[42%] min-w-0 text-right">
           <span class="font-semibold text-xs truncate leading-tight text-slate-100 flex items-center justify-end gap-1">
             ${awayFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
-            <span class="truncate">${away.team.shortDisplayName || away.team.displayName || 'Away'}</span>
+            <span class="truncate">${away.team.shortDisplayName}</span>
           </span>
           <img src="${awayLogo}" loading="lazy" class="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="">
         </div>
@@ -253,7 +238,3 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
     container.appendChild(card);
   });
 }
-
-// Global Window Bindings
-window.toggleFavorite = toggleFavorite;
-window.renderMatchesCards = renderMatchesCards;
