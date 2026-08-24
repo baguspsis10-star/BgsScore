@@ -408,6 +408,31 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
   }
 }
 
+// Fetch Upcoming Matches for Specific Team (Pertandingan Mendatang di Modal Klub)
+async function fetchTeamUpcomingMatches(teamId) {
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`);
+    const data = await res.json();
+    const events = data.events || [];
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const upcoming = events
+      .filter(e => {
+        const matchDate = new Date(e.date);
+        const state = e.status?.type?.state;
+        return (state === 'pre' || matchDate >= now) && state !== 'post';
+      })
+      .sort((a, b) => new Date(a.date) - new Date(a.date));
+
+    return upcoming;
+  } catch (e) {
+    console.error("Gagal mengambil jadwal mendatang tim:", e);
+    return [];
+  }
+}
+
 // Fetch and Render Form & Head to Head Section
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');

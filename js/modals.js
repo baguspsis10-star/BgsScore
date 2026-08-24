@@ -1,5 +1,8 @@
 // MODALS & DIALOG CONTROLLER MODULE
 
+let currentOpenModal = null;
+let currentOpenTeamModal = null;
+
 // Notification Settings Modal Handlers
 function openSettingsModal() {
   document.getElementById('snd-master').checked = soundSettings.master;
@@ -1021,4 +1024,84 @@ function switchModalTab(tabName) {
 function closeModal() {
   currentOpenModal = null;
   document.getElementById('detail-modal').classList.add('hidden');
+}
+
+// Team Detail Modal Controller & Upcoming Match Integration
+async function openTeamDetail(leagueId, teamId, teamName) {
+  currentOpenTeamModal = { leagueId, teamId, teamName };
+  const modal = document.getElementById('team-modal');
+  if (!modal) return;
+
+  const nameEl = document.getElementById('team-modal-name');
+  if (nameEl) nameEl.innerText = teamName;
+
+  modal.classList.remove('hidden');
+  switchTeamModalTab('matches');
+}
+
+async function switchTeamModalTab(tabName) {
+  const tabs = ['squad', 'matches', 'standings'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`ttab-${t}`);
+    const content = document.getElementById(`tcontent-${t}`);
+    if (btn && content) {
+      if (t === tabName) {
+        btn.className = "flex-1 py-2.5 px-2 text-[11px] font-bold text-emerald-400 border-b-2 border-emerald-500 transition whitespace-nowrap";
+        content.classList.remove('hidden');
+      } else {
+        btn.className = "flex-1 py-2.5 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap";
+        content.classList.add('hidden');
+      }
+    }
+  });
+
+  if (!currentOpenTeamModal) return;
+  const { leagueId, teamId } = currentOpenTeamModal;
+
+  if (tabName === 'matches') {
+    const container = document.getElementById('tcontent-matches');
+    if (container) {
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat jadwal pertandingan mendatang...</p>
+        </div>
+      `;
+      const upcoming = await fetchTeamUpcomingMatches(teamId);
+      if (upcoming && upcoming.length > 0) {
+        container.innerHTML = '<div id="team-upcoming-list" class="space-y-2.5"></div>';
+        renderMatchesCards('team-upcoming-list', upcoming, true);
+      } else {
+        container.innerHTML = `
+          <div class="text-center py-8 px-4 bg-slate-900/50 border border-slate-800 rounded-2xl text-slate-500 text-xs">
+            <i class="fa-solid fa-calendar-xmark text-2xl mb-2 block text-slate-600"></i>
+            Tidak ada jadwal pertandingan selanjutnya.
+          </div>
+        `;
+      }
+    }
+  } else if (tabName === 'standings') {
+    const container = document.getElementById('tcontent-standings');
+    if (container) {
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+          <p class="text-xs">Memuat klasemen...</p>
+        </div>
+      `;
+      try {
+        const targetLeague = LEAGUES.find(l => l.id === leagueId) || LEAGUES[0];
+        container.innerHTML = '';
+        await renderLeagueStandingsTable(targetLeague, container, [teamId]);
+      } catch (err) {
+        container.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
+      }
+    }
+  }
+}
+
+function closeTeamModal() {
+  currentOpenTeamModal = null;
+  const modal = document.getElementById('team-modal');
+  if (modal) modal.classList.add('hidden');
 }

@@ -132,7 +132,7 @@ function isPlayerNameMatching(requestedName, apiPlayerName) {
 // Fetch Image Blob and Convert to Base64 String
 async function getBase64FromUrl(url) {
   try {
-    if (url.startsWith('data:')) return url;
+    if (!url || url.startsWith('data:')) return url;
     const res = await fetch(url);
     const blob = await res.blob();
     return new Promise((resolve) => {
@@ -179,12 +179,16 @@ function getCountryFlag(country) {
 
 // Get Flag Emoji by League ID
 function getLeagueFlag(leagueId) {
+  if (typeof LEAGUES === 'undefined') return '';
   const l = LEAGUES.find(item => item.id === leagueId);
   return l && l.flag ? l.flag : '';
 }
 
 // Format Date Object to YYYYMMDD String
 function getFormattedDate(d) {
+  if (!(d instanceof Date) || isNaN(d.getTime())) {
+    d = new Date();
+  }
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -193,14 +197,19 @@ function getFormattedDate(d) {
 
 // Display System Timezone Info
 function displayTimezoneInfo() {
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const el = document.getElementById('user-timezone-info');
-  if (el) el.innerText = `Zona HP: ${tz}`;
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const el = document.getElementById('user-timezone-info');
+    if (el) el.innerText = `Zona HP: ${tz}`;
+  } catch(e) {}
 }
 
 // Format ISO Date String to Local Human Readable Format
 function formatLocalDate(isoDateStr) {
+  if (!isoDateStr) return '-';
   const date = new Date(isoDateStr);
+  if (isNaN(date.getTime())) return '-';
+
   const userLang = navigator.language || 'id-ID';
   
   const dayName = date.toLocaleDateString(userLang, { weekday: 'short' });
