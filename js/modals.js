@@ -207,19 +207,26 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   }
 
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/summary?event=${eventId}`);
-    const data = await res.json();
+    let targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'idn.1';
+    let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/summary?event=${eventId}`);
+    let data = await res.json();
     
+    // Fallback universal jika endpoint liga spesifik gagal/kosong
+    if (!data.header || !data.header.competitions) {
+      const resAll = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${eventId}`);
+      data = await resAll.json();
+    }
+
     const header = data.header?.competitions?.[0];
     const home = header?.competitors?.find(c => c.homeAway === 'home');
     const away = header?.competitors?.find(c => c.homeAway === 'away');
 
-    renderModalCompleteData(data, leagueId);
+    renderModalCompleteData(data, targetLeague);
 
     if (!isSilent) {
-      if (leagueId && home?.team?.id && away?.team?.id) {
-        fetchModalStandings(leagueId, home.team.id, away.team.id);
-        fetchFormAndH2H(leagueId, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
+      if (targetLeague && home?.team?.id && away?.team?.id) {
+        fetchModalStandings(targetLeague, home.team.id, away.team.id);
+        fetchFormAndH2H(targetLeague, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
       } else {
         document.getElementById('mcontent-standings').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
         document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Data riwayat tidak tersedia.</p>`;
@@ -231,7 +238,9 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   } catch (err) {
     console.error(err);
     if (!isSilent) {
-      document.getElementById('modal-body-wrapper').innerHTML = `<p class="text-center text-red-400 text-sm py-12">Gagal memuat detail pertandingan.</p>`;
+      document.getElementById('modal-data-container').innerHTML = `<p class="text-center text-red-400 text-sm py-12">Gagal memuat detail pertandingan.</p>`;
+      loading.classList.add('hidden');
+      container.classList.remove('hidden');
     }
   }
 }

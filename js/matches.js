@@ -197,15 +197,15 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
     card.onclick = () => openMatchDetail(event.leagueId || 'idn.1', event.id, event.leagueName || 'Detail');
 
     card.innerHTML = `
-      <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2.5">
-        <div class="flex items-center gap-1.5 truncate max-w-[65%]">
+      <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2.5 gap-2">
+        <div class="flex items-center gap-1.5 flex-1 min-w-0">
           ${hasFavTeam ? '<span class="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold shrink-0"><i class="fa-solid fa-star text-[8px] mr-1"></i>TIM FAVORIT</span>' : ''}
           <span class="${isLive ? 'text-red-400 font-bold animate-pulse' : 'text-slate-400'} flex items-center truncate">
             <i class="fa-regular fa-clock mr-1 shrink-0"></i><span class="truncate">${isLive ? liveMinuteText : formattedTime}</span>
           </span>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
-          ${showLeagueBadge ? `<span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded truncate max-w-[100px]">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>` : ''}
+          ${showLeagueBadge ? `<span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded truncate max-w-[80px]">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>` : ''}
           <button onclick="toggleFavorite('${event.id}', event)" class="p-1 hover:scale-125 transition text-xs" title="Favorit">
             <i class="${favorited ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-500 hover:text-amber-400'}"></i>
           </button>
