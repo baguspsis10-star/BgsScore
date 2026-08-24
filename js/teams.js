@@ -97,36 +97,66 @@ async function loadTeamMatchesSummary(leagueId, teamId) {
   `;
 
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${teamId}/schedule`);
+    // Menggunakan endpoint 'all' agar mencakup seluruh kompetisi (Liga, UCL, Cup)
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`);
     const data = await res.json();
     const events = data.events || [];
 
-    const upcoming = events.filter(e => e.status?.type?.state === 'pre').slice(0, 5);
-    const finished = events.filter(e => e.status?.type?.state === 'post').reverse().slice(0, 5);
+    const now = new Date();
+    const twoWeeksLater = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
+
+    // Filter pertandingan 2 Minggu ke depan (state 'pre' & tanggal <= 14 hari)
+    const upcoming = events
+      .filter(e => {
+        const d = new Date(e.date);
+        return e.status?.type?.state === 'pre' && d >= now && d <= twoWeeksLater;
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Fallback: Jika dalam 2 minggu persis kosong, tampilkan 5 laga mendatang terdekat
+    const displayUpcoming = upcoming.length > 0 
+      ? upcoming 
+      : events
+          .filter(e => e.status?.type?.state === 'pre' && new Date(e.date) >= now)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(0, 5);
+
+    // Filter tepat 5 Pertandingan Terakhir yang sudah selesai
+    const finished = events
+      .filter(e => e.status?.type?.state === 'post')
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5);
 
     container.innerHTML = '';
 
-    if (upcoming.length > 0) {
+    // Render Pertandingan Mendatang (2 Minggu)
+    if (displayUpcoming.length > 0) {
       const upSec = document.createElement('div');
       upSec.className = 'space-y-2';
       upSec.innerHTML = `
-        <h4 class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-          <i class="fa-regular fa-calendar-days"></i> Pertandingan Selanjutnya
+        <h4 class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center justify-between">
+          <span class="flex items-center gap-1.5"><i class="fa-regular fa-calendar-days"></i> Pertandingan Mendatang</span>
+          <span class="text-[10px] text-slate-400 lowercase font-normal">(2 minggu ke depan: ${displayUpcoming.length})</span>
         </h4>
         <div id="team-upcoming-grid" class="space-y-2"></div>
       `;
       container.appendChild(upSec);
-      renderMatchesCards('team-upcoming-grid', upcoming, true);
+      renderMatchesCards('team-upcoming-grid', displayUpcoming, true);
     } else {
-      container.innerHTML += `<div class="p-3 bg-slate-900 rounded-xl text-xs text-slate-500 border border-slate-800">Tidak ada jadwal pertandingan selanjutnya.</div>`;
+      container.innerHTML += `
+        <div class="p-3 bg-slate-900 rounded-xl text-xs text-slate-500 border border-slate-800 text-center">
+          Tidak ada jadwal pertandingan dalam 2 minggu ke depan.
+        </div>
+      `;
     }
 
+    // Render 5 Pertandingan Terakhir
     if (finished.length > 0) {
       const finSec = document.createElement('div');
       finSec.className = 'space-y-2 pt-2';
       finSec.innerHTML = `
         <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-          <i class="fa-solid fa-circle-check"></i> Pertandingan Selesai
+          <i class="fa-solid fa-circle-check"></i> 5 Pertandingan Terakhir
         </h4>
         <div id="team-finished-grid" class="space-y-2"></div>
       `;
