@@ -97,39 +97,68 @@ async function loadTeamMatchesSummary(leagueId, teamId) {
   `;
 
   try {
-    // Menggunakan endpoint 'all' agar mencakup seluruh kompetisi (Liga, UCL, Cup)
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`);
-    const data = await res.json();
-    const events = data.events || [];
+    // 1. Tentukan ID liga target (Gunakan leagueId spesifik, bukan 'all')
+    let targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'esp.1';
+    let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/schedule`);
+    let data = await res.json();
+    let events = data.events || [];
+
+    // 2. Fallback: Jika data kosong, cari di liga-liga utama lain
+    if (events.length === 0) {
+      const fallbackLeagues = ['esp.1', 'eng.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions', 'idn.1'];
+      for (const fLeague of fallbackLeagues) {
+        if (fLeague === targetLeague) continue;
+        try {
+          const fRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${fLeague}/teams/${teamId}/schedule`);
+          const fData = await fRes.json();
+          if (fData.events && fData.events.length > 0) {
+            events = fData.events;
+            targetLeague = fLeague;
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    // Normalisasi properti liga untuk setiap event
+    const leagueInfo = LEAGUES.find(l => l.id === targetLeague) || {};
+    const formattedEvents = events.map(evt => ({
+      ...evt,
+      leagueName: evt.leagueName || leagueInfo.name || 'Kompetisi',
+      leagueId: evt.leagueId || targetLeague,
+      leagueLogo: evt.leagueLogo || leagueInfo.logo || '',
+      leagueFlag: evt.leagueFlag || leagueInfo.flag || ''
+    }));
 
     const now = new Date();
     const twoWeeksLater = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
 
-    // Filter pertandingan 2 Minggu ke depan (state 'pre' & tanggal <= 14 hari)
-    const upcoming = events
+    // Filter Pertandingan 2 Minggu ke depan
+    const upcoming = formattedEvents
       .filter(e => {
         const d = new Date(e.date);
-        return e.status?.type?.state === 'pre' && d >= now && d <= twoWeeksLater;
+        const state = e.status?.type?.state;
+        return (state === 'pre' || state === 'in') && d >= new Date(now.getTime() - 12 * 3600 * 1000) && d <= twoWeeksLater;
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Fallback: Jika dalam 2 minggu persis kosong, tampilkan 5 laga mendatang terdekat
+    // Fallback: Jika dalam 2 minggu persis kosong, ambil 5 pertandingan mendatang terdekat
     const displayUpcoming = upcoming.length > 0 
       ? upcoming 
-      : events
-          .filter(e => e.status?.type?.state === 'pre' && new Date(e.date) >= now)
+      : formattedEvents
+          .filter(e => (e.status?.type?.state === 'pre' || e.status?.type?.state === 'in') && new Date(e.date) >= new Date(now.getTime() - 12 * 3600 * 1000))
           .sort((a, b) => new Date(a.date) - new Date(b.date))
           .slice(0, 5);
 
-    // Filter tepat 5 Pertandingan Terakhir yang sudah selesai
-    const finished = events
+    // Filter 5 Pertandingan Terakhir yang sudah selesai
+    const finished = formattedEvents
       .filter(e => e.status?.type?.state === 'post')
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 5);
 
     container.innerHTML = '';
 
-    // Render Pertandingan Mendatang (2 Minggu)
+    // Render Pertandingan Mendatang
     if (displayUpcoming.length > 0) {
       const upSec = document.createElement('div');
       upSec.className = 'space-y-2';
@@ -145,7 +174,7 @@ async function loadTeamMatchesSummary(leagueId, teamId) {
     } else {
       container.innerHTML += `
         <div class="p-3 bg-slate-900 rounded-xl text-xs text-slate-500 border border-slate-800 text-center">
-          Tidak ada jadwal pertandingan dalam 2 minggu ke depan.
+          Tidak ada jadwal pertandingan mendatang.
         </div>
       `;
     }
