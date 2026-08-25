@@ -1,5 +1,23 @@
 // MODALS & DIALOG CONTROLLER MODULE
 
+// Dynamic Z-Index Manager for Stacking Modals
+let globalModalZIndex = 50;
+
+function getNextZIndex() {
+  globalModalZIndex += 2;
+  return globalModalZIndex;
+}
+
+function checkResetZIndex() {
+  const detailHidden = document.getElementById('detail-modal')?.classList.contains('hidden');
+  const teamHidden = document.getElementById('team-detail-modal')?.classList.contains('hidden');
+  const leagueHidden = document.getElementById('league-modal')?.classList.contains('hidden');
+  const settingsHidden = document.getElementById('settings-modal')?.classList.contains('hidden');
+  if (detailHidden && teamHidden && leagueHidden && settingsHidden) {
+    globalModalZIndex = 50;
+  }
+}
+
 // Global Web Audio Context Instance
 let globalAudioCtx = null;
 
@@ -28,11 +46,14 @@ function openSettingsModal() {
   document.getElementById('snd-red').checked = soundSettings.red;
 
   updateNotifPermissionUI();
-  document.getElementById('settings-modal').classList.remove('hidden');
+  const modal = document.getElementById('settings-modal');
+  modal.style.zIndex = getNextZIndex();
+  modal.classList.remove('hidden');
 }
 
 function closeSettingsModal() {
   document.getElementById('settings-modal').classList.add('hidden');
+  checkResetZIndex();
 }
 
 function updateSoundSetting(key, val) {
@@ -174,11 +195,14 @@ function playEventSound(type) {
 // League Selector Modal Handlers
 function openLeagueModal() {
   renderLeagueModalGrid();
-  document.getElementById('league-modal').classList.remove('hidden');
+  const modal = document.getElementById('league-modal');
+  modal.style.zIndex = getNextZIndex();
+  modal.classList.remove('hidden');
 }
 
 function closeLeagueModal() {
   document.getElementById('league-modal').classList.add('hidden');
+  checkResetZIndex();
 }
 
 function renderLeagueModalGrid() {
@@ -208,11 +232,11 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   const container = document.getElementById('modal-data-container');
   const flag = getLeagueFlag(leagueId);
   
-  // PERBAIKAN: Tutup modal klub jika sedang terbuka agar tidak menutupi tampilan
   if (!isSilent && typeof closeTeamModal === 'function') {
     closeTeamModal();
   }
-  
+
+  modal.style.zIndex = getNextZIndex();
   document.getElementById('modal-league-name').innerText = `${flag ? flag + ' ' : ''}${leagueName}`;
 
   modal.classList.remove('hidden');
@@ -276,6 +300,111 @@ async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
     await renderLeagueStandingsTable(targetLeague, container, [homeTeamId, awayTeamId]);
   } catch (err) {
     container.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
+  }
+}
+
+async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2hDataRaw = []) {
+  const container = document.getElementById('mcontent-h2h');
+  container.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+      <p class="text-xs">Memuat statistik Form & H2H...</p>
+    </div>
+  `;
+
+  try {
+    const fetchTeamForm = async (tId) => {
+      try {
+        let targetLg = (leagueId && leagueId !== 'all') ? leagueId : 'all';
+        let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLg}/teams/${tId}/schedule`);
+        let data = await res.json();
+        
+        if (!data.events || data.events.length === 0) {
+          res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${tId}/schedule`);
+          data = await res.json();
+        }
+
+        return (data.events || [])
+          .filter(e => e.status?.type?.state === 'post')
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 5);
+      } catch (e) {
+        console.error(`Gagal memuat jadwal tim ${tId}:`, e);
+        return [];
+      }
+    };
+
+    const [homeMatches, awayMatches] = await Promise.all([
+      fetchTeamForm(homeId),
+      fetchTeamForm(awayId)
+    ]);
+
+    const homeFormHtml = renderFormBlock(homeName, homeMatches, homeId);
+    const awayFormHtml = renderFormBlock(awayName, awayMatches, awayId);
+
+    let h2hMatches = [];
+    if (Array.isArray(h2hDataRaw) && h2hDataRaw.length > 0) {
+      h2hMatches = h2hDataRaw;
+    } else {
+      h2hMatches = homeMatches.filter(m => {
+        const comp = m.competitions?.[0];
+        return comp?.competitors?.some(c => String(c.team?.id) === String(awayId));
+      });
+    }
+
+    let h2hHtml = '';
+    if (h2hMatches.length > 0) {
+      const h2hRows = h2hMatches.slice(0, 5).map(m => {
+        const comp = m.competitions?.[0] || m;
+        const hComp = comp.competitors?.find(c => String(c.team?.id) === String(homeId)) || comp.competitors?.[0];
+        const aComp = comp.competitors?.find(c => String(c.team?.id) === String(awayId)) || comp.competitors?.[1];
+
+        const hScore = hComp?.score?.displayValue ?? hComp?.score ?? '0';
+        const aScore = aComp?.score?.displayValue ?? aComp?.score ?? '0';
+        const dateStr = new Date(m.date || comp.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+        return `
+          <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
+            <span class="text-[10px] text-slate-400 font-medium">${dateStr}</span>
+            <div class="flex items-center gap-2 font-bold text-white">
+              <span class="text-slate-200">${hComp?.team?.shortDisplayName || homeName}</span>
+              <span class="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-emerald-400 font-mono text-[11px]">${hScore} - ${aScore}</span>
+              <span class="text-slate-200">${aComp?.team?.shortDisplayName || awayName}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      h2hHtml = `
+        <div class="bg-slate-900 p-3.5 rounded-2xl border border-slate-800/80 space-y-2.5 shadow-lg">
+          <div class="text-xs font-bold text-white pb-1.5 border-b border-slate-800 flex items-center justify-between">
+            <span>Head to Head (H2H)</span>
+            <span class="text-[10px] text-slate-400">Pertemuan Terakhir</span>
+          </div>
+          <div class="space-y-2">${h2hRows}</div>
+        </div>
+      `;
+    } else {
+      h2hHtml = `
+        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800/80 text-center text-xs text-slate-500 shadow-lg">
+          Data H2H langsung tidak tersedia untuk periode ini.
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
+      <div class="space-y-3">
+        <div class="text-xs font-extrabold text-slate-300 flex items-center gap-1.5 pb-1">
+          <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> 5 PERTANDINGAN TERAKHIR
+        </div>
+        ${homeFormHtml}
+        ${awayFormHtml}
+        ${h2hHtml}
+      </div>
+    `;
+  } catch (err) {
+    console.error("Error loading Form & H2H:", err);
+    container.innerHTML = `<p class="text-center text-red-400 text-xs py-6">Gagal memuat statistik Form & H2H.</p>`;
   }
 }
 
@@ -1046,4 +1175,5 @@ function switchModalTab(tabName) {
 function closeModal() {
   currentOpenModal = null;
   document.getElementById('detail-modal').classList.add('hidden');
+  checkResetZIndex();
 }
