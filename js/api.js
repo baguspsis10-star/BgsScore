@@ -1,11 +1,5 @@
 // API & NETWORK DATA FETCHING MODULE
 
-// FotMob League Mapping
-const FOTMOB_LEAGUE_MAP = {
-  'kor.1': 131,  // K League 1
-  'kor.2': 9080  // K League 2
-};
-
 // Multi-Tier League Logo Loader (ESPN -> SportsDB -> Custom Badge Fallback)
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
@@ -83,7 +77,7 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
     return;
   }
 
-  if (pId && !String(pId).startsWith('fm_')) {
+  if (pId) {
     const espnUrl = `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png`;
     const espnLoaded = await new Promise(resolve => {
       const tester = new Image();
@@ -128,86 +122,85 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   img.src = avatarUrl;
 }
 
-// Fetch Matches directly from FotMob API with CORS proxy
-async function fetchFotmobMatches(espnLeagueId, dateStr) {
-  const fotmobId = FOTMOB_LEAGUE_MAP[espnLeagueId];
-  if (!fotmobId) return [];
-
-  // Format date string YYYYMMDD -> YYYY-MM-DD
-  let formattedDate = dateStr;
-  if (dateStr && dateStr.length === 8) {
-    formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
-  } else {
-    const d = new Date();
-    formattedDate = d.toISOString().split('T')[0];
-  }
-
+// Fetch Fallback Match Data via Fotmob API (Khusus Korea & Indonesia)
+async function fetchFotmobMatches(dateStr) {
   try {
-    const targetUrl = `https://www.fotmob.com/api/matches?date=${formattedDate}&timezone=Asia%2FJakarta`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-    
-    let res = await fetch(proxyUrl);
-    if (!res.ok) {
-      res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-    }
+    const res = await fetch(`https://www.fotmob.com/api/matches?date=${dateStr}`);
     const data = await res.json();
+    
+    // ID Liga Fotmob: 47 (Indo 1), 8985 (Indo 2), 140 (Korea 1), 9131 (Korea 2)
+    const targetFotmobIds = [47, 8985, 140, 9131];
+    const filteredLeagues = (data.leagues || []).filter(l => 
+      targetFotmobIds.includes(l.id) || 
+      (l.name && (l.name.toLowerCase().includes('k league') || l.name.toLowerCase().includes('indonesia')))
+    );
 
-    const leagueData = (data.leagues || []).find(l => String(l.id) === String(fotmobId));
-    if (!leagueData || !leagueData.matches) return [];
+    let parsedEvents = [];
+    filteredLeagues.forEach(league => {
+      let mappedLeagueId = 'idn.1';
+      let mappedLeagueName = league.name;
 
-    const lInfo = LEAGUES.find(l => l.id === espnLeagueId) || {};
+      if (league.id === 140 || league.name.includes('K League 1')) {
+        mappedLeagueId = 'kr.1';
+        mappedLeagueName = 'K League 1';
+      } else if (league.id === 9131 || league.name.includes('K League 2')) {
+        mappedLeagueId = 'kr.2';
+        mappedLeagueName = 'K League 2';
+      } else if (league.id === 8985) {
+        mappedLeagueId = 'idn.2';
+        mappedLeagueName = 'Pegadaian Liga 2';
+      } else if (league.id === 47) {
+        mappedLeagueId = 'idn.1';
+        mappedLeagueName = 'BRI Liga 1';
+      }
 
-    return leagueData.matches.map(m => {
-      let state = 'pre';
-      if (m.status?.finished) state = 'post';
-      else if (m.status?.started && !m.status?.finished) state = 'in';
+      const flagEmoji = mappedLeagueId.startsWith('kr') ? "🇰🇷" : "🇮🇩";
 
-      const homeScore = String(m.home?.score ?? '0');
-      const awayScore = String(m.away?.score ?? '0');
-
-      return {
-        id: `fotmob_${m.id}`,
-        fotmobRawId: m.id,
-        date: m.status?.utcTime || new Date().toISOString(),
-        leagueName: lInfo.name || leagueData.name,
-        leagueId: espnLeagueId,
-        leagueLogo: lInfo.logo || `https://images.fotmob.com/image_resources/logo/leaguelogo/${fotmobId}.png`,
-        leagueFlag: lInfo.flag || '🇰🇷',
-        status: {
-          type: {
-            state: state,
-            shortDetail: m.status?.scoreStr || (state === 'in' ? (m.status?.liveTime?.short || 'LIVE') : 'VS'),
-            description: m.status?.finished ? 'Full Time' : (state === 'in' ? 'Live' : 'Scheduled')
-          }
-        },
-        competitions: [{
-          competitors: [
-            {
-              homeAway: 'home',
-              score: homeScore,
-              team: {
-                id: `fm_${m.home?.id}`,
-                displayName: m.home?.name,
-                shortDisplayName: m.home?.name,
-                logo: `https://images.fotmob.com/image_resources/logo/teamlogo/${m.home?.id}.png`
-              }
-            },
-            {
-              homeAway: 'away',
-              score: awayScore,
-              team: {
-                id: `fm_${m.away?.id}`,
-                displayName: m.away?.name,
-                shortDisplayName: m.away?.name,
-                logo: `https://images.fotmob.com/image_resources/logo/teamlogo/${m.away?.id}.png`
-              }
+      (league.matches || []).forEach(m => {
+        parsedEvents.push({
+          id: `fotmob_${m.id}`,
+          date: m.status?.utcTime || new Date().toISOString(),
+          leagueName: mappedLeagueName,
+          leagueId: mappedLeagueId,
+          leagueFlag: flagEmoji,
+          status: {
+            type: {
+              state: m.status?.started ? (m.status?.finished ? 'post' : 'in') : 'pre',
+              shortDetail: m.status?.scoreStr || (m.status?.cancelled ? 'Canceled' : 'VS'),
+              description: m.status?.reason?.short || ''
             }
-          ]
-        }]
-      };
+          },
+          competitions: [{
+            competitors: [
+              {
+                homeAway: 'home',
+                score: String(m.home?.score ?? 0),
+                team: { 
+                  id: m.home?.id, 
+                  displayName: m.home?.name, 
+                  shortDisplayName: m.home?.name,
+                  logo: `https://images.fotmob.com/image_resources/logo/teamlogo/${m.home?.id}.png`
+                }
+              },
+              {
+                homeAway: 'away',
+                score: String(m.away?.score ?? 0),
+                team: { 
+                  id: m.away?.id, 
+                  displayName: m.away?.name, 
+                  shortDisplayName: m.away?.name,
+                  logo: `https://images.fotmob.com/image_resources/logo/teamlogo/${m.away?.id}.png`
+                }
+              }
+            ]
+          }]
+        });
+      });
     });
+
+    return parsedEvents;
   } catch (err) {
-    console.error("Gagal mengambil data K-League dari FotMob:", err);
+    console.warn("Gagal mengambil data pertandingan dari API Fotmob:", err);
     return [];
   }
 }
@@ -218,12 +211,8 @@ async function fetchAllMatches() {
     ? LEAGUES 
     : LEAGUES.filter(l => l.id === selectedLeague);
 
-  const promises = targets.map(league => {
-    if (FOTMOB_LEAGUE_MAP[league.id]) {
-      return fetchFotmobMatches(league.id, selectedDateFilter);
-    }
-
-    return fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${selectedDateFilter}`)
+  const espnPromises = targets.map(league => 
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${selectedDateFilter}`)
       .then(res => res.json())
       .then(data => (data.events || []).map(evt => ({ 
         ...evt, 
@@ -232,11 +221,29 @@ async function fetchAllMatches() {
         leagueLogo: league.logo,
         leagueFlag: league.flag 
       })))
-      .catch(() => []);
-  });
+      .catch(() => [])
+  );
 
-  const allEventArrays = await Promise.all(promises);
-  let allEvents = allEventArrays.flat();
+  const shouldFetchFotmob = selectedLeague === 'all' || 
+                            ['kr.1', 'kr.2', 'idn.1', 'idn.2'].includes(selectedLeague);
+
+  const fotmobPromise = shouldFetchFotmob ? fetchFotmobMatches(selectedDateFilter) : Promise.resolve([]);
+
+  const [espnResults, fotmobEvents] = await Promise.all([
+    Promise.all(espnPromises),
+    fotmobPromise
+  ]);
+
+  let allEvents = espnResults.flat();
+
+  if (fotmobEvents.length > 0) {
+    const existingIds = new Set(allEvents.map(e => e.id));
+    fotmobEvents.forEach(fEvt => {
+      if (!existingIds.has(fEvt.id)) {
+        allEvents.push(fEvt);
+      }
+    });
+  }
 
   allEvents = sortEventsByFavoriteAndDate(allEvents);
   cachedEvents = allEvents;
@@ -255,12 +262,8 @@ async function fetchLiveMatchesStructured() {
   const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
   const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
-  const promises = LEAGUES.map(league => {
-    if (FOTMOB_LEAGUE_MAP[league.id]) {
-      return fetchFotmobMatches(league.id, getFormattedDate(today));
-    }
-
-    return fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
+  const espnPromises = LEAGUES.map(league => 
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
       .then(res => res.json())
       .then(data => (data.events || []).map(evt => ({ 
         ...evt, 
@@ -269,13 +272,22 @@ async function fetchLiveMatchesStructured() {
         leagueLogo: league.logo,
         leagueFlag: league.flag 
       })))
-      .catch(() => []);
-  });
+      .catch(() => [])
+  );
 
-  const allEventArrays = await Promise.all(promises);
-  
+  const fotmobPromise = fetchFotmobMatches(getFormattedDate(today));
+
+  const [allEventArrays, fotmobEvents] = await Promise.all([
+    Promise.all(espnPromises),
+    fotmobPromise
+  ]);
+
   const eventMap = new Map();
   allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
+  fotmobEvents.forEach(evt => {
+    if (!eventMap.has(evt.id)) eventMap.set(evt.id, evt);
+  });
+
   let allEvents = Array.from(eventMap.values());
   
   cachedEvents = allEvents;
@@ -370,12 +382,8 @@ async function fetchFavoritedMatchesStructured() {
   const next7Days = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
   const dateRangeStr = `${getFormattedDate(past2Days)}-${getFormattedDate(next7Days)}`;
 
-  const promises = LEAGUES.map(league => {
-    if (FOTMOB_LEAGUE_MAP[league.id]) {
-      return fetchFotmobMatches(league.id, getFormattedDate(today));
-    }
-
-    return fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
+  const espnPromises = LEAGUES.map(league => 
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
       .then(res => res.json())
       .then(data => (data.events || []).map(evt => ({ 
         ...evt, 
@@ -384,13 +392,22 @@ async function fetchFavoritedMatchesStructured() {
         leagueLogo: league.logo,
         leagueFlag: league.flag 
       })))
-      .catch(() => []);
-  });
+      .catch(() => [])
+  );
 
-  const allEventArrays = await Promise.all(promises);
+  const fotmobPromise = fetchFotmobMatches(getFormattedDate(today));
+
+  const [allEventArrays, fotmobEvents] = await Promise.all([
+    Promise.all(espnPromises),
+    fotmobPromise
+  ]);
+
   const eventMap = new Map();
   allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
-  
+  fotmobEvents.forEach(evt => {
+    if (!eventMap.has(evt.id)) eventMap.set(evt.id, evt);
+  });
+
   const favEvents = Array.from(eventMap.values()).filter(evt => {
     const comp = evt.competitions?.[0];
     const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
