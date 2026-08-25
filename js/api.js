@@ -337,10 +337,34 @@ async function fetchFavoritedMatchesStructured() {
     renderMatchesCards('fav-active-grid', liveEvents, true);
   }
 
-  // 2. UPCOMING FAVORITES (Diberi Accordion Button yang Jelas)
+  // 2. FINISHED FAVORITES (DI POSISI ATAS & DEFAULT HIDE)
+  if (finishedEvents.length > 0) {
+    // Default diset false (tertutup) saat pertama dibuka
+    if (typeof showFinishedInFav === 'undefined') showFinishedInFav = false;
+    
+    const finishedSec = document.createElement('div');
+    finishedSec.className = 'space-y-2.5 mb-4';
+    finishedSec.innerHTML = `
+      <button onclick="toggleFinishedInFavView()" class="w-full bg-slate-900 border border-emerald-500/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg shadow-emerald-950/20">
+        <span class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
+        </span>
+        <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInFav ? 'up' : 'down'} text-[10px]"></i>
+      </button>
+      <div id="fav-finished-grid" class="space-y-2.5 ${showFinishedInFav ? '' : 'hidden'}"></div>
+    `;
+    container.appendChild(finishedSec);
+    
+    // Memberikan style kustom warna pinggiran hijau khusus kartu favorit yang sudah selesai
+    renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
+  }
+
+  // 3. UPCOMING FAVORITES (DI POSISI BOWAHS & DEFAULT TERBUKA/SHOW)
   if (upcomingEvents.length > 0) {
+    if (typeof showUpcomingInFav === 'undefined') showUpcomingInFav = true;
+
     const upcomingSec = document.createElement('div');
-    upcomingSec.className = 'space-y-2.5 mb-4';
+    upcomingSec.className = 'space-y-2.5 pt-2 border-t border-slate-800/60';
     upcomingSec.innerHTML = `
       <button onclick="toggleUpcomingInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
         <span class="flex items-center gap-2">
@@ -352,23 +376,6 @@ async function fetchFavoritedMatchesStructured() {
     `;
     container.appendChild(upcomingSec);
     renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
-  }
-
-  // 3. FINISHED FAVORITES (Diberi Pembatas/Margin Atas)
-  if (finishedEvents.length > 0) {
-    const finishedSec = document.createElement('div');
-    finishedSec.className = 'space-y-2.5 pt-2 border-t border-slate-800/60';
-    finishedSec.innerHTML = `
-      <button onclick="toggleFinishedInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
-        <span class="flex items-center gap-2">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
-        </span>
-        <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInFav ? 'up' : 'down'} text-[10px]"></i>
-      </button>
-      <div id="fav-finished-grid" class="space-y-2.5 ${showFinishedInFav ? '' : 'hidden'}"></div>
-    `;
-    container.appendChild(finishedSec);
-    renderMatchesCards('fav-finished-grid', finishedEvents, true);
   }
 
   container.classList.remove('hidden');
