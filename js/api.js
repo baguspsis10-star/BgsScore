@@ -1,5 +1,11 @@
 // API & NETWORK DATA FETCHING MODULE
 
+// FotMob League Mapping
+const FOTMOB_LEAGUE_MAP = {
+  'kor.1': 131,  // K League 1
+  'kor.2': 9080  // K League 2
+};
+
 // Multi-Tier League Logo Loader (ESPN -> SportsDB -> Custom Badge Fallback)
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
@@ -77,7 +83,7 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
     return;
   }
 
-  if (pId) {
+  if (pId && !String(pId).startsWith('fm_')) {
     const espnUrl = `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png`;
     const espnLoaded = await new Promise(resolve => {
       const tester = new Image();
@@ -122,14 +128,102 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   img.src = avatarUrl;
 }
 
+// Fetch Matches directly from FotMob API with CORS proxy
+async function fetchFotmobMatches(espnLeagueId, dateStr) {
+  const fotmobId = FOTMOB_LEAGUE_MAP[espnLeagueId];
+  if (!fotmobId) return [];
+
+  // Format date string YYYYMMDD -> YYYY-MM-DD
+  let formattedDate = dateStr;
+  if (dateStr && dateStr.length === 8) {
+    formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+  } else {
+    const d = new Date();
+    formattedDate = d.toISOString().split('T')[0];
+  }
+
+  try {
+    const targetUrl = `https://www.fotmob.com/api/matches?date=${formattedDate}&timezone=Asia%2FJakarta`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    
+    let res = await fetch(proxyUrl);
+    if (!res.ok) {
+      res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+    }
+    const data = await res.json();
+
+    const leagueData = (data.leagues || []).find(l => String(l.id) === String(fotmobId));
+    if (!leagueData || !leagueData.matches) return [];
+
+    const lInfo = LEAGUES.find(l => l.id === espnLeagueId) || {};
+
+    return leagueData.matches.map(m => {
+      let state = 'pre';
+      if (m.status?.finished) state = 'post';
+      else if (m.status?.started && !m.status?.finished) state = 'in';
+
+      const homeScore = String(m.home?.score ?? '0');
+      const awayScore = String(m.away?.score ?? '0');
+
+      return {
+        id: `fotmob_${m.id}`,
+        fotmobRawId: m.id,
+        date: m.status?.utcTime || new Date().toISOString(),
+        leagueName: lInfo.name || leagueData.name,
+        leagueId: espnLeagueId,
+        leagueLogo: lInfo.logo || `https://images.fotmob.com/image_resources/logo/leaguelogo/${fotmobId}.png`,
+        leagueFlag: lInfo.flag || '🇰🇷',
+        status: {
+          type: {
+            state: state,
+            shortDetail: m.status?.scoreStr || (state === 'in' ? (m.status?.liveTime?.short || 'LIVE') : 'VS'),
+            description: m.status?.finished ? 'Full Time' : (state === 'in' ? 'Live' : 'Scheduled')
+          }
+        },
+        competitions: [{
+          competitors: [
+            {
+              homeAway: 'home',
+              score: homeScore,
+              team: {
+                id: `fm_${m.home?.id}`,
+                displayName: m.home?.name,
+                shortDisplayName: m.home?.name,
+                logo: `https://images.fotmob.com/image_resources/logo/teamlogo/${m.home?.id}.png`
+              }
+            },
+            {
+              homeAway: 'away',
+              score: awayScore,
+              team: {
+                id: `fm_${m.away?.id}`,
+                displayName: m.away?.name,
+                shortDisplayName: m.away?.name,
+                logo: `https://images.fotmob.com/image_resources/logo/teamlogo/${m.away?.id}.png`
+              }
+            }
+          ]
+        }]
+      };
+    });
+  } catch (err) {
+    console.error("Gagal mengambil data K-League dari FotMob:", err);
+    return [];
+  }
+}
+
 // Fetch All Matches for Selected Date and League Filter
 async function fetchAllMatches() {
   const targets = selectedLeague === 'all' 
     ? LEAGUES 
     : LEAGUES.filter(l => l.id === selectedLeague);
 
-  const promises = targets.map(league => 
-    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${selectedDateFilter}`)
+  const promises = targets.map(league => {
+    if (FOTMOB_LEAGUE_MAP[league.id]) {
+      return fetchFotmobMatches(league.id, selectedDateFilter);
+    }
+
+    return fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${selectedDateFilter}`)
       .then(res => res.json())
       .then(data => (data.events || []).map(evt => ({ 
         ...evt, 
@@ -138,8 +232,8 @@ async function fetchAllMatches() {
         leagueLogo: league.logo,
         leagueFlag: league.flag 
       })))
-      .catch(() => [])
-  );
+      .catch(() => []);
+  });
 
   const allEventArrays = await Promise.all(promises);
   let allEvents = allEventArrays.flat();
@@ -161,8 +255,12 @@ async function fetchLiveMatchesStructured() {
   const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
   const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
-  const promises = LEAGUES.map(league => 
-    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
+  const promises = LEAGUES.map(league => {
+    if (FOTMOB_LEAGUE_MAP[league.id]) {
+      return fetchFotmobMatches(league.id, getFormattedDate(today));
+    }
+
+    return fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
       .then(res => res.json())
       .then(data => (data.events || []).map(evt => ({ 
         ...evt, 
@@ -171,8 +269,8 @@ async function fetchLiveMatchesStructured() {
         leagueLogo: league.logo,
         leagueFlag: league.flag 
       })))
-      .catch(() => [])
-  );
+      .catch(() => []);
+  });
 
   const allEventArrays = await Promise.all(promises);
   
@@ -272,8 +370,12 @@ async function fetchFavoritedMatchesStructured() {
   const next7Days = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
   const dateRangeStr = `${getFormattedDate(past2Days)}-${getFormattedDate(next7Days)}`;
 
-  const promises = LEAGUES.map(league => 
-    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
+  const promises = LEAGUES.map(league => {
+    if (FOTMOB_LEAGUE_MAP[league.id]) {
+      return fetchFotmobMatches(league.id, getFormattedDate(today));
+    }
+
+    return fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
       .then(res => res.json())
       .then(data => (data.events || []).map(evt => ({ 
         ...evt, 
@@ -282,8 +384,8 @@ async function fetchFavoritedMatchesStructured() {
         leagueLogo: league.logo,
         leagueFlag: league.flag 
       })))
-      .catch(() => [])
-  );
+      .catch(() => []);
+  });
 
   const allEventArrays = await Promise.all(promises);
   const eventMap = new Map();
@@ -317,7 +419,7 @@ async function fetchFavoritedMatchesStructured() {
     return;
   }
 
-  // 1. LIVE FAVORITES (Paling Atas Jika Ada Live)
+  // 1. LIVE FAVORITES
   if (liveEvents.length > 0) {
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5 mb-4';
@@ -337,9 +439,8 @@ async function fetchFavoritedMatchesStructured() {
     renderMatchesCards('fav-active-grid', liveEvents, true);
   }
 
-  // 2. FINISHED FAVORITES (POSISI ATAS & DEFAULT HIDDEN/SEMBUNYI)
+  // 2. FINISHED FAVORITES
   if (finishedEvents.length > 0) {
-    // Paksa agar selalu hidden saat tab dibuka
     showFinishedInFav = false;
     
     const finishedSec = document.createElement('div');
@@ -354,12 +455,10 @@ async function fetchFavoritedMatchesStructured() {
       <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
     `;
     container.appendChild(finishedSec);
-    
-    // Custom variant 'finished-fav' akan membuat border kartu berwarna hijau
     renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
   }
 
-  // 3. UPCOMING FAVORITES (POSISI BAWAH & DEFAULT SHOW/LANGSUNG MUNCUL)
+  // 3. UPCOMING FAVORITES
   if (upcomingEvents.length > 0) {
     showUpcomingInFav = true;
 
@@ -381,7 +480,7 @@ async function fetchFavoritedMatchesStructured() {
   container.classList.remove('hidden');
 }
 
-// Fetch Last 5 Matches for Specific Team Schedule (Dengan Multi-Competition & Multi-Season Fallback)
+// Fetch Last 5 Matches for Specific Team Schedule
 async function fetchTeamRecentMatches(leagueId, teamId) {
   try {
     const currentYear = new Date().getFullYear();
