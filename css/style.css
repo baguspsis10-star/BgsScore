@@ -17,7 +17,7 @@
 body {
   background-color: #020617 !important;
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.15) 0%, transparent 60%),
+    radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 60%),
     radial-gradient(circle at 50% 100%, rgba(15, 23, 42, 0.85) 0%, transparent 80%),
     linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
@@ -25,55 +25,82 @@ body {
   background-attachment: fixed;
 }
 
-/* KARTU DENGAN GRADATION & GLASS EFFECT */
-.bg-stadium-card {
-  background: linear-gradient(135deg, rgba(6, 78, 59, 0.4) 0%, rgba(15, 23, 42, 0.95) 60%, rgba(2, 6, 23, 0.98) 100%) !important;
-  border: 1.5px solid #10b981 !important;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08);
+/* 1. PERTANDINGAN MENDATANG (WARNA BIRU) */
+.card-upcoming,
+#live-upcoming-grid > div {
+  background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 65%, #020617 100%) !important;
+  border: 1.5px solid #3b82f6 !important;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+}
+.card-upcoming:hover,
+#live-upcoming-grid > div:hover {
+  border-color: #60a5fa !important;
+  box-shadow: 0 6px 22px rgba(96, 165, 250, 0.4) !important;
 }
 
-/* ACCENT HIGHLIGHT UNTUK MODAL HEADER & STATS CARD */
-.bg-stadium-header {
-  background: radial-gradient(circle at center, rgba(6, 95, 70, 0.6) 0%, rgba(15, 23, 42, 0.95) 100%),
-              linear-gradient(to bottom, rgba(16, 185, 129, 0.12), transparent) !important;
-  border: 1.5px solid #10b981 !important;
-  box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.3), inset 0 0 16px rgba(16, 185, 129, 0.15);
-}
-
-/* STYLING UTAMA KARTU PERTANDINGAN (GRADIEN & BORDER HIJAU MENCOLOK) */
-#matches-container > div,
-#live-container > div > div > div,
-#fav-container > div > div > div,
+/* 2. PERTANDINGAN LIVE (WARNA MERAH) */
+.card-live,
 #live-active-grid > div,
-#live-upcoming-grid > div,
-#live-finished-grid > div,
-#fav-active-grid > div,
-#fav-upcoming-grid > div,
-#fav-finished-grid > div {
+#fav-active-grid > div {
+  background: linear-gradient(135deg, #7f1d1d 0%, #0f172a 65%, #020617 100%) !important;
+  border: 1.5px solid #ef4444 !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+}
+.card-live:hover,
+#live-active-grid > div:hover,
+#fav-active-grid > div:hover {
+  border-color: #f87171 !important;
+  box-shadow: 0 6px 22px rgba(248, 113, 113, 0.45) !important;
+}
+
+/* 3. PERTANDINGAN SELESAI (WARNA HIJAU) */
+.card-finished,
+#live-finished-grid > div {
   background: linear-gradient(135deg, #044e3a 0%, #0f172a 65%, #020617 100%) !important;
   border: 1.5px solid #10b981 !important;
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
 }
+.card-finished:hover,
+#live-finished-grid > div:hover {
+  border-color: #34d399 !important;
+  box-shadow: 0 6px 22px rgba(52, 211, 153, 0.4) !important;
+}
 
-/* STYLING KARTU MODAL DETAIL PERTANDINGAN */
+/* 4. PERTANDINGAN MENDATANG FAVORIT (WARNA EMAS / KUNING) */
+.card-fav-upcoming,
+#fav-upcoming-grid > div {
+  background: linear-gradient(135deg, #78350f 0%, #0f172a 65%, #020617 100%) !important;
+  border: 1.5px solid #f59e0b !important;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+}
+.card-fav-upcoming:hover,
+#fav-upcoming-grid > div:hover {
+  border-color: #fbbf24 !important;
+  box-shadow: 0 6px 22px rgba(251, 191, 36, 0.45) !important;
+}
+
+/* 5. PERTANDINGAN SELESAI FAVORIT (WARNA BIRU / CYAN) */
+.card-fav-finished,
+#fav-finished-grid > div {
+  background: linear-gradient(135deg, #164e63 0%, #0f172a 65%, #020617 100%) !important;
+  border: 1.5px solid #06b6d4 !important;
+  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+}
+.card-fav-finished:hover,
+#fav-finished-grid > div:hover {
+  border-color: #22d3ee !important;
+  box-shadow: 0 6px 22px rgba(34, 211, 238, 0.45) !important;
+}
+
+/* KARTU MODAL DETAIL PERTANDINGAN */
 #modal-score-header > div,
 #mcontent-summary > div,
 #mcontent-stats > div,
 #mcontent-lineup > div,
 #mcontent-h2h > div > div {
-  background: linear-gradient(135deg, #065f46 0%, #0f172a 70%, #020617 100%) !important;
-  border: 1.5px solid #10b981 !important;
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3) !important;
-}
-
-/* EFEK HOVER & TOUCH PADA KARTU */
-#matches-container > div:hover,
-#live-active-grid > div:hover,
-#live-upcoming-grid > div:hover,
-#fav-upcoming-grid > div:hover {
-  border-color: #34d399 !important;
-  box-shadow: 0 6px 22px rgba(52, 211, 153, 0.4) !important;
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 70%, #020617 100%) !important;
+  border: 1.5px solid #334155 !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* ANIMASI PULSE SAAT GOL TERJADI */
