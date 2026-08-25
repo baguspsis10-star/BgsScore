@@ -317,7 +317,7 @@ async function fetchFavoritedMatchesStructured() {
     return;
   }
 
-  // 1. LIVE FAVORITES (Jika ada)
+  // 1. LIVE FAVORITES (Paling Atas Jika Ada Live)
   if (liveEvents.length > 0) {
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5 mb-4';
@@ -337,10 +337,10 @@ async function fetchFavoritedMatchesStructured() {
     renderMatchesCards('fav-active-grid', liveEvents, true);
   }
 
-  // 2. FINISHED FAVORITES (DI POSISI ATAS & DEFAULT HIDE)
+  // 2. FINISHED FAVORITES (POSISI ATAS & DEFAULT HIDDEN/SEMBUNYI)
   if (finishedEvents.length > 0) {
-    // Default diset false (tertutup) saat pertama dibuka
-    if (typeof showFinishedInFav === 'undefined') showFinishedInFav = false;
+    // Paksa agar selalu hidden saat tab dibuka
+    showFinishedInFav = false;
     
     const finishedSec = document.createElement('div');
     finishedSec.className = 'space-y-2.5 mb-4';
@@ -349,19 +349,19 @@ async function fetchFavoritedMatchesStructured() {
         <span class="flex items-center gap-2">
           <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
         </span>
-        <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInFav ? 'up' : 'down'} text-[10px]"></i>
+        <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-down text-[10px]"></i>
       </button>
-      <div id="fav-finished-grid" class="space-y-2.5 ${showFinishedInFav ? '' : 'hidden'}"></div>
+      <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
     `;
     container.appendChild(finishedSec);
     
-    // Memberikan style kustom warna pinggiran hijau khusus kartu favorit yang sudah selesai
+    // Custom variant 'finished-fav' akan membuat border kartu berwarna hijau
     renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
   }
 
-  // 3. UPCOMING FAVORITES (DI POSISI BOWAHS & DEFAULT TERBUKA/SHOW)
+  // 3. UPCOMING FAVORITES (POSISI BAWAH & DEFAULT SHOW/LANGSUNG MUNCUL)
   if (upcomingEvents.length > 0) {
-    if (typeof showUpcomingInFav === 'undefined') showUpcomingInFav = true;
+    showUpcomingInFav = true;
 
     const upcomingSec = document.createElement('div');
     upcomingSec.className = 'space-y-2.5 pt-2 border-t border-slate-800/60';
@@ -370,9 +370,9 @@ async function fetchFavoritedMatchesStructured() {
         <span class="flex items-center gap-2">
           <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (${upcomingEvents.length})
         </span>
-        <i id="fav-upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInFav ? 'up' : 'down'} text-[10px]"></i>
+        <i id="fav-upcoming-toggle-icon" class="fa-solid fa-chevron-up text-[10px]"></i>
       </button>
-      <div id="fav-upcoming-grid" class="space-y-2.5 ${showUpcomingInFav ? '' : 'hidden'}"></div>
+      <div id="fav-upcoming-grid" class="space-y-2.5"></div>
     `;
     container.appendChild(upcomingSec);
     renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);

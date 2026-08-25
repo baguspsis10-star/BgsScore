@@ -147,7 +147,7 @@ function monitorLiveFavoriteEvents(event) {
 }
 
 // Render Match Cards to Specified Container
-function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) {
+function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, customVariant = null) {
   const container = document.getElementById(targetContainerId);
   if (!container) return;
   container.innerHTML = '';
@@ -166,7 +166,6 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
   sortedEvents.forEach(event => {
     const comp = event.competitions[0];
     const home = comp.competitors.find(c => c.homeAway === 'home');
-    // FIXED: Typo c.awayAway diperbaiki menjadi c.homeAway === 'away'
     const away = comp.competitors.find(c => c.homeAway === 'away');
     
     const homeLogo = getTeamLogo(home?.team);
@@ -191,10 +190,21 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false) 
       ? `<span class="text-xs font-extrabold text-emerald-400 whitespace-nowrap bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">VS</span>`
       : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
 
+    // PENENTUAN WARNA PINGGIRAN (BORDER) KARTU
+    let cardStyle = 'border-slate-800/80 bg-slate-900';
+    if (customVariant === 'finished-fav') {
+      // BORDER HIJAU UNTUK PERTANDINGAN SELESAI DI FAVORIT
+      cardStyle = 'border-emerald-500/80 bg-emerald-950/20 shadow-md shadow-emerald-950/20';
+    } else if (hasFavTeam) {
+      cardStyle = 'border-amber-500/80 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 shadow-md';
+    } else if (favorited) {
+      cardStyle = 'border-amber-500/60 bg-amber-950/20';
+    } else if (isLive) {
+      cardStyle = 'border-red-500/50 bg-red-950/10';
+    }
+
     const card = document.createElement('div');
-    card.className = `p-3.5 rounded-xl border bg-slate-900 hover:border-slate-700 transition cursor-pointer relative ${
-      hasFavTeam ? 'border-amber-500/80 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 shadow-md' : (favorited ? 'border-amber-500/60 bg-amber-950/20' : (isLive ? 'border-red-500/50 bg-red-950/10' : 'border-slate-800/80'))
-    }`;
+    card.className = `p-3.5 rounded-xl border hover:border-slate-700 transition cursor-pointer relative ${cardStyle}`;
     
     card.onclick = (e) => {
       e.stopPropagation();
