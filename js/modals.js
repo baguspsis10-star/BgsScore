@@ -376,7 +376,7 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
       }).join('');
 
       h2hHtml = `
-        <div class="bg-slate-900 p-3.5 rounded-2xl border border-slate-800/80 space-y-2.5 shadow-lg">
+        <div class="bg-stadium-card p-3.5 rounded-2xl border border-slate-800/80 space-y-2.5 shadow-lg">
           <div class="text-xs font-bold text-white pb-1.5 border-b border-slate-800 flex items-center justify-between">
             <span>Head to Head (H2H)</span>
             <span class="text-[10px] text-slate-400">Pertemuan Terakhir</span>
@@ -386,7 +386,7 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
       `;
     } else {
       h2hHtml = `
-        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800/80 text-center text-xs text-slate-500 shadow-lg">
+        <div class="bg-stadium-card p-4 rounded-2xl border border-slate-800/80 text-center text-xs text-slate-500 shadow-lg">
           Data H2H langsung tidak tersedia untuk periode ini.
         </div>
       `;
@@ -411,7 +411,7 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
 function renderFormBlock(teamName, matches, teamId) {
   if (!matches || matches.length === 0) {
     return `
-      <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800/80">
+      <div class="bg-stadium-card p-3.5 rounded-xl border border-slate-800/80">
         <div class="text-xs font-bold text-white mb-1">${teamName}</div>
         <p class="text-[10px] text-slate-500">Tidak ada riwayat pertandingan terbaru.</p>
       </div>
@@ -441,7 +441,7 @@ function renderFormBlock(teamName, matches, teamId) {
     const formattedDate = new Date(m.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 
     return `
-      <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs hover:bg-slate-800/60 transition">
+      <div class="flex items-center justify-between bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80 text-xs hover:bg-slate-800/60 transition">
         <div class="flex items-center gap-2 truncate max-w-[62%]">
           <span class="text-[9px] font-bold font-mono ${isHome ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/50' : 'text-blue-400 bg-blue-950/60 border-blue-800/50'} px-1.5 py-0.5 rounded border">${isHome ? 'HOME' : 'AWAY'}</span>
           <img src="${oppLogo}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="">
@@ -457,7 +457,7 @@ function renderFormBlock(teamName, matches, teamId) {
   }).join('');
 
   return `
-    <div class="bg-slate-900 p-3.5 rounded-2xl border border-slate-800/80 space-y-3 shadow-lg">
+    <div class="bg-stadium-card p-3.5 rounded-2xl border border-slate-800/80 space-y-3 shadow-lg">
       <div class="flex items-center justify-between pb-2 border-b border-slate-800">
         <span class="text-xs font-bold text-white truncate max-w-[170px]">${teamName}</span>
         <div class="flex items-center gap-1.5">${formBadges}</div>
@@ -486,6 +486,7 @@ function getBaseMinute(clockStr) {
   return parseInt(str) || 0;
 }
 
+// RENDER COMPLETE DATA DENGAN BACKGROUND STADION RADIAL & DEKORASI ELEGANKAN
 function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;
@@ -516,19 +517,20 @@ function renderModalCompleteData(data, leagueId) {
     if (weatherObj.condition) weather += `, ${weatherObj.condition}`;
   }
 
+  // BADGES STADION / WASIT / CUACA (CONTAINER GLASS EFEK)
   const matchInfoBadgeHtml = `
     <div class="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center text-[10px] text-slate-400">
-      <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80 truncate" title="${stadium}">
+      <div class="bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/20 shadow-md backdrop-blur truncate" title="${stadium}">
         <i class="fa-solid fa-location-dot text-emerald-400 mb-1 block text-xs"></i>
         <span class="font-bold text-slate-200 block truncate">${stadium}</span>
         <span class="text-[8px] text-slate-500 uppercase font-semibold">Stadion</span>
       </div>
-      <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80 truncate" title="${referee}">
+      <div class="bg-slate-950/80 p-2.5 rounded-xl border border-blue-500/20 shadow-md backdrop-blur truncate" title="${referee}">
         <i class="fa-solid fa-user-ninja text-blue-400 mb-1 block text-xs"></i>
         <span class="font-bold text-slate-200 block truncate">${referee}</span>
         <span class="text-[8px] text-slate-500 uppercase font-semibold">Wasit</span>
       </div>
-      <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80 truncate" title="${weather}">
+      <div class="bg-slate-950/80 p-2.5 rounded-xl border border-amber-500/20 shadow-md backdrop-blur truncate" title="${weather}">
         <i class="fa-solid fa-cloud-sun text-amber-400 mb-1 block text-xs"></i>
         <span class="font-bold text-slate-200 block truncate">${weather}</span>
         <span class="text-[8px] text-slate-500 uppercase font-semibold">Cuaca</span>
@@ -610,25 +612,30 @@ function renderModalCompleteData(data, leagueId) {
     ? formattedTime 
     : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : header.status?.type?.description);
 
+  // SCORE HEADER MODAL DENGAN BACKGROUND STADION RADIAL
   document.getElementById('modal-score-header').innerHTML = `
-    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl">
-      <div class="flex items-center justify-between">
+    <div class="bg-stadium-header p-4 rounded-2xl border shadow-2xl relative overflow-hidden">
+      <div class="flex items-center justify-between relative z-10">
         <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
-          <img src="${homeLogo}" loading="lazy" class="w-12 h-12 object-contain group-hover:scale-110 transition-transform" alt="">
-          <span class="font-bold text-xs text-white mt-1 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
+          <div class="w-14 h-14 p-1.5 bg-slate-950/80 rounded-2xl border border-slate-700/60 shadow-lg flex items-center justify-center">
+            <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain group-hover:scale-110 transition-transform" alt="">
+          </div>
+          <span class="font-bold text-xs text-white mt-1.5 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
             <span class="truncate">${home.team.displayName}</span>
             ${isTeamFavorite(home.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
           </span>
         </div>
 
         <div class="text-center w-2/12">
-          <span class="text-xl sm:text-2xl font-black text-white">${state === 'pre' ? 'VS' : (home.score || '0') + ' - ' + (away.score || '0')}</span>
-          <div class="text-[10px] text-emerald-400 font-bold mt-1">${liveOrStatusText}</div>
+          <span class="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">${state === 'pre' ? 'VS' : (home.score || '0') + ' - ' + (away.score || '0')}</span>
+          <div class="text-[10px] text-emerald-400 font-bold mt-1 bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30 inline-block">${liveOrStatusText}</div>
         </div>
 
         <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
-          <img src="${awayLogo}" loading="lazy" class="w-12 h-12 object-contain group-hover:scale-110 transition-transform" alt="">
-          <span class="font-bold text-xs text-white mt-1 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
+          <div class="w-14 h-14 p-1.5 bg-slate-950/80 rounded-2xl border border-slate-700/60 shadow-lg flex items-center justify-center">
+            <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain group-hover:scale-110 transition-transform" alt="">
+          </div>
+          <span class="font-bold text-xs text-white mt-1.5 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
             <span class="truncate">${away.team.displayName}</span>
             ${isTeamFavorite(away.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
           </span>
@@ -641,7 +648,7 @@ function renderModalCompleteData(data, leagueId) {
   let statsBlockHtml = '';
   if (state === 'pre') {
     statsBlockHtml = `
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-xl">
+      <div class="bg-stadium-card border border-slate-800 rounded-2xl p-6 text-center shadow-xl">
         <i class="fa-solid fa-chart-line text-3xl text-slate-600 mb-2 block"></i>
         <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Statistik Belum Tersedia</h4>
         <p class="text-[10px] text-slate-500 mt-1">Statistik live akan muncul secara otomatis ketika pertandingan telah dimulai.</p>
@@ -707,7 +714,7 @@ function renderModalCompleteData(data, leagueId) {
     };
 
     statsBlockHtml = `
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
+      <div class="bg-stadium-card border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
         <div class="flex items-center justify-between text-xs font-black pb-3 border-b border-slate-800">
           <div class="flex items-center gap-2 text-blue-400 truncate max-w-[45%]">
             <span class="w-2.5 h-2.5 bg-blue-500 rounded-full shrink-0 shadow-lg shadow-blue-500/50"></span>
@@ -961,7 +968,7 @@ function renderModalCompleteData(data, leagueId) {
     }).join('');
 
     eventsTimelineHtml = `
-      <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-1">
+      <div class="bg-stadium-card p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-1">
         <div class="flex items-center justify-between text-xs font-extrabold text-slate-300 pb-2 mb-2 border-b border-slate-800/80">
           <span>Kejadian Pertandingan</span>
           <div class="flex items-center gap-1.5">
@@ -975,7 +982,7 @@ function renderModalCompleteData(data, leagueId) {
     `;
   } else {
     eventsTimelineHtml = `
-      <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-3">
+      <div class="bg-stadium-card p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-3">
         <div class="text-xs font-extrabold text-slate-300 pb-2 border-b border-slate-800/80">Kejadian Pertandingan</div>
         <div class="text-center py-6 text-slate-500 text-xs">Belum ada catatan kejadian penting.</div>
         ${matchInfoBadgeHtml}
@@ -1097,7 +1104,7 @@ function renderModalCompleteData(data, leagueId) {
       }
 
       return `
-        <div class="bg-slate-900 border border-slate-800/80 rounded-2xl p-3 shadow-xl space-y-2 mt-3">
+        <div class="bg-stadium-card border border-slate-800/80 rounded-2xl p-3 shadow-xl space-y-2 mt-3">
           <div class="text-sm font-extrabold text-white pb-2 border-b border-slate-800 flex items-center justify-between">
             <span>Substitutes</span>
             <span class="text-[10px] text-slate-400 font-normal">Cadangan</span>
@@ -1110,7 +1117,7 @@ function renderModalCompleteData(data, leagueId) {
     };
 
     lineupHtml = `
-      <div class="space-y-3 bg-slate-900 border border-slate-800 p-2.5 rounded-2xl shadow-xl">
+      <div class="space-y-3 bg-stadium-card border border-slate-800 p-2.5 rounded-2xl shadow-xl">
         <div class="flex items-center justify-between border-b border-slate-800 pb-2 text-[10px]">
           <div class="flex items-center gap-1.5 text-blue-400 font-bold">
             <img src="${homeLogo}" loading="lazy" class="w-4 h-4 object-contain">
@@ -1148,7 +1155,7 @@ function renderModalCompleteData(data, leagueId) {
       </div>
     `;
   } else {
-    lineupHtml = `<div class="text-center py-8 text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800"><i class="fa-solid fa-user-slash text-2xl mb-2 block"></i>Susunan pemain resmi belum dirilis oleh official.</div>`;
+    lineupHtml = `<div class="text-center py-8 text-slate-500 bg-stadium-card rounded-xl border border-slate-800"><i class="fa-solid fa-user-slash text-2xl mb-2 block"></i>Susunan pemain resmi belum dirilis oleh official.</div>`;
   }
   document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
 }
