@@ -146,7 +146,7 @@ function monitorLiveFavoriteEvents(event) {
   };
 }
 
-// Render Match Cards dengan Visual Modern & Dynamic Style
+// Render Match Cards dengan Visual Dynamic Warna Spesifik
 function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, customVariant = null) {
   const container = document.getElementById(targetContainerId);
   if (!container) return;
@@ -192,28 +192,28 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
       ? `<span class="text-[11px] font-black tracking-widest text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500/30 shadow-inner">VS</span>`
       : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800/80'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
 
-    // PENENTUAN GAYA KARTU MODERN & AKSEN WARNA STRIP KIRI
-    let cardStyle = 'border-slate-800/80 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950';
-    let accentBorder = 'border-l-2 border-l-slate-700';
+    // PENENTUAN KELAS CSS SESUAI WARNA SPESIFIK:
+    // 1. Selesai Favorit  => card-fav-finished (Cyan/Biru)
+    // 2. Mendatang Favorit => card-fav-upcoming (Emas/Kuning)
+    // 3. Live             => card-live (Merah)
+    // 4. Mendatang        => card-upcoming (Biru)
+    // 5. Selesai          => card-finished (Hijau)
+    let cardStyleClass = 'card-upcoming';
 
     if (customVariant === 'finished-fav') {
-      cardStyle = 'border-emerald-500/70 bg-gradient-to-r from-emerald-950/30 via-slate-900 to-slate-900 shadow-md shadow-emerald-950/20';
-      accentBorder = 'border-l-4 border-l-emerald-400';
-    } else if (hasFavTeam) {
-      cardStyle = 'border-amber-500/70 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 shadow-lg shadow-amber-950/20';
-      accentBorder = 'border-l-4 border-l-amber-400';
-    } else if (favorited) {
-      cardStyle = 'border-amber-500/50 bg-amber-950/20';
-      accentBorder = 'border-l-4 border-l-amber-400';
+      cardStyleClass = 'card-fav-finished';
+    } else if (customVariant === 'upcoming-fav' || ((hasFavTeam || favorited) && isPre)) {
+      cardStyleClass = 'card-fav-upcoming';
     } else if (isLive) {
-      cardStyle = 'border-red-500/60 bg-gradient-to-r from-red-950/30 via-slate-900 to-slate-900';
-      accentBorder = 'border-l-4 border-l-red-500';
+      cardStyleClass = 'card-live';
     } else if (isPre) {
-      accentBorder = 'border-l-2 border-l-emerald-500/50';
+      cardStyleClass = 'card-upcoming';
+    } else {
+      cardStyleClass = 'card-finished';
     }
 
     const card = document.createElement('div');
-    card.className = `p-3.5 rounded-2xl border ${accentBorder} hover:border-slate-700 active:scale-[0.99] transition-all duration-150 cursor-pointer relative shadow-sm ${cardStyle}`;
+    card.className = `p-3.5 rounded-2xl transition-all duration-150 cursor-pointer relative shadow-sm ${cardStyleClass}`;
     
     card.onclick = (e) => {
       e.stopPropagation();
