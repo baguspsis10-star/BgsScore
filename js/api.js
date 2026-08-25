@@ -317,20 +317,19 @@ async function fetchFavoritedMatchesStructured() {
     return;
   }
 
-  // 1. LIVE FAVORITES
+  // 1. LIVE FAVORITES (Jika ada)
   if (liveEvents.length > 0) {
     const liveSec = document.createElement('div');
-    liveSec.className = 'space-y-2.5';
+    liveSec.className = 'space-y-2.5 mb-4';
     liveSec.innerHTML = `
-      <div class="flex items-center justify-between pb-1 border-b border-slate-800 text-slate-300">
-        <span class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+      <div class="flex items-center justify-between pb-1.5 border-b border-red-500/30 text-slate-300">
+        <span class="text-xs font-black text-red-400 uppercase tracking-wider flex items-center gap-1.5">
           <span class="flex h-2 w-2 relative">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
             <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
           </span>
-          Favorit Sedang Live
+          Pertandingan Live (${liveEvents.length})
         </span>
-        <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">${liveEvents.length}</span>
       </div>
       <div id="fav-active-grid" class="space-y-2.5"></div>
     `;
@@ -338,35 +337,39 @@ async function fetchFavoritedMatchesStructured() {
     renderMatchesCards('fav-active-grid', liveEvents, true);
   }
 
-  // 2. UPCOMING FAVORITES (WITH TOGGLE)
-  const upcomingSec = document.createElement('div');
-  upcomingSec.className = 'space-y-2.5';
-  upcomingSec.innerHTML = `
-    <button onclick="toggleUpcomingInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
-      <span class="flex items-center gap-2">
-        <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (${upcomingEvents.length})
-      </span>
-      <i id="fav-upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInFav ? 'up' : 'down'} text-[10px]"></i>
-    </button>
-    <div id="fav-upcoming-grid" class="space-y-2.5 ${showUpcomingInFav ? '' : 'hidden'}"></div>
-  `;
-  container.appendChild(upcomingSec);
-  renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
+  // 2. UPCOMING FAVORITES (Diberi Accordion Button yang Jelas)
+  if (upcomingEvents.length > 0) {
+    const upcomingSec = document.createElement('div');
+    upcomingSec.className = 'space-y-2.5 mb-4';
+    upcomingSec.innerHTML = `
+      <button onclick="toggleUpcomingInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+        <span class="flex items-center gap-2">
+          <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (${upcomingEvents.length})
+        </span>
+        <i id="fav-upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInFav ? 'up' : 'down'} text-[10px]"></i>
+      </button>
+      <div id="fav-upcoming-grid" class="space-y-2.5 ${showUpcomingInFav ? '' : 'hidden'}"></div>
+    `;
+    container.appendChild(upcomingSec);
+    renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
+  }
 
-  // 3. FINISHED FAVORITES (WITH TOGGLE)
-  const finishedSec = document.createElement('div');
-  finishedSec.className = 'space-y-2.5';
-  finishedSec.innerHTML = `
-    <button onclick="toggleFinishedInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
-      <span class="flex items-center gap-2">
-        <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
-      </span>
-      <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInFav ? 'up' : 'down'} text-[10px]"></i>
-    </button>
-    <div id="fav-finished-grid" class="space-y-2.5 ${showFinishedInFav ? '' : 'hidden'}"></div>
-  `;
-  container.appendChild(finishedSec);
-  renderMatchesCards('fav-finished-grid', finishedEvents, true);
+  // 3. FINISHED FAVORITES (Diberi Pembatas/Margin Atas)
+  if (finishedEvents.length > 0) {
+    const finishedSec = document.createElement('div');
+    finishedSec.className = 'space-y-2.5 pt-2 border-t border-slate-800/60';
+    finishedSec.innerHTML = `
+      <button onclick="toggleFinishedInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+        <span class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
+        </span>
+        <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInFav ? 'up' : 'down'} text-[10px]"></i>
+      </button>
+      <div id="fav-finished-grid" class="space-y-2.5 ${showFinishedInFav ? '' : 'hidden'}"></div>
+    `;
+    container.appendChild(finishedSec);
+    renderMatchesCards('fav-finished-grid', finishedEvents, true);
+  }
 
   container.classList.remove('hidden');
 }
