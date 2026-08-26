@@ -316,48 +316,52 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
     const fetchTeamForm = async (tId) => {
       if (!tId) return [];
 
-      let primarySlug = null;
-      try {
-        const teamProfileRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${tId}`);
-        if (teamProfileRes.ok) {
-          const profileData = await teamProfileRes.json();
-          primarySlug = profileData.team?.defaultLeague?.slug || profileData.team?.league?.slug;
-        }
-      } catch (e) {}
+      const candidateUrls = [
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${tId}/schedule`,
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${tId}/schedule`
+      ];
 
-      const candidateLeagues = [
-        primarySlug,
-        leagueId,
-        'aut.1', 'sco.1', 'eng.1', 'esp.1', 'ger.1', 'ita.1', 'fra.1',
-        'por.1', 'ned.1', 'bel.1', 'sui.1', 'tur.1', 'gre.1', 'idn.1',
-        'uefa.champions', 'uefa.europa', 'uefa.conf'
-      ].filter(Boolean).filter(l => l !== 'all');
+      if (leagueId && leagueId !== 'all') {
+        candidateUrls.push(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${tId}/schedule`);
+      }
 
-      const uniqueCandidates = [...new Set(candidateLeagues)];
+      let allEvents = [];
 
-      const fetchPromises = uniqueCandidates.map(async (slug) => {
+      const fetchPromises = candidateUrls.map(async (url) => {
         try {
-          const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/teams/${tId}/schedule`);
-          if (!res.ok) return null;
+          const res = await fetch(url);
+          if (!res.ok) return [];
           const data = await res.json();
-          if (data.events && data.events.length > 0) {
-            const finished = data.events.filter(e => {
-              const state = e.status?.type?.state;
-              const completed = e.competitions?.[0]?.status?.type?.completed;
-              return state === 'post' || completed === true;
-            }).sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            if (finished.length > 0) return finished;
-          }
+          return data.events || [];
         } catch (e) {
-          return null;
+          return [];
         }
-        return null;
       });
 
       const results = await Promise.all(fetchPromises);
-      const validMatches = results.find(r => r !== null && r.length > 0);
-      return validMatches ? validMatches.slice(0, 5) : [];
+      results.forEach(events => {
+        if (Array.isArray(events)) {
+          allEvents = allEvents.concat(events);
+        }
+      });
+
+      const finished = allEvents.filter(e => {
+        const state = e.status?.type?.state;
+        const completed = e.competitions?.[0]?.status?.type?.completed;
+        return state === 'post' || completed === true;
+      });
+
+      const uniqueMatchesMap = new Map();
+      finished.forEach(m => {
+        if (m.id && !uniqueMatchesMap.has(m.id)) {
+          uniqueMatchesMap.set(m.id, m);
+        }
+      });
+
+      const uniqueMatches = Array.from(uniqueMatchesMap.values());
+      uniqueMatches.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      return uniqueMatches.slice(0, 5);
     };
 
     const [homeMatches, awayMatches] = await Promise.all([
