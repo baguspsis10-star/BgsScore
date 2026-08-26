@@ -314,24 +314,33 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
 
   try {
     const fetchTeamForm = async (tId) => {
-      try {
-        let targetLg = (leagueId && leagueId !== 'all') ? leagueId : 'all';
-        let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLg}/teams/${tId}/schedule`);
-        let data = await res.json();
-        
-        if (!data.events || data.events.length === 0) {
-          res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${tId}/schedule`);
-          data = await res.json();
-        }
+      if (!tId) return [];
+      const currentYear = new Date().getFullYear();
 
-        return (data.events || [])
-          .filter(e => e.status?.type?.state === 'post')
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .slice(0, 5);
-      } catch (e) {
-        console.error(`Gagal memuat jadwal tim ${tId}:`, e);
-        return [];
+      // Coba urutan endpoint API ESPN yang valid
+      const endpoints = [
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${tId}/schedule`,
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${tId}/schedule`,
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${tId}/schedule?season=${currentYear - 1}`
+      ];
+
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue; // Abaikan jika status 404/error
+          const data = await res.json();
+          if (data.events && data.events.length > 0) {
+            const finished = data.events
+              .filter(e => e.status?.type?.state === 'post')
+              .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (finished.length > 0) return finished.slice(0, 5);
+          }
+        } catch (e) {
+          // Lanjut coba endpoint berikutnya
+        }
       }
+      return [];
     };
 
     const [homeMatches, awayMatches] = await Promise.all([
