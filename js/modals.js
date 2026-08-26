@@ -315,19 +315,22 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
   try {
     const fetchTeamForm = async (tId) => {
       if (!tId) return [];
-      const currentYear = new Date().getFullYear();
 
-      // Coba urutan endpoint API ESPN yang valid
-      const endpoints = [
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${tId}/schedule`,
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/teams/${tId}/schedule`,
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${tId}/schedule?season=${currentYear - 1}`
-      ];
+      // Rotasi kandidat kode liga untuk menjangkau liga domestik klub
+      const candidateLeagues = [
+        leagueId,
+        'aut.1', 'sco.1', 'eng.1', 'esp.1', 'ger.1', 'ita.1', 'fra.1',
+        'por.1', 'ned.1', 'bel.1', 'sui.1', 'tur.1', 'gre.1', 'idn.1',
+        'uefa.champions', 'uefa.europa', 'uefa.conf'
+      ].filter(l => l && l !== 'all');
 
-      for (const url of endpoints) {
+      const uniqueCandidates = [...new Set(candidateLeagues)];
+
+      for (const slug of uniqueCandidates) {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/teams/${tId}/schedule`;
         try {
           const res = await fetch(url);
-          if (!res.ok) continue; // Abaikan jika status 404/error
+          if (!res.ok) continue;
           const data = await res.json();
           if (data.events && data.events.length > 0) {
             const finished = data.events
@@ -337,7 +340,7 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
             if (finished.length > 0) return finished.slice(0, 5);
           }
         } catch (e) {
-          // Lanjut coba endpoint berikutnya
+          // Lanjut ke kandidat liga berikutnya
         }
       }
       return [];
