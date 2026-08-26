@@ -316,34 +316,48 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
     const fetchTeamForm = async (tId) => {
       if (!tId) return [];
 
-      // Rotasi kandidat kode liga untuk menjangkau liga domestik klub
+      let primarySlug = null;
+      try {
+        const teamProfileRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${tId}`);
+        if (teamProfileRes.ok) {
+          const profileData = await teamProfileRes.json();
+          primarySlug = profileData.team?.defaultLeague?.slug || profileData.team?.league?.slug;
+        }
+      } catch (e) {}
+
       const candidateLeagues = [
+        primarySlug,
         leagueId,
         'aut.1', 'sco.1', 'eng.1', 'esp.1', 'ger.1', 'ita.1', 'fra.1',
         'por.1', 'ned.1', 'bel.1', 'sui.1', 'tur.1', 'gre.1', 'idn.1',
         'uefa.champions', 'uefa.europa', 'uefa.conf'
-      ].filter(l => l && l !== 'all');
+      ].filter(Boolean).filter(l => l !== 'all');
 
       const uniqueCandidates = [...new Set(candidateLeagues)];
 
-      for (const slug of uniqueCandidates) {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/teams/${tId}/schedule`;
+      const fetchPromises = uniqueCandidates.map(async (slug) => {
         try {
-          const res = await fetch(url);
-          if (!res.ok) continue;
+          const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/teams/${tId}/schedule`);
+          if (!res.ok) return null;
           const data = await res.json();
           if (data.events && data.events.length > 0) {
-            const finished = data.events
-              .filter(e => e.status?.type?.state === 'post')
-              .sort((a, b) => new Date(b.date) - new Date(a.date));
+            const finished = data.events.filter(e => {
+              const state = e.status?.type?.state;
+              const completed = e.competitions?.[0]?.status?.type?.completed;
+              return state === 'post' || completed === true;
+            }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            if (finished.length > 0) return finished.slice(0, 5);
+            if (finished.length > 0) return finished;
           }
         } catch (e) {
-          // Lanjut ke kandidat liga berikutnya
+          return null;
         }
-      }
-      return [];
+        return null;
+      });
+
+      const results = await Promise.all(fetchPromises);
+      const validMatches = results.find(r => r !== null && r.length > 0);
+      return validMatches ? validMatches.slice(0, 5) : [];
     };
 
     const [homeMatches, awayMatches] = await Promise.all([
