@@ -463,8 +463,17 @@ function renderFormBlock(teamName, matches, teamId) {
     const myTeam = comp?.competitors?.find(c => String(c.team.id) === String(teamId));
     const oppTeam = comp?.competitors?.find(c => String(c.team.id) !== String(teamId));
     
-    const myScore = parseInt(myTeam?.score || '0');
-    const oppScore = parseInt(oppTeam?.score || '0');
+    // Fungsi ekstraksi skor aman (mendukung string, number, maupun object ESPN)
+    const parseScore = (teamObj) => {
+      if (!teamObj || teamObj.score === undefined || teamObj.score === null) return 0;
+      if (typeof teamObj.score === 'object') {
+        return parseInt(teamObj.score.displayValue ?? teamObj.score.value ?? '0') || 0;
+      }
+      return parseInt(teamObj.score) || 0;
+    };
+
+    const myScore = parseScore(myTeam);
+    const oppScore = parseScore(oppTeam);
 
     let resBadge = { label: 'S', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' };
     if (myScore > oppScore) {
@@ -505,6 +514,7 @@ function renderFormBlock(teamName, matches, teamId) {
     </div>
   `;
 }
+
 
 function parseClockMinute(clockStr) {
   if (!clockStr) return 0;
