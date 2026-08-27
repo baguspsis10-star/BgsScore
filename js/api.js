@@ -46,13 +46,13 @@ const LEAGUE_DICT = {
   '19': { name: 'MLS', flag: '🇺🇸', slug: 'usa.1' }
 };
 
-// Helper Ekstraksi Data Liga Presisi & Anti-Crash dari ESPN Event
+// Helper Ekstraksi Data Liga Presisi & Anti-Crash dari ESPN Event (UPDATED)
 function extractLeagueDataFromEvent(evt, globalLeagues = []) {
   try {
     if (!evt) return { leagueId: 'club.friendly', leagueName: 'Liga', leagueLogo: '', leagueFlag: '⚽' };
 
     let rawId = String(evt.league?.id || evt.competitions?.[0]?.league?.id || '');
-    let rawSlug = String(evt.league?.slug || evt.competitions?.[0]?.league?.slug || evt.season?.slug || '');
+    let rawSlug = String(evt.league?.slug || evt.competitions?.[0]?.league?.slug || '');
 
     if (!rawId && evt.uid) {
       const match = evt.uid.match(/~l:([^~]+)~/);
@@ -66,25 +66,30 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
       (g.uid && evt.uid && evt.uid.includes(g.uid))
     );
 
-    const nameFromApi = foundGlobal?.name || foundGlobal?.displayName || evt.league?.name || evt.competitions?.[0]?.league?.name || evt.competitions?.[0]?.notes?.[0]?.headline || '';
-
     const dictInfo = LEAGUE_DICT[rawSlug] || LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || LEAGUE_DICT[foundGlobal?.id] || {};
     const appLeagues = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES)) ? LEAGUES : [];
     const matchedApp = appLeagues.find(l => l.id === rawSlug || l.id === dictInfo.slug || l.id === foundGlobal?.slug) || {};
 
-    let finalName = dictInfo.name || matchedApp.name || nameFromApi || 'Liga';
+    const nameFromApi = 
+      evt.league?.name || 
+      evt.league?.displayName || 
+      evt.competitions?.[0]?.league?.name || 
+      evt.competitions?.[0]?.league?.displayName || 
+      foundGlobal?.name || 
+      foundGlobal?.displayName || 
+      '';
+
+    let finalName = dictInfo.name || matchedApp.name || nameFromApi;
 
     if (typeof finalName === 'string') {
       finalName = finalName.replace(/\s*\(\d+\)/g, '').trim();
-    } else {
-      finalName = 'Liga';
     }
 
-    if (!finalName || finalName.toLowerCase() === 'liga' || finalName.toLowerCase() === 'regular-season') {
-      finalName = dictInfo.name || matchedApp.name || (nameFromApi && nameFromApi.toLowerCase() !== 'regular-season' ? nameFromApi : 'Liga');
+    if (!finalName || finalName.toLowerCase() === 'regular-season' || finalName.toLowerCase() === 'regular season') {
+      finalName = dictInfo.name || matchedApp.name || foundGlobal?.name || foundGlobal?.displayName || 'Liga';
     }
 
-    const finalSlug = matchedApp.id || dictInfo.slug || foundGlobal?.slug || rawSlug || 'club.friendly';
+    const finalSlug = matchedApp.id || dictInfo.slug || foundGlobal?.slug || rawSlug || rawId || 'club.friendly';
 
     let finalFlag = '⚽';
     if (matchedApp.flag) finalFlag = matchedApp.flag;
@@ -95,8 +100,8 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
 
     return {
       leagueId: finalSlug,
-      leagueName: finalName,
-      leagueLogo: matchedApp.logo || evt.league?.logos?.[0]?.href || foundGlobal?.logos?.[0]?.href || '',
+      leagueName: finalName || 'Liga',
+      leagueLogo: matchedApp.logo || evt.league?.logos?.[0]?.href || evt.competitions?.[0]?.league?.logos?.[0]?.href || foundGlobal?.logos?.[0]?.href || '',
       leagueFlag: finalFlag
     };
   } catch (err) {
