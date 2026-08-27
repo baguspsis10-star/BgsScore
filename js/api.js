@@ -15,13 +15,13 @@ let showUpcomingInLive = true;
 let showFinishedInFav = false;
 let showUpcomingInFav = true;
 
+// Daftar liga murni ESPN (Liga Korea dihapus)
 const LEAGUES = [
   { id: 'eng.1', name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
   { id: 'esp.1', name: 'La Liga', flag: '🇪🇸' },
   { id: 'ita.1', name: 'Serie A', flag: '🇮🇹' },
   { id: 'ger.1', name: 'Bundesliga', flag: '🇩🇪' },
-  { id: 'idn.1', name: 'BRI Liga 1', flag: '🇮🇩' },
-  { id: 'kr.1', name: 'K League 1', flag: '🇰🇷' }
+  { id: 'idn.1', name: 'BRI Liga 1', flag: '🇮🇩' }
 ];
 
 // ==========================================
@@ -42,7 +42,7 @@ function isTeamFavorite(id) { return favoriteTeams.includes(id); }
 function monitorLiveFavoriteEvents(evt) {}
 function sortEventsByFavoriteAndDate(events) { return events; }
 
-// Toggle Handlers untuk Tampilan Live & Favorit
+// Toggle Handlers Tampilan
 function toggleFinishedInLiveView() {
   showFinishedInLive = !showFinishedInLive;
   const grid = document.getElementById('live-finished-grid');
@@ -359,89 +359,8 @@ async function fetchMatchDetails(eventId, leagueId) {
 }
 
 // ==========================================
-// 5. API FETCHING LOGIC
+// 5. ESPN API FETCHING LOGIC (100% ESPN)
 // ==========================================
-async function fetchFotmobMatches(dateStr) {
-  try {
-    const res = await fetch(`https://www.fotmob.com/api/matches?date=${dateStr}`);
-    const data = await res.json();
-    
-    const targetFotmobIds = [47, 8985, 140, 9131];
-    const filteredLeagues = (data.leagues || []).filter(l => 
-      targetFotmobIds.includes(l.id) || 
-      (l.name && (l.name.toLowerCase().includes('k league') || l.name.toLowerCase().includes('indonesia')))
-    );
-
-    let parsedEvents = [];
-    filteredLeagues.forEach(league => {
-      let mappedLeagueId = 'idn.1';
-      let mappedLeagueName = league.name;
-
-      if (league.id === 140 || league.name.includes('K League 1')) {
-        mappedLeagueId = 'kr.1';
-        mappedLeagueName = 'K League 1';
-      } else if (league.id === 9131 || league.name.includes('K League 2')) {
-        mappedLeagueId = 'kr.2';
-        mappedLeagueName = 'K League 2';
-      } else if (league.id === 8985) {
-        mappedLeagueId = 'idn.2';
-        mappedLeagueName = 'Pegadaian Liga 2';
-      } else if (league.id === 47) {
-        mappedLeagueId = 'idn.1';
-        mappedLeagueName = 'BRI Liga 1';
-      }
-
-      const flagEmoji = mappedLeagueId.startsWith('kr') ? "🇰🇷" : "🇮🇩";
-
-      (league.matches || []).forEach(m => {
-        parsedEvents.push({
-          id: `fotmob_${m.id}`,
-          date: m.status?.utcTime || new Date().toISOString(),
-          leagueName: mappedLeagueName,
-          leagueId: mappedLeagueId,
-          leagueFlag: flagEmoji,
-          status: {
-            type: {
-              state: m.status?.started ? (m.status?.finished ? 'post' : 'in') : 'pre',
-              shortDetail: m.status?.scoreStr || (m.status?.cancelled ? 'Canceled' : 'VS'),
-              description: m.status?.reason?.short || ''
-            }
-          },
-          competitions: [{
-            competitors: [
-              {
-                homeAway: 'home',
-                score: String(m.home?.score ?? 0),
-                team: { 
-                  id: m.home?.id, 
-                  displayName: m.home?.name, 
-                  shortDisplayName: m.home?.name,
-                  logo: `https://images.fotmob.com/image_resources/logo/teamlogo/${m.home?.id}.png`
-                }
-              },
-              {
-                homeAway: 'away',
-                score: String(m.away?.score ?? 0),
-                team: { 
-                  id: m.away?.id, 
-                  displayName: m.away?.name, 
-                  shortDisplayName: m.away?.name,
-                  logo: `https://images.fotmob.com/image_resources/logo/teamlogo/${m.away?.id}.png`
-                }
-              }
-            ]
-          }]
-        });
-      });
-    });
-
-    return parsedEvents;
-  } catch (err) {
-    console.warn("Gagal mengambil data pertandingan dari API Fotmob:", err);
-    return [];
-  }
-}
-
 async function fetchAllMatches() {
   const targets = selectedLeague === 'all' 
     ? LEAGUES 
@@ -460,26 +379,8 @@ async function fetchAllMatches() {
       .catch(() => [])
   );
 
-  const shouldFetchFotmob = selectedLeague === 'all' || 
-                            ['kr.1', 'kr.2', 'idn.1', 'idn.2'].includes(selectedLeague);
-
-  const fotmobPromise = shouldFetchFotmob ? fetchFotmobMatches(selectedDateFilter) : Promise.resolve([]);
-
-  const [espnResults, fotmobEvents] = await Promise.all([
-    Promise.all(espnPromises),
-    fotmobPromise
-  ]);
-
+  const espnResults = await Promise.all(espnPromises);
   let allEvents = espnResults.flat();
-
-  if (fotmobEvents.length > 0) {
-    const existingIds = new Set(allEvents.map(e => e.id));
-    fotmobEvents.forEach(fEvt => {
-      if (!existingIds.has(fEvt.id)) {
-        allEvents.push(fEvt);
-      }
-    });
-  }
 
   allEvents = sortEventsByFavoriteAndDate(allEvents);
   cachedEvents = allEvents;
@@ -512,20 +413,9 @@ async function fetchLiveMatchesStructured() {
       .catch(() => [])
   );
 
-  const fotmobPromise = fetchFotmobMatches(getFormattedDate(today));
+  const allEventArrays = await Promise.all(espnPromises);
+  let allEvents = allEventArrays.flat();
 
-  const [allEventArrays, fotmobEvents] = await Promise.all([
-    Promise.all(espnPromises),
-    fotmobPromise
-  ]);
-
-  const eventMap = new Map();
-  allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
-  fotmobEvents.forEach(evt => {
-    if (!eventMap.has(evt.id)) eventMap.set(evt.id, evt);
-  });
-
-  let allEvents = Array.from(eventMap.values());
   cachedEvents = allEvents;
   allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
@@ -630,20 +520,10 @@ async function fetchFavoritedMatchesStructured() {
       .catch(() => [])
   );
 
-  const fotmobPromise = fetchFotmobMatches(getFormattedDate(today));
+  const allEventArrays = await Promise.all(espnPromises);
+  let allEvents = allEventArrays.flat();
 
-  const [allEventArrays, fotmobEvents] = await Promise.all([
-    Promise.all(espnPromises),
-    fotmobPromise
-  ]);
-
-  const eventMap = new Map();
-  allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
-  fotmobEvents.forEach(evt => {
-    if (!eventMap.has(evt.id)) eventMap.set(evt.id, evt);
-  });
-
-  const favEvents = Array.from(eventMap.values()).filter(evt => {
+  const favEvents = allEvents.filter(evt => {
     const comp = evt.competitions?.[0];
     const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
     const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
