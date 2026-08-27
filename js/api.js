@@ -1,21 +1,97 @@
 // API & NETWORK DATA FETCHING MODULE
 
-// Helper Ekstraksi Data Liga Presisi dari ESPN Event
-function extractLeagueDataFromEvent(evt) {
-  const rawSlug = evt.league?.slug || evt.competitions?.[0]?.league?.slug || evt.season?.slug || '';
-  const rawName = evt.league?.name || evt.competitions?.[0]?.league?.name || evt.season?.displayName || '';
-  
-  const matched = LEAGUES.find(l => l.id === rawSlug || l.id === evt.league?.id) || {};
-  
+// Kamus Pemetaan Lengkap ID/Slug Liga ESPN ke Nama & Bendera Resmi
+const LEAGUE_DICT = {
+  'eng.1': { name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+  'esp.1': { name: 'La Liga', flag: '🇪🇸' },
+  'ita.1': { name: 'Serie A', flag: '🇮🇹' },
+  'ger.1': { name: 'Bundesliga', flag: '🇩🇪' },
+  'fra.1': { name: 'Ligue 1', flag: '🇫🇷' },
+  'ned.1': { name: 'Eredivisie', flag: '🇳🇱' },
+  'por.1': { name: 'Primeira Liga', flag: '🇵🇹' },
+  'tur.1': { name: 'Süper Lig', flag: '🇹🇷' },
+  'bel.1': { name: 'Pro League', flag: '🇧🇪' },
+  'sco.1': { name: 'Scottish Premiership', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+  'uefa.champions': { name: 'UEFA Champions League', flag: '🇪🇺' },
+  'uefa.europa': { name: 'UEFA Europa League', flag: '🇪🇺' },
+  'uefa.europa.conf': { name: 'UEFA Conference League', flag: '🇪🇺' },
+  'uefa.nations': { name: 'UEFA Nations League', flag: '🇪🇺' },
+  'idn.1': { name: 'BRI Liga 1', flag: '🇮🇩' },
+  'idn.2': { name: 'Pegadaian Liga 2', flag: '🇮🇩' },
+  'kr.1': { name: 'K League 1', flag: '🇰🇷' },
+  'kr.2': { name: 'K League 2', flag: '🇰🇷' },
+  'jpn.1': { name: 'J1 League', flag: '🇯🇵' },
+  'usa.1': { name: 'MLS', flag: '🇺🇸' },
+  'arg.1': { name: 'Liga Profesional', flag: '🇦🇷' },
+  'bra.1': { name: 'Brasileirão', flag: '🇧🇷' },
+  'saudi.1': { name: 'Saudi Pro League', flag: '🇸🇦' },
+  'fifa.friendly': { name: 'Laga Persahabatan', flag: '🌐' },
+  'club.friendly': { name: 'Persahabatan Klub', flag: '⚽' },
+
+  // Angka ID ESPN Fallback
+  '8': { name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', slug: 'eng.1' },
+  '15': { name: 'La Liga', flag: '🇪🇸', slug: 'esp.1' },
+  '12': { name: 'Serie A', flag: '🇮🇹', slug: 'ita.1' },
+  '10': { name: 'Bundesliga', flag: '🇩🇪', slug: 'ger.1' },
+  '9': { name: 'Ligue 1', flag: '🇫🇷', slug: 'fra.1' },
+  '11': { name: 'Eredivisie', flag: '🇳🇱', slug: 'ned.1' },
+  '14': { name: 'Primeira Liga', flag: '🇵🇹', slug: 'por.1' },
+  '2': { name: 'UEFA Champions League', flag: '🇪🇺', slug: 'uefa.champions' },
+  '3': { name: 'UEFA Europa League', flag: '🇪🇺', slug: 'uefa.europa' },
+  '2310': { name: 'UEFA Conference League', flag: '🇪🇺', slug: 'uefa.europa.conf' },
+  '19': { name: 'MLS', flag: '🇺🇸', slug: 'usa.1' }
+};
+
+// Helper Ekstraksi Data Liga Presisi dari ESPN Event & Array Leagues Induk
+function extractLeagueDataFromEvent(evt, globalLeagues = []) {
+  let rawId = evt.league?.id || evt.league?.slug || evt.competitions?.[0]?.league?.id || evt.competitions?.[0]?.league?.slug || '';
+  let rawName = evt.league?.name || evt.league?.displayName || evt.competitions?.[0]?.league?.name || '';
+
+  // Parse ID dari string UID jika kosong (contoh: "s:6~l:15~e:123" -> ID = "15")
+  if (!rawId && evt.uid) {
+    const uidMatch = evt.uid.match(/~l:([^~]+)~/);
+    if (uidMatch) rawId = uidMatch[1];
+  }
+
+  // Pencocokan dengan array leagues tingkat teratas dari response API
+  let foundGlobal = null;
+  if (Array.isArray(globalLeagues) && globalLeagues.length > 0) {
+    foundGlobal = globalLeagues.find(g => 
+      String(g.id) === String(rawId) || 
+      g.slug === rawId || 
+      (g.uid && evt.uid && evt.uid.includes(g.uid))
+    );
+  }
+
+  if (foundGlobal) {
+    if (!rawName) rawName = foundGlobal.name || foundGlobal.displayName || '';
+    if (!rawId) rawId = foundGlobal.slug || foundGlobal.id || '';
+  }
+
+  const dictInfo = LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || {};
+  const matchedAppLeague = (typeof LEAGUES !== 'undefined' ? LEAGUES : []).find(l => 
+    l.id === rawId || l.id === dictInfo.slug || l.id === foundGlobal?.slug
+  ) || {};
+
+  const finalSlug = matchedAppLeague.id || dictInfo.slug || foundGlobal?.slug || rawId || 'club.friendly';
+  let finalName = rawName || dictInfo.name || matchedAppLeague.name || foundGlobal?.name || evt.league?.abbreviation || '';
+
+  // Bersihkan jika nama liga masih bertuliskan default/tahun season
+  if (!finalName || finalName === '2026-27' || finalName === 'regular-season' || finalName === 'Liga') {
+    finalName = dictInfo.name || matchedAppLeague.name || (rawId ? `Liga (${rawId})` : 'Persahabatan');
+  }
+
+  const finalFlag = matchedAppLeague.flag || dictInfo.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalSlug) : '⚽');
+
   return {
-    leagueId: rawSlug || matched.id || 'club.friendly',
-    leagueName: rawName || matched.name || 'Liga',
-    leagueLogo: matched.logo || evt.league?.logos?.[0]?.href || '',
-    leagueFlag: matched.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(rawSlug) : '⚽')
+    leagueId: finalSlug,
+    leagueName: finalName,
+    leagueLogo: matchedAppLeague.logo || evt.league?.logos?.[0]?.href || foundGlobal?.logos?.[0]?.href || '',
+    leagueFlag: finalFlag
   };
 }
 
-// Multi-Tier League Logo Loader (ESPN -> SportsDB -> Custom Badge Fallback)
+// Multi-Tier League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -73,7 +149,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// Multi-Tier Player Photo Loader (ESPN -> SportsDB -> UI Avatars Fallback)
+// Multi-Tier Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -197,7 +273,7 @@ async function fetchFotmobMatches(dateStr) {
                 }
               },
               {
-                awayAway: 'away',
+                homeAway: 'away',
                 score: String(m.away?.score ?? 0),
                 team: { 
                   id: m.away?.id, 
@@ -227,8 +303,9 @@ async function fetchAllMatches() {
     if (selectedLeague === 'all') {
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${selectedDateFilter}`);
       const data = await res.json();
+      const globalLeagues = data.leagues || [];
       espnEvents = (data.events || []).map(evt => {
-        const lData = extractLeagueDataFromEvent(evt);
+        const lData = extractLeagueDataFromEvent(evt, globalLeagues);
         return {
           ...evt,
           leagueName: lData.leagueName,
@@ -241,13 +318,17 @@ async function fetchAllMatches() {
       const matched = LEAGUES.find(l => l.id === selectedLeague) || {};
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${selectedLeague}/scoreboard?dates=${selectedDateFilter}`);
       const data = await res.json();
-      espnEvents = (data.events || []).map(evt => ({
-        ...evt,
-        leagueName: matched.name || evt.league?.name || 'Liga',
-        leagueId: selectedLeague,
-        leagueLogo: matched.logo || '',
-        leagueFlag: matched.flag || '⚽'
-      }));
+      const globalLeagues = data.leagues || [];
+      espnEvents = (data.events || []).map(evt => {
+        const lData = extractLeagueDataFromEvent(evt, globalLeagues);
+        return {
+          ...evt,
+          leagueName: matched.name || lData.leagueName || 'Liga',
+          leagueId: selectedLeague,
+          leagueLogo: matched.logo || lData.leagueLogo || '',
+          leagueFlag: matched.flag || lData.leagueFlag || '⚽'
+        };
+      });
     }
 
     const shouldFetchFotmob = selectedLeague === 'all' || ['kr.1', 'kr.2', 'idn.1', 'idn.2'].includes(selectedLeague);
@@ -292,8 +373,9 @@ async function fetchLiveMatchesStructured() {
   try {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${dateRangeStr}`);
     const data = await res.json();
+    const globalLeagues = data.leagues || [];
     const espnEvents = (data.events || []).map(evt => {
-      const lData = extractLeagueDataFromEvent(evt);
+      const lData = extractLeagueDataFromEvent(evt, globalLeagues);
       return {
         ...evt,
         leagueName: lData.leagueName,
@@ -411,8 +493,9 @@ async function fetchFavoritedMatchesStructured() {
   try {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${dateRangeStr}`);
     const data = await res.json();
+    const globalLeagues = data.leagues || [];
     const espnEvents = (data.events || []).map(evt => {
-      const lData = extractLeagueDataFromEvent(evt);
+      const lData = extractLeagueDataFromEvent(evt, globalLeagues);
       return {
         ...evt,
         leagueName: lData.leagueName,
