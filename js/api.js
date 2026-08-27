@@ -2,6 +2,7 @@
 
 // Kamus Pemetaan Lengkap ID/Slug Liga ESPN ke Nama & Bendera Resmi
 const LEAGUE_DICT = {
+  // Slug Strings
   'eng.1': { name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
   'esp.1': { name: 'La Liga', flag: '🇪🇸' },
   'ita.1': { name: 'Serie A', flag: '🇮🇹' },
@@ -36,9 +37,12 @@ const LEAGUE_DICT = {
   '9': { name: 'Ligue 1', flag: '🇫🇷', slug: 'fra.1' },
   '11': { name: 'Eredivisie', flag: '🇳🇱', slug: 'ned.1' },
   '14': { name: 'Primeira Liga', flag: '🇵🇹', slug: 'por.1' },
+  '18': { name: 'Süper Lig', flag: '🇹🇷', slug: 'tur.1' },
+  '5': { name: 'Scottish Premiership', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', slug: 'sco.1' },
   '2': { name: 'UEFA Champions League', flag: '🇪🇺', slug: 'uefa.champions' },
   '3': { name: 'UEFA Europa League', flag: '🇪🇺', slug: 'uefa.europa' },
   '2310': { name: 'UEFA Conference League', flag: '🇪🇺', slug: 'uefa.europa.conf' },
+  '2070': { name: 'UEFA Nations League', flag: '🇪🇺', slug: 'uefa.nations' },
   '19': { name: 'MLS', flag: '🇺🇸', slug: 'usa.1' }
 };
 
@@ -47,13 +51,13 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
   let rawId = evt.league?.id || evt.league?.slug || evt.competitions?.[0]?.league?.id || evt.competitions?.[0]?.league?.slug || '';
   let rawName = evt.league?.name || evt.league?.displayName || evt.competitions?.[0]?.league?.name || '';
 
-  // Parse ID dari string UID jika kosong (contoh: "s:6~l:15~e:123" -> ID = "15")
+  // Ekstrak ID dari UID jika ID masih kosong (format ESPN: "s:6~l:15~e:12345")
   if (!rawId && evt.uid) {
-    const uidMatch = evt.uid.match(/~l:([^~]+)~/);
-    if (uidMatch) rawId = uidMatch[1];
+    const match = evt.uid.match(/~l:([^~]+)~/);
+    if (match) rawId = match[1];
   }
 
-  // Pencocokan dengan array leagues tingkat teratas dari response API
+  // Cari di array leagues global bawaan response ESPN API
   let foundGlobal = null;
   if (Array.isArray(globalLeagues) && globalLeagues.length > 0) {
     foundGlobal = globalLeagues.find(g => 
@@ -63,21 +67,23 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
     );
   }
 
-  if (foundGlobal) {
-    if (!rawName) rawName = foundGlobal.name || foundGlobal.displayName || '';
-    if (!rawId) rawId = foundGlobal.slug || foundGlobal.id || '';
+  if (foundGlobal && !rawName) {
+    rawName = foundGlobal.name || foundGlobal.displayName || foundGlobal.shortName || '';
   }
 
-  const dictInfo = LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || {};
-  const matchedAppLeague = (typeof LEAGUES !== 'undefined' ? LEAGUES : []).find(l => 
+  const dictInfo = LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || LEAGUE_DICT[foundGlobal?.id] || {};
+  
+  const appLeagues = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES)) ? LEAGUES : [];
+  const matchedAppLeague = appLeagues.find(l => 
     l.id === rawId || l.id === dictInfo.slug || l.id === foundGlobal?.slug
   ) || {};
 
   const finalSlug = matchedAppLeague.id || dictInfo.slug || foundGlobal?.slug || rawId || 'club.friendly';
-  let finalName = rawName || dictInfo.name || matchedAppLeague.name || foundGlobal?.name || evt.league?.abbreviation || '';
+  
+  // Prioritas Penentuan Nama: LEAGUE_DICT > foundGlobal > rawName > matchedAppLeague
+  let finalName = dictInfo.name || foundGlobal?.name || rawName || matchedAppLeague.name || '';
 
-  // Bersihkan jika nama liga masih bertuliskan default/tahun season
-  if (!finalName || finalName === '2026-27' || finalName === 'regular-season' || finalName === 'Liga') {
+  if (!finalName || finalName.toLowerCase() === 'liga' || finalName === 'regular-season' || finalName === '2026-27') {
     finalName = dictInfo.name || matchedAppLeague.name || (rawId ? `Liga (${rawId})` : 'Persahabatan');
   }
 
