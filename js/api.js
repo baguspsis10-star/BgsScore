@@ -1,88 +1,12 @@
-// ==========================================
-// 1. STATE & CACHE GLOBAL
-// ==========================================
-let dataSaverMode = false;
-let leagueLogoCache = {};
-let playerPhotoCache = {};
-let cachedEvents = [];
-let favoriteMatches = [];
-let favoriteTeams = [];
-let selectedLeague = 'all';
-let selectedDateFilter = new Date().toISOString().split('T')[0].replace(/-/g, '');
+// API & NETWORK DATA FETCHING MODULE (100% ESPN API)
 
-let showFinishedInLive = false;
-let showUpcomingInLive = true;
-let showFinishedInFav = false;
-let showUpcomingInFav = true;
-
-// Daftar liga murni ESPN (Liga Korea dihapus)
-const LEAGUES = [
-  { id: 'eng.1', name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
-  { id: 'esp.1', name: 'La Liga', flag: '🇪🇸' },
-  { id: 'ita.1', name: 'Serie A', flag: '🇮🇹' },
-  { id: 'ger.1', name: 'Bundesliga', flag: '🇩🇪' },
-  { id: 'idn.1', name: 'BRI Liga 1', flag: '🇮🇩' }
-];
-
-// ==========================================
-// 2. HELPER FUNCTIONS
-// ==========================================
-async function getPhotoFromCache(key) { return null; }
-async function savePhotoToCache(key, value) {}
-function cleanPlayerName(name) { return name ? name.trim() : ''; }
-function isPlayerNameMatching(a, b) { return true; }
-async function getBase64FromUrl(url) { return url; }
-function generateUnlicensedLeagueBadge(id, name) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'L')}&background=0f172a&color=38bdf8&bold=true`;
-}
-function getFormattedDate(d) { return d.toISOString().split('T')[0].replace(/-/g, ''); }
-function formatLocalDate(dStr) { return new Date(dStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }); }
-function isFavorite(id) { return favoriteMatches.includes(id); }
-function isTeamFavorite(id) { return favoriteTeams.includes(id); }
-function monitorLiveFavoriteEvents(evt) {}
-function sortEventsByFavoriteAndDate(events) { return events; }
-
-// Toggle Handlers Tampilan
-function toggleFinishedInLiveView() {
-  showFinishedInLive = !showFinishedInLive;
-  const grid = document.getElementById('live-finished-grid');
-  const icon = document.getElementById('finished-toggle-icon');
-  if (grid) grid.classList.toggle('hidden', !showFinishedInLive);
-  if (icon) icon.className = `fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]`;
-}
-
-function toggleUpcomingInLiveView() {
-  showUpcomingInLive = !showUpcomingInLive;
-  const grid = document.getElementById('live-upcoming-grid');
-  const icon = document.getElementById('upcoming-toggle-icon');
-  if (grid) grid.classList.toggle('hidden', !showUpcomingInLive);
-  if (icon) icon.className = `fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]`;
-}
-
-function toggleFinishedInFavView() {
-  showFinishedInFav = !showFinishedInFav;
-  const grid = document.getElementById('fav-finished-grid');
-  const icon = document.getElementById('fav-finished-toggle-icon');
-  if (grid) grid.classList.toggle('hidden', !showFinishedInFav);
-  if (icon) icon.className = `fa-solid fa-chevron-${showFinishedInFav ? 'up' : 'down'} text-[10px]`;
-}
-
-function toggleUpcomingInFavView() {
-  showUpcomingInFav = !showUpcomingInFav;
-  const grid = document.getElementById('fav-upcoming-grid');
-  const icon = document.getElementById('fav-upcoming-toggle-icon');
-  if (grid) grid.classList.toggle('hidden', !showUpcomingInFav);
-  if (icon) icon.className = `fa-solid fa-chevron-${showUpcomingInFav ? 'up' : 'down'} text-[10px]`;
-}
-
-// ==========================================
-// 3. LOGO & PLAYER PHOTO LOADERS
-// ==========================================
+// ESPN League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
 
   const cacheKey = `league_logo_${leagueId}`;
+
   if (leagueLogoCache[cacheKey]) {
     img.src = leagueLogoCache[cacheKey];
     return;
@@ -95,45 +19,17 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
     return;
   }
 
-  const testImage = (url) => new Promise((resolve) => {
-    const tester = new Image();
-    tester.src = url;
-    tester.onload = () => resolve(true);
-    tester.onerror = () => resolve(false);
-  });
-
-  const isGenericTrophy = !primaryUrl || primaryUrl.endsWith('/4.png') || primaryUrl.includes('5d4x5v1534346808.png');
-
-  if (!isGenericTrophy) {
-    const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(primaryUrl)}&w=100&output=webp`;
-    if (await testImage(proxyUrl)) {
-      leagueLogoCache[cacheKey] = proxyUrl;
-      await savePhotoToCache(cacheKey, proxyUrl);
-      img.src = proxyUrl;
-      return;
-    }
+  if (primaryUrl) {
+    leagueLogoCache[cacheKey] = primaryUrl;
+    await savePhotoToCache(cacheKey, primaryUrl);
+    img.src = primaryUrl;
+    return;
   }
-
-  try {
-    const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/search_all_leagues.php?l=${encodeURIComponent(leagueName)}`);
-    const data = await res.json();
-    const found = data?.countrys?.[0] || data?.leagues?.[0];
-    const tsdbBadge = found?.strBadge || found?.strLogo;
-    
-    if (tsdbBadge && !tsdbBadge.includes('5d4x5v1534346808.png')) {
-      const proxyTsdb = `https://images.weserv.nl/?url=${encodeURIComponent(tsdbBadge)}&w=100&output=webp`;
-      if (await testImage(proxyTsdb)) {
-        leagueLogoCache[cacheKey] = proxyTsdb;
-        await savePhotoToCache(cacheKey, proxyTsdb);
-        img.src = proxyTsdb;
-        return;
-      }
-    }
-  } catch (e) {}
 
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
+// ESPN Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -152,215 +48,16 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
     return;
   }
 
-  if (pId) {
-    const espnUrl = `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png`;
-    const espnLoaded = await new Promise(resolve => {
-      const tester = new Image();
-      tester.src = espnUrl;
-      tester.onload = () => resolve(true);
-      tester.onerror = () => resolve(false);
-    });
+  const espnUrl = pId 
+    ? `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png` 
+    : `https://a.espncdn.com/i/headshots/nophoto.png`;
 
-    if (espnLoaded) {
-      const base64Data = await getBase64FromUrl(espnUrl);
-      playerPhotoCache[cleanedName] = base64Data;
-      await savePhotoToCache(cleanedName, base64Data);
-      img.src = base64Data;
-      return;
-    }
-  }
-
-  try {
-    const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(cleanedName)}`);
-    const data = await res.json();
-    if (data?.player && Array.isArray(data.player)) {
-      const matchedPlayer = data.player.find(p => 
-        p.strSport && 
-        p.strSport.toLowerCase() === 'soccer' && 
-        isPlayerNameMatching(pName, p.strPlayer)
-      );
-
-      const tsdbPhoto = matchedPlayer?.strCutout || matchedPlayer?.strRender || matchedPlayer?.strThumb;
-      if (tsdbPhoto) {
-        const base64Data = await getBase64FromUrl(tsdbPhoto);
-        playerPhotoCache[cleanedName] = base64Data;
-        await savePhotoToCache(cleanedName, base64Data);
-        img.src = base64Data;
-        return;
-      }
-    }
-  } catch (e) {}
-
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f172a&color=38bdf8&bold=true`;
-  playerPhotoCache[cleanedName] = avatarUrl;
-  await savePhotoToCache(cleanedName, avatarUrl);
-  img.src = avatarUrl;
+  playerPhotoCache[cleanedName] = espnUrl;
+  await savePhotoToCache(cleanedName, espnUrl);
+  img.src = espnUrl;
 }
 
-// ==========================================
-// 4. RENDER UI COMPONENTS
-// ==========================================
-function renderMatchesCards(containerId, events, showLeagueHeader = true) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  if (!events || events.length === 0) {
-    container.innerHTML = `
-      <div class="text-center py-8 text-slate-500 text-xs bg-slate-900/40 rounded-xl border border-slate-800">
-        Tidak ada pertandingan ditemukan.
-      </div>`;
-    return;
-  }
-
-  container.innerHTML = events.map(evt => {
-    const comp = evt.competitions?.[0];
-    const home = comp?.competitors?.find(c => c.homeAway === 'home');
-    const away = comp?.competitors?.find(c => c.homeAway === 'away');
-    const state = evt.status?.type?.state;
-    const isLive = state === 'in';
-    const isPost = state === 'post';
-    const statusText = evt.status?.type?.shortDetail || 'VS';
-
-    return `
-      <div onclick="fetchMatchDetails('${evt.id}', '${evt.leagueId}')" 
-           class="bg-slate-900 border border-slate-800 hover:border-slate-700 p-3 rounded-xl cursor-pointer transition shadow-md hover:bg-slate-800/50">
-        
-        ${showLeagueHeader ? `
-          <div class="flex items-center justify-between text-[11px] text-slate-400 pb-2 border-b border-slate-800/60 mb-2">
-            <span class="font-semibold flex items-center gap-1.5">
-              <span>${evt.leagueFlag || '⚽'}</span> ${evt.leagueName}
-            </span>
-            ${isLive ? `<span class="text-red-400 font-bold animate-pulse">● LIVE</span>` : ''}
-          </div>
-        ` : ''}
-
-        <div class="flex items-center justify-between text-xs">
-          <!-- Tim Tuan Rumah -->
-          <div class="flex items-center gap-2 w-5/12">
-            <img src="${home?.team?.logo || ''}" class="w-6 h-6 object-contain" onerror="this.src='https://ui-avatars.com/api/?name=H'" />
-            <span class="font-semibold text-slate-200 truncate">${home?.team?.shortDisplayName || home?.team?.displayName || 'Home'}</span>
-          </div>
-
-          <!-- Skor / Status -->
-          <div class="flex flex-col items-center justify-center w-2/12 text-center">
-            <span class="font-bold px-2 py-0.5 rounded text-[11px] ${isLive ? 'bg-red-500/20 text-red-400' : isPost ? 'bg-slate-800 text-emerald-400' : 'bg-slate-800 text-slate-300'}">
-              ${isPost || isLive ? `${home?.score || 0} - ${away?.score || 0}` : statusText}
-            </span>
-          </div>
-
-          <!-- Tim Tamu -->
-          <div class="flex items-center justify-end gap-2 w-5/12 text-right">
-            <span class="font-semibold text-slate-200 truncate">${away?.team?.shortDisplayName || away?.team?.displayName || 'Away'}</span>
-            <img src="${away?.team?.logo || ''}" class="w-6 h-6 object-contain" onerror="this.src='https://ui-avatars.com/api/?name=A'" />
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderFormBlock(teamName, recentMatches, teamId) {
-  if (!recentMatches || recentMatches.length === 0) {
-    return `<div class="text-[11px] text-slate-500 py-1">Tidak ada data riwayat untuk ${teamName}</div>`;
-  }
-
-  return `
-    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-      <div class="text-xs font-bold text-slate-300 mb-2">${teamName}</div>
-      <div class="flex gap-1.5">
-        ${recentMatches.map(m => {
-          const comp = m.competitions?.[0];
-          const myTeam = comp?.competitors?.find(c => String(c.team?.id) === String(teamId));
-          const oppTeam = comp?.competitors?.find(c => String(c.team?.id) !== String(teamId));
-          
-          let resultClass = 'bg-slate-700 text-slate-300';
-          let resultChar = 'D';
-
-          if (myTeam && oppTeam) {
-            const myScore = parseInt(myTeam.score || 0);
-            const oppScore = parseInt(oppTeam.score || 0);
-            if (myScore > oppScore) { resultClass = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'; resultChar = 'W'; }
-            else if (myScore < oppScore) { resultClass = 'bg-red-500/20 text-red-400 border border-red-500/30'; resultChar = 'L'; }
-          }
-
-          return `<span class="w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold ${resultClass}">${resultChar}</span>`;
-        }).join('')}
-      </div>
-    </div>
-  `;
-}
-
-// Modal Detail Pertandingan
-async function fetchMatchDetails(eventId, leagueId) {
-  let modalContainer = document.getElementById('match-modal');
-  
-  if (!modalContainer) {
-    modalContainer = document.createElement('div');
-    modalContainer.id = 'match-modal';
-    modalContainer.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4';
-    document.body.appendChild(modalContainer);
-  }
-
-  modalContainer.classList.remove('hidden');
-  modalContainer.innerHTML = `
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full text-center text-slate-400 text-xs shadow-2xl">
-      <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-2xl mb-2"></i>
-      <p>Memuat detail pertandingan...</p>
-    </div>
-  `;
-
-  try {
-    const validLeague = leagueId && leagueId !== 'undefined' ? leagueId : 'eng.1';
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${validLeague}/summary?event=${eventId}`);
-    const data = await res.json();
-
-    const header = data.header?.competitions?.[0];
-    const home = header?.competitors?.find(c => c.homeAway === 'home');
-    const away = header?.competitors?.find(c => c.homeAway === 'away');
-
-    modalContainer.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-          <span class="text-xs font-bold text-slate-300">${data.header?.league?.name || 'Detail Pertandingan'}</span>
-          <button onclick="document.getElementById('match-modal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg">✕</button>
-        </div>
-
-        <div class="flex items-center justify-between py-2">
-          <div class="text-center w-5/12">
-            <img src="${home?.team?.logos?.[0]?.href || ''}" class="w-12 h-12 mx-auto mb-1 object-contain" />
-            <div class="text-xs font-bold text-slate-200">${home?.team?.displayName || 'Home'}</div>
-          </div>
-          <div class="text-center w-2/12">
-            <span class="text-xl font-black text-emerald-400">${home?.score || '0'} - ${away?.score || '0'}</span>
-            <div class="text-[10px] text-slate-500 mt-1">${data.header?.status?.type?.shortDetail || ''}</div>
-          </div>
-          <div class="text-center w-5/12">
-            <img src="${away?.team?.logos?.[0]?.href || ''}" class="w-12 h-12 mx-auto mb-1 object-contain" />
-            <div class="text-xs font-bold text-slate-200">${away?.team?.displayName || 'Away'}</div>
-          </div>
-        </div>
-
-        <div id="mcontent-h2h" class="pt-2"></div>
-      </div>
-    `;
-
-    if (home?.team?.id && away?.team?.id) {
-      fetchFormAndH2H(validLeague, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || []);
-    }
-
-  } catch (err) {
-    console.error("Gagal memuat detail:", err);
-    modalContainer.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full text-center text-red-400 text-xs">
-        Gagal memuat detail pertandingan.
-        <button onclick="document.getElementById('match-modal').classList.add('hidden')" class="mt-4 block mx-auto px-4 py-1.5 bg-slate-800 text-slate-200 rounded-lg">Tutup</button>
-      </div>`;
-  }
-}
-
-// ==========================================
-// 5. ESPN API FETCHING LOGIC (100% ESPN)
-// ==========================================
+// Fetch All Matches for Selected Date and League Filter (Pure ESPN API)
 async function fetchAllMatches() {
   const targets = selectedLeague === 'all' 
     ? LEAGUES 
@@ -388,14 +85,13 @@ async function fetchAllMatches() {
   allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
   renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
-  const container = document.getElementById('matches-container');
-  if (container) container.classList.remove('hidden');
+  document.getElementById('matches-container').classList.remove('hidden');
 }
 
+// Fetch Live Matches (Finished 24h, Active Live, Upcoming 12h) - Pure ESPN API
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
-  if (!container) return;
-
+  
   const today = new Date();
   const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
   const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
@@ -414,8 +110,12 @@ async function fetchLiveMatchesStructured() {
   );
 
   const allEventArrays = await Promise.all(espnPromises);
-  let allEvents = allEventArrays.flat();
 
+  const eventMap = new Map();
+  allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
+
+  let allEvents = Array.from(eventMap.values());
+  
   cachedEvents = allEvents;
   allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
@@ -425,14 +125,14 @@ async function fetchLiveMatchesStructured() {
 
   const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
     const d = new Date(e.date);
-    return e.status?.type?.state === 'post' && d >= past24h;
+    return e.status.type.state === 'post' && d >= past24h;
   }));
 
-  const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status?.type?.state === 'in'));
+  const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status.type.state === 'in'));
 
   const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
     const d = new Date(e.date);
-    return e.status?.type?.state === 'pre' && d > now && d <= next12h;
+    return e.status.type.state === 'pre' && d > now && d <= next12h;
   }));
 
   container.innerHTML = '';
@@ -486,6 +186,7 @@ async function fetchLiveMatchesStructured() {
   container.classList.remove('hidden');
 }
 
+// Fetch Favorited Matches (Pure ESPN API)
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -521,9 +222,11 @@ async function fetchFavoritedMatchesStructured() {
   );
 
   const allEventArrays = await Promise.all(espnPromises);
-  let allEvents = allEventArrays.flat();
 
-  const favEvents = allEvents.filter(evt => {
+  const eventMap = new Map();
+  allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
+
+  const favEvents = Array.from(eventMap.values()).filter(evt => {
     const comp = evt.competitions?.[0];
     const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
     const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
@@ -551,6 +254,7 @@ async function fetchFavoritedMatchesStructured() {
     return;
   }
 
+  // 1. LIVE FAVORITES
   if (liveEvents.length > 0) {
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5 mb-4';
@@ -570,6 +274,7 @@ async function fetchFavoritedMatchesStructured() {
     renderMatchesCards('fav-active-grid', liveEvents, true);
   }
 
+  // 2. FINISHED FAVORITES
   if (finishedEvents.length > 0) {
     showFinishedInFav = false;
     
@@ -585,9 +290,10 @@ async function fetchFavoritedMatchesStructured() {
       <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
     `;
     container.appendChild(finishedSec);
-    renderMatchesCards('fav-finished-grid', finishedEvents, true);
+    renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
   }
 
+  // 3. UPCOMING FAVORITES
   if (upcomingEvents.length > 0) {
     showUpcomingInFav = true;
 
@@ -609,10 +315,12 @@ async function fetchFavoritedMatchesStructured() {
   container.classList.remove('hidden');
 }
 
+// Fetch Last 5 Matches for Specific Team Schedule (ESPN API)
 async function fetchTeamRecentMatches(leagueId, teamId) {
   try {
-    const validLeague = leagueId && leagueId !== 'undefined' ? leagueId : 'eng.1';
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${validLeague}/teams/${teamId}/schedule`);
+    const currentYear = new Date().getFullYear();
+    
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`);
     const data = await res.json();
     let events = data.events || [];
 
@@ -620,16 +328,33 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
       .filter(e => e.status?.type?.state === 'post')
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    if (finished.length < 5) {
+      try {
+        const prevRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule?season=${currentYear - 1}`);
+        const prevData = await prevRes.json();
+        const prevEvents = prevData.events || [];
+
+        const prevFinished = prevEvents
+          .filter(e => e.status?.type?.state === 'post')
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const combinedMap = new Map();
+        [...finished, ...prevFinished].forEach(e => combinedMap.set(e.id, e));
+        
+        finished = Array.from(combinedMap.values())
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+      } catch (err) {}
+    }
+
     return finished.slice(0, 5);
   } catch (e) {
     return [];
   }
 }
 
+// Fetch and Render Form & Head to Head Section
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');
-  if (!container) return;
-
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
       <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
