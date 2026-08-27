@@ -84,18 +84,27 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
-// 4. Fetch All Matches untuk Tanggal & Liga Pilihan
+// 4. Fetch All Matches untuk Tanggal & Liga Pilihan (PERBAIKAN: Dibatasi agar tidak diblokir ESPN)
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
   try {
+    // Tanggal fallback jika selectedDateFilter belum terisi
+    const targetDate = selectedDateFilter || getFormattedDate(new Date());
+
+    // Daftar ID liga utama yang di-fetch saat memilih "Semua Liga" (mencegah request flooding)
+    const POPULAR_LEAGUE_IDS = [
+      'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 
+      'uefa.champions', 'uefa.europa', 'usa.1', 'idn.1', 'ksa.1'
+    ];
+
     const targets = selectedLeague === 'all' 
-      ? LEAGUES 
+      ? LEAGUES.filter(l => POPULAR_LEAGUE_IDS.includes(l.id))
       : LEAGUES.filter(l => l.id === selectedLeague);
 
     const espnPromises = targets.map(async (league) => {
       try {
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${selectedDateFilter}`);
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${targetDate}`);
         if (!res.ok) return [];
         const data = await res.json();
         return (data.events || []).map(evt => ({ 
@@ -135,7 +144,11 @@ async function fetchLiveMatchesStructured() {
     const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
     const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
-    const espnPromises = LEAGUES.map(async (league) => {
+    // Hanya fetch liga utama untuk mode Live
+    const POPULAR_LEAGUE_IDS = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions', 'uefa.europa', 'usa.1', 'idn.1', 'ksa.1'];
+    const targets = LEAGUES.filter(l => POPULAR_LEAGUE_IDS.includes(l.id));
+
+    const espnPromises = targets.map(async (league) => {
       try {
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`);
         if (!res.ok) return [];
@@ -255,7 +268,10 @@ async function fetchFavoritedMatchesStructured() {
     const next7Days = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
     const dateRangeStr = `${getFormattedDate(past2Days)}-${getFormattedDate(next7Days)}`;
 
-    const espnPromises = LEAGUES.map(async (league) => {
+    const POPULAR_LEAGUE_IDS = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions', 'uefa.europa', 'usa.1', 'idn.1', 'ksa.1'];
+    const targets = LEAGUES.filter(l => POPULAR_LEAGUE_IDS.includes(l.id));
+
+    const espnPromises = targets.map(async (league) => {
       try {
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`);
         if (!res.ok) return [];
