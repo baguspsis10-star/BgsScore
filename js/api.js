@@ -46,66 +46,68 @@ const LEAGUE_DICT = {
   '19': { name: 'MLS', flag: '🇺🇸', slug: 'usa.1' }
 };
 
-// Helper Ekstraksi Data Liga Presisi dari ESPN Event & Array Leagues Induk
+// Helper Ekstraksi Data Liga Presisi & Anti-Crash dari ESPN Event
 function extractLeagueDataFromEvent(evt, globalLeagues = []) {
-  let rawId = evt.league?.id || evt.competitions?.[0]?.league?.id || '';
-  let rawSlug = evt.league?.slug || evt.competitions?.[0]?.league?.slug || evt.season?.slug || '';
+  try {
+    if (!evt) return { leagueId: 'club.friendly', leagueName: 'Liga', leagueLogo: '', leagueFlag: '⚽' };
 
-  if (!rawId && evt.uid) {
-    const match = evt.uid.match(/~l:([^~]+)~/);
-    if (match) rawId = match[1];
-  }
+    let rawId = String(evt.league?.id || evt.competitions?.[0]?.league?.id || '');
+    let rawSlug = String(evt.league?.slug || evt.competitions?.[0]?.league?.slug || evt.season?.slug || '');
 
-  // 1. Pencarian pada array globalLeagues (data.leagues tingkat teratas)
-  let foundGlobal = null;
-  if (Array.isArray(globalLeagues) && globalLeagues.length > 0) {
-    foundGlobal = globalLeagues.find(g => 
-      String(g.id) === String(rawId) || 
-      (g.slug && g.slug === rawSlug) ||
+    if (!rawId && evt.uid) {
+      const match = evt.uid.match(/~l:([^~]+)~/);
+      if (match) rawId = match[1];
+    }
+
+    const leaguesList = Array.isArray(globalLeagues) ? globalLeagues : [];
+    const foundGlobal = leaguesList.find(g => 
+      (g.id && String(g.id) === rawId) || 
+      (g.slug && String(g.slug) === rawSlug) ||
       (g.uid && evt.uid && evt.uid.includes(g.uid))
     );
+
+    const nameFromApi = foundGlobal?.name || foundGlobal?.displayName || evt.league?.name || evt.competitions?.[0]?.league?.name || evt.competitions?.[0]?.notes?.[0]?.headline || '';
+
+    const dictInfo = LEAGUE_DICT[rawSlug] || LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || LEAGUE_DICT[foundGlobal?.id] || {};
+    const appLeagues = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES)) ? LEAGUES : [];
+    const matchedApp = appLeagues.find(l => l.id === rawSlug || l.id === dictInfo.slug || l.id === foundGlobal?.slug) || {};
+
+    let finalName = dictInfo.name || matchedApp.name || nameFromApi || 'Liga';
+
+    if (typeof finalName === 'string') {
+      finalName = finalName.replace(/\s*\(\d+\)/g, '').trim();
+    } else {
+      finalName = 'Liga';
+    }
+
+    if (!finalName || finalName.toLowerCase() === 'liga' || finalName.toLowerCase() === 'regular-season') {
+      finalName = dictInfo.name || matchedApp.name || (nameFromApi && nameFromApi.toLowerCase() !== 'regular-season' ? nameFromApi : 'Liga');
+    }
+
+    const finalSlug = matchedApp.id || dictInfo.slug || foundGlobal?.slug || rawSlug || 'club.friendly';
+
+    let finalFlag = '⚽';
+    if (matchedApp.flag) finalFlag = matchedApp.flag;
+    else if (dictInfo.flag) finalFlag = dictInfo.flag;
+    else if (typeof getLeagueFlag === 'function') {
+      try { finalFlag = getLeagueFlag(finalSlug); } catch(e) {}
+    }
+
+    return {
+      leagueId: finalSlug,
+      leagueName: finalName,
+      leagueLogo: matchedApp.logo || evt.league?.logos?.[0]?.href || foundGlobal?.logos?.[0]?.href || '',
+      leagueFlag: finalFlag
+    };
+  } catch (err) {
+    console.error("Error extractLeagueDataFromEvent:", err);
+    return {
+      leagueId: 'club.friendly',
+      leagueName: 'Liga',
+      leagueLogo: '',
+      leagueFlag: '⚽'
+    };
   }
-
-  // 2. Pencarian pada LEAGUE_DICT
-  const dictInfo = LEAGUE_DICT[rawSlug] || LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || LEAGUE_DICT[foundGlobal?.id] || {};
-
-  // 3. Pencocokan ke daftar LEAGUES internal aplikasi
-  const appLeagues = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES)) ? LEAGUES : [];
-  const matchedAppLeague = appLeagues.find(l => l.id === rawSlug || l.id === dictInfo.slug || l.id === foundGlobal?.slug) || {};
-
-  // 4. Penentuan Nama Liga (Prioritas: Dictionary -> App Leagues -> ESPN Global -> Event Notes)
-  let finalName = 
-    dictInfo.name || 
-    matchedAppLeague.name || 
-    foundGlobal?.name || 
-    foundGlobal?.displayName || 
-    evt.league?.name || 
-    evt.league?.displayName || 
-    evt.competitions?.[0]?.league?.name || 
-    evt.competitions?.[0]?.notes?.[0]?.headline || 
-    '';
-
-  // Pembersihan Teks: Hapus ID angka dalam kurung seperti (740) atau (20221)
-  finalName = finalName.replace(/\s*\(\d+\)/g, '').trim();
-
-  if (!finalName || 
-      finalName.toLowerCase() === 'liga' || 
-      finalName.toLowerCase() === 'regular-season' || 
-      /^\d+$/.test(finalName) || 
-      /^\d{4}-\d{2}$/.test(finalName)) {
-    
-    finalName = dictInfo.name || matchedAppLeague.name || foundGlobal?.name || 'Liga';
-  }
-
-  const finalSlug = matchedAppLeague.id || dictInfo.slug || foundGlobal?.slug || rawSlug || 'club.friendly';
-  const finalFlag = matchedAppLeague.flag || dictInfo.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalSlug) : '⚽');
-
-  return {
-    leagueId: finalSlug,
-    leagueName: finalName,
-    leagueLogo: matchedAppLeague.logo || evt.league?.logos?.[0]?.href || foundGlobal?.logos?.[0]?.href || '',
-    leagueFlag: finalFlag
-  };
 }
 
 // Multi-Tier League Logo Loader
@@ -332,7 +334,7 @@ async function fetchAllMatches() {
         };
       });
     } else {
-      const matched = LEAGUES.find(l => l.id === selectedLeague) || {};
+      const matched = (typeof LEAGUES !== 'undefined' ? LEAGUES : []).find(l => l.id === selectedLeague) || {};
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${selectedLeague}/scoreboard?dates=${selectedDateFilter}`);
       const data = await res.json();
       const globalLeagues = data.leagues || [];
@@ -361,27 +363,39 @@ async function fetchAllMatches() {
       });
     }
 
-    allEvents = sortEventsByFavoriteAndDate(allEvents);
+    if (typeof sortEventsByFavoriteAndDate === 'function') {
+      allEvents = sortEventsByFavoriteAndDate(allEvents);
+    }
+
     cachedEvents = allEvents;
 
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    if (typeof monitorLiveFavoriteEvents === 'function') {
+      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    }
 
-    renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
-    document.getElementById('matches-container').classList.remove('hidden');
+    if (typeof renderMatchesCards === 'function') {
+      renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
+    }
+    
+    document.getElementById('matches-container')?.classList.remove('hidden');
   } catch (err) {
     console.warn("Gagal memuat pertandingan:", err);
-    document.getElementById('matches-container').innerHTML = `
-      <div class="text-center py-6 text-slate-500 border border-slate-800/40 rounded-2xl bg-slate-900/30 text-xs backdrop-blur">
-        Gagal mengambil data pertandingan. Silakan periksa koneksi internet Anda.
-      </div>
-    `;
-    document.getElementById('matches-container').classList.remove('hidden');
+    const container = document.getElementById('matches-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="text-center py-6 text-slate-500 border border-slate-800/40 rounded-2xl bg-slate-900/30 text-xs backdrop-blur">
+          Gagal mengambil data pertandingan. Silakan periksa koneksi internet Anda.
+        </div>
+      `;
+      container.classList.remove('hidden');
+    }
   }
 }
 
 // Fetch Live Matches
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
+  if (!container) return;
   
   const today = new Date();
   const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
@@ -413,23 +427,31 @@ async function fetchLiveMatchesStructured() {
     let allEvents = Array.from(eventMap.values());
     
     cachedEvents = allEvents;
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    if (typeof monitorLiveFavoriteEvents === 'function') {
+      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    }
 
     const now = new Date();
     const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
     const next12h = new Date(now.getTime() + (12 * 60 * 60 * 1000));
 
-    const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+    let finishedEvents = allEvents.filter(e => {
       const d = new Date(e.date);
       return e.status?.type?.state === 'post' && d >= past24h;
-    }));
+    });
 
-    const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status?.type?.state === 'in'));
+    let liveEvents = allEvents.filter(e => e.status?.type?.state === 'in');
 
-    const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+    let upcomingEvents = allEvents.filter(e => {
       const d = new Date(e.date);
       return e.status?.type?.state === 'pre' && d > now && d <= next12h;
-    }));
+    });
+
+    if (typeof sortEventsByFavoriteAndDate === 'function') {
+      finishedEvents = sortEventsByFavoriteAndDate(finishedEvents);
+      liveEvents = sortEventsByFavoriteAndDate(liveEvents);
+      upcomingEvents = sortEventsByFavoriteAndDate(upcomingEvents);
+    }
 
     container.innerHTML = '';
 
@@ -445,7 +467,7 @@ async function fetchLiveMatchesStructured() {
       <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
     `;
     container.appendChild(finishedSec);
-    renderMatchesCards('live-finished-grid', finishedEvents, true);
+    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-finished-grid', finishedEvents, true);
 
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5';
@@ -463,7 +485,7 @@ async function fetchLiveMatchesStructured() {
       <div id="live-active-grid" class="space-y-2.5"></div>
     `;
     container.appendChild(liveSec);
-    renderMatchesCards('live-active-grid', liveEvents, true);
+    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-active-grid', liveEvents, true);
 
     const upcomingSec = document.createElement('div');
     upcomingSec.className = 'space-y-2.5';
@@ -477,7 +499,7 @@ async function fetchLiveMatchesStructured() {
       <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
     `;
     container.appendChild(upcomingSec);
-    renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
+    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
 
     container.classList.remove('hidden');
   } catch (err) {
@@ -539,11 +561,19 @@ async function fetchFavoritedMatchesStructured() {
     });
 
     cachedEvents = favEvents;
-    favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    if (typeof monitorLiveFavoriteEvents === 'function') {
+      favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    }
 
-    const finishedEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'post'));
-    const liveEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'in'));
-    const upcomingEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'pre'));
+    let finishedEvents = favEvents.filter(e => e.status?.type?.state === 'post');
+    let liveEvents = favEvents.filter(e => e.status?.type?.state === 'in');
+    let upcomingEvents = favEvents.filter(e => e.status?.type?.state === 'pre');
+
+    if (typeof sortEventsByFavoriteAndDate === 'function') {
+      finishedEvents = sortEventsByFavoriteAndDate(finishedEvents);
+      liveEvents = sortEventsByFavoriteAndDate(liveEvents);
+      upcomingEvents = sortEventsByFavoriteAndDate(upcomingEvents);
+    }
 
     container.innerHTML = '';
 
@@ -574,7 +604,7 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-active-grid" class="space-y-2.5"></div>
       `;
       container.appendChild(liveSec);
-      renderMatchesCards('fav-active-grid', liveEvents, true);
+      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-active-grid', liveEvents, true);
     }
 
     if (finishedEvents.length > 0) {
@@ -592,7 +622,7 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
       `;
       container.appendChild(finishedSec);
-      renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
+      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
     }
 
     if (upcomingEvents.length > 0) {
@@ -610,7 +640,7 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-upcoming-grid" class="space-y-2.5"></div>
       `;
       container.appendChild(upcomingSec);
-      renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
+      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
     }
 
     container.classList.remove('hidden');
@@ -659,6 +689,8 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
 // Fetch and Render Form & Head to Head Section
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');
+  if (!container) return;
+  
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
       <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
@@ -709,8 +741,8 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
       <div class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
         <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> 5 Pertandingan Terakhir
       </div>
-      ${renderFormBlock(homeName, homeRecent, homeTeamId)}
-      ${renderFormBlock(awayName, awayRecent, awayTeamId)}
+      ${typeof renderFormBlock === 'function' ? renderFormBlock(homeName, homeRecent, homeTeamId) : ''}
+      ${typeof renderFormBlock === 'function' ? renderFormBlock(awayName, awayRecent, awayTeamId) : ''}
       ${h2hHtml}
     </div>
   `;
