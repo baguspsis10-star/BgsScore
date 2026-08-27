@@ -1,6 +1,6 @@
 // API & NETWORK DATA FETCHING MODULE
 
-// Kamus Pemetaan Lengkap ID/Slug Liga ESPN ke Nama & Bendera Resmi
+// Kamus Pemetaan ID/Slug Liga ESPN ke Nama & Bendera Resmi
 const LEAGUE_DICT = {
   // Slug Strings
   'eng.1': { name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
@@ -110,7 +110,7 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
   }
 }
 
-// Multi-Tier League Logo Loader
+// Multi-Tier League Logo Loader (ESPN -> SportsDB -> Custom Badge Fallback)
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -168,7 +168,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// Multi-Tier Player Photo Loader
+// Multi-Tier Player Photo Loader (ESPN -> SportsDB -> UI Avatars Fallback)
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -232,12 +232,13 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   img.src = avatarUrl;
 }
 
-// Fetch Fallback Match Data via Fotmob API
+// Fetch Fallback Match Data via Fotmob API (Khusus Korea & Indonesia)
 async function fetchFotmobMatches(dateStr) {
   try {
     const res = await fetch(`https://www.fotmob.com/api/matches?date=${dateStr}`);
     const data = await res.json();
     
+    // ID Liga Fotmob: 47 (Indo 1), 8985 (Indo 2), 140 (Korea 1), 9131 (Korea 2)
     const targetFotmobIds = [47, 8985, 140, 9131];
     const filteredLeagues = (data.leagues || []).filter(l => 
       targetFotmobIds.includes(l.id) || 
@@ -314,7 +315,7 @@ async function fetchFotmobMatches(dateStr) {
   }
 }
 
-// Fetch All Matches
+// Fetch All Matches for Selected Date and League Filter
 async function fetchAllMatches() {
   try {
     let espnEvents = [];
@@ -392,7 +393,7 @@ async function fetchAllMatches() {
   }
 }
 
-// Fetch Live Matches
+// Fetch Live Matches (Finished 24h, Active Live, Upcoming 12h)
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -507,7 +508,7 @@ async function fetchLiveMatchesStructured() {
   }
 }
 
-// Fetch Favorited Matches
+// Fetch Favorited Matches (Finished 2 Days, Active Live, & Upcoming 7 Days)
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
