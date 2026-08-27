@@ -314,63 +314,24 @@ async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2h
 
   try {
     const fetchTeamForm = async (tId) => {
-      if (!tId) return [];
-
-      let primaryLeagueSlug = null;
       try {
-        const teamProfileRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${tId}`);
-        if (teamProfileRes.ok) {
-          const profileData = await teamProfileRes.json();
-          primaryLeagueSlug = profileData.team?.defaultLeague?.slug || profileData.team?.league?.slug;
+        let targetLg = (leagueId && leagueId !== 'all') ? leagueId : 'all';
+        let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLg}/teams/${tId}/schedule`);
+        let data = await res.json();
+        
+        if (!data.events || data.events.length === 0) {
+          res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${tId}/schedule`);
+          data = await res.json();
         }
-      } catch (e) {}
 
-      const candidateLeagues = [
-        primaryLeagueSlug,
-        leagueId,
-        'aut.1', 'sco.1', 'eng.1', 'esp.1', 'ger.1', 'ita.1', 'fra.1',
-        'por.1', 'ned.1', 'bel.1', 'sui.1', 'tur.1', 'gre.1', 'idn.1',
-        'uefa.champions', 'uefa.europa', 'uefa.conference', 'global.friendly'
-      ].filter(Boolean).filter(l => l !== 'all');
-
-      const uniqueLeagues = [...new Set(candidateLeagues)];
-      let allEvents = [];
-
-      const fetchPromises = uniqueLeagues.map(async (slug) => {
-        try {
-          const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/teams/${tId}/schedule`);
-          if (!res.ok) return [];
-          const data = await res.json();
-          return data.events || [];
-        } catch (e) {
-          return [];
-        }
-      });
-
-      const results = await Promise.all(fetchPromises);
-      results.forEach(events => {
-        if (Array.isArray(events)) {
-          allEvents = allEvents.concat(events);
-        }
-      });
-
-      const finished = allEvents.filter(e => {
-        const state = e.status?.type?.state;
-        const completed = e.competitions?.[0]?.status?.type?.completed;
-        return state === 'post' || completed === true;
-      });
-
-      const uniqueMatchesMap = new Map();
-      finished.forEach(m => {
-        if (m.id && !uniqueMatchesMap.has(m.id)) {
-          uniqueMatchesMap.set(m.id, m);
-        }
-      });
-
-      const uniqueMatches = Array.from(uniqueMatchesMap.values());
-      uniqueMatches.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      return uniqueMatches.slice(0, 5);
+        return (data.events || [])
+          .filter(e => e.status?.type?.state === 'post')
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 5);
+      } catch (e) {
+        console.error(`Gagal memuat jadwal tim ${tId}:`, e);
+        return [];
+      }
     };
 
     const [homeMatches, awayMatches] = await Promise.all([
@@ -463,17 +424,8 @@ function renderFormBlock(teamName, matches, teamId) {
     const myTeam = comp?.competitors?.find(c => String(c.team.id) === String(teamId));
     const oppTeam = comp?.competitors?.find(c => String(c.team.id) !== String(teamId));
     
-    // Fungsi ekstraksi skor aman (mendukung string, number, maupun object ESPN)
-    const parseScore = (teamObj) => {
-      if (!teamObj || teamObj.score === undefined || teamObj.score === null) return 0;
-      if (typeof teamObj.score === 'object') {
-        return parseInt(teamObj.score.displayValue ?? teamObj.score.value ?? '0') || 0;
-      }
-      return parseInt(teamObj.score) || 0;
-    };
-
-    const myScore = parseScore(myTeam);
-    const oppScore = parseScore(oppTeam);
+    const myScore = parseInt(myTeam?.score || '0');
+    const oppScore = parseInt(oppTeam?.score || '0');
 
     let resBadge = { label: 'S', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' };
     if (myScore > oppScore) {
@@ -514,7 +466,6 @@ function renderFormBlock(teamName, matches, teamId) {
     </div>
   `;
 }
-
 
 function parseClockMinute(clockStr) {
   if (!clockStr) return 0;
