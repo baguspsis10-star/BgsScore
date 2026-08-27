@@ -224,7 +224,7 @@ function selectLeagueFromModal(leagueId) {
   changeLeague(leagueId);
 }
 
-// Match Detail Modal Handlers
+// PERBAIKAN UTAMA: Smart Fetch Match Detail dengan Auto Detect Slug Liga
 async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) {
   currentOpenModal = { leagueId, eventId, leagueName };
   const modal = document.getElementById('detail-modal');
@@ -248,25 +248,50 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   }
 
   try {
-    let targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'idn.1';
-    let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/summary?event=${eventId}`);
-    let data = await res.json();
-    
-    if (!data.header || !data.header.competitions) {
-      const resAll = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${eventId}`);
-      data = await resAll.json();
+    const cachedEvt = (typeof cachedEvents !== 'undefined' && Array.isArray(cachedEvents)) 
+      ? cachedEvents.find(e => String(e.id) === String(eventId)) 
+      : null;
+
+    // Susun daftar liga kandidat untuk dicoba secara berurutan
+    const candidateLeagues = Array.from(new Set([
+      leagueId,
+      cachedEvt?.leagueId,
+      cachedEvt?.league?.slug,
+      cachedEvt?.season?.slug,
+      'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'usa.1', 'idn.1', 'fifa.friendly', 'club.friendly'
+    ].filter(l => l && l !== 'all')));
+
+    let data = null;
+    let validLeague = candidateLeagues[0] || 'eng.1';
+
+    for (const slug of candidateLeagues) {
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.header && json.header.competitions) {
+            data = json;
+            validLeague = slug;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!data || !data.header || !data.header.competitions) {
+      throw new Error("Detail pertandingan tidak ditemukan pada API ESPN.");
     }
 
     const header = data.header?.competitions?.[0];
     const home = header?.competitors?.find(c => c.homeAway === 'home');
     const away = header?.competitors?.find(c => c.homeAway === 'away');
 
-    renderModalCompleteData(data, targetLeague);
+    renderModalCompleteData(data, validLeague);
 
     if (!isSilent) {
-      if (targetLeague && home?.team?.id && away?.team?.id) {
-        fetchModalStandings(targetLeague, home.team.id, away.team.id);
-        fetchFormAndH2H(targetLeague, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
+      if (validLeague && home?.team?.id && away?.team?.id) {
+        fetchModalStandings(validLeague, home.team.id, away.team.id);
+        fetchFormAndH2H(validLeague, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
       } else {
         document.getElementById('mcontent-standings').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
         document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Data riwayat tidak tersedia.</p>`;
@@ -276,9 +301,14 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     loading.classList.add('hidden');
     container.classList.remove('hidden');
   } catch (err) {
-    console.error(err);
+    console.error("Detail Fetch Error:", err);
     if (!isSilent) {
-      document.getElementById('modal-data-container').innerHTML = `<p class="text-center text-red-400 text-sm py-12">Gagal memuat detail pertandingan.</p>`;
+      document.getElementById('modal-data-container').innerHTML = `
+        <div class="text-center py-12 text-slate-400 space-y-2">
+          <i class="fa-solid fa-circle-exclamation text-2xl text-amber-500"></i>
+          <p class="text-xs">Rincian pertandingan belum tersedia di server ESPN.</p>
+        </div>
+      `;
       loading.classList.add('hidden');
       container.classList.remove('hidden');
     }
@@ -300,111 +330,6 @@ async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
     await renderLeagueStandingsTable(targetLeague, container, [homeTeamId, awayTeamId]);
   } catch (err) {
     container.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
-  }
-}
-
-async function fetchFormAndH2H(leagueId, homeId, awayId, homeName, awayName, h2hDataRaw = []) {
-  const container = document.getElementById('mcontent-h2h');
-  container.innerHTML = `
-    <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
-      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
-      <p class="text-xs">Memuat statistik Form & H2H...</p>
-    </div>
-  `;
-
-  try {
-    const fetchTeamForm = async (tId) => {
-      try {
-        let targetLg = (leagueId && leagueId !== 'all') ? leagueId : 'all';
-        let res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLg}/teams/${tId}/schedule`);
-        let data = await res.json();
-        
-        if (!data.events || data.events.length === 0) {
-          res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${tId}/schedule`);
-          data = await res.json();
-        }
-
-        return (data.events || [])
-          .filter(e => e.status?.type?.state === 'post')
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .slice(0, 5);
-      } catch (e) {
-        console.error(`Gagal memuat jadwal tim ${tId}:`, e);
-        return [];
-      }
-    };
-
-    const [homeMatches, awayMatches] = await Promise.all([
-      fetchTeamForm(homeId),
-      fetchTeamForm(awayId)
-    ]);
-
-    const homeFormHtml = renderFormBlock(homeName, homeMatches, homeId);
-    const awayFormHtml = renderFormBlock(awayName, awayMatches, awayId);
-
-    let h2hMatches = [];
-    if (Array.isArray(h2hDataRaw) && h2hDataRaw.length > 0) {
-      h2hMatches = h2hDataRaw;
-    } else {
-      h2hMatches = homeMatches.filter(m => {
-        const comp = m.competitions?.[0];
-        return comp?.competitors?.some(c => String(c.team?.id) === String(awayId));
-      });
-    }
-
-    let h2hHtml = '';
-    if (h2hMatches.length > 0) {
-      const h2hRows = h2hMatches.slice(0, 5).map(m => {
-        const comp = m.competitions?.[0] || m;
-        const hComp = comp.competitors?.find(c => String(c.team?.id) === String(homeId)) || comp.competitors?.[0];
-        const aComp = comp.competitors?.find(c => String(c.team?.id) === String(awayId)) || comp.competitors?.[1];
-
-        const hScore = hComp?.score?.displayValue ?? hComp?.score ?? '0';
-        const aScore = aComp?.score?.displayValue ?? aComp?.score ?? '0';
-        const dateStr = new Date(m.date || comp.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-
-        return `
-          <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
-            <span class="text-[10px] text-slate-400 font-medium">${dateStr}</span>
-            <div class="flex items-center gap-2 font-bold text-white">
-              <span class="text-slate-200">${hComp?.team?.shortDisplayName || homeName}</span>
-              <span class="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-emerald-400 font-mono text-[11px]">${hScore} - ${aScore}</span>
-              <span class="text-slate-200">${aComp?.team?.shortDisplayName || awayName}</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      h2hHtml = `
-        <div class="bg-stadium-card p-3.5 rounded-2xl border border-slate-800/80 space-y-2.5 shadow-lg">
-          <div class="text-xs font-bold text-white pb-1.5 border-b border-slate-800 flex items-center justify-between">
-            <span>Head to Head (H2H)</span>
-            <span class="text-[10px] text-slate-400">Pertemuan Terakhir</span>
-          </div>
-          <div class="space-y-2">${h2hRows}</div>
-        </div>
-      `;
-    } else {
-      h2hHtml = `
-        <div class="bg-stadium-card p-4 rounded-2xl border border-slate-800/80 text-center text-xs text-slate-500 shadow-lg">
-          Data H2H langsung tidak tersedia untuk periode ini.
-        </div>
-      `;
-    }
-
-    container.innerHTML = `
-      <div class="space-y-3">
-        <div class="text-xs font-extrabold text-slate-300 flex items-center gap-1.5 pb-1">
-          <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> 5 PERTANDINGAN TERAKHIR
-        </div>
-        ${homeFormHtml}
-        ${awayFormHtml}
-        ${h2hHtml}
-      </div>
-    `;
-  } catch (err) {
-    console.error("Error loading Form & H2H:", err);
-    container.innerHTML = `<p class="text-center text-red-400 text-xs py-6">Gagal memuat statistik Form & H2H.</p>`;
   }
 }
 
@@ -491,9 +416,11 @@ function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;
 
-  const home = header.competitors.find(c => c.homeAway === 'home');
-  const away = header.competitors.find(c => c.homeAway === 'away');
+  const home = header.competitors?.find(c => c.homeAway === 'home') || header.competitors?.[0];
+  const away = header.competitors?.find(c => c.homeAway === 'away') || header.competitors?.[1];
   
+  if (!home || !away || !home.team || !away.team) return;
+
   const homeLogo = getTeamLogo(home.team);
   const awayLogo = getTeamLogo(away.team);
 
@@ -517,7 +444,6 @@ function renderModalCompleteData(data, leagueId) {
     if (weatherObj.condition) weather += `, ${weatherObj.condition}`;
   }
 
-  // BADGES STADION / WASIT / CUACA (CONTAINER GLASS EFEK)
   const matchInfoBadgeHtml = `
     <div class="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center text-[10px] text-slate-400">
       <div class="bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/20 shadow-md backdrop-blur truncate" title="${stadium}">
@@ -612,7 +538,6 @@ function renderModalCompleteData(data, leagueId) {
     ? formattedTime 
     : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : header.status?.type?.description);
 
-  // SCORE HEADER MODAL DENGAN BACKGROUND STADION RADIAL
   document.getElementById('modal-score-header').innerHTML = `
     <div class="bg-stadium-header p-4 rounded-2xl border shadow-2xl relative overflow-hidden">
       <div class="flex items-center justify-between relative z-10">
