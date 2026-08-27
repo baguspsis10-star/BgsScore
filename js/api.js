@@ -93,9 +93,32 @@ async function fetchAllMatches() {
     const targetDate = selectedDateFilter || getFormattedDate(new Date());
 
     // Daftar ID liga utama yang di-fetch saat memilih "Semua Liga" (mencegah request flooding)
-    const POPULAR_LEAGUE_IDS = [
-      'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 
-      'uefa.champions', 'uefa.europa', 'usa.1', 'idn.1', 'ksa.1'
+    const POPULAR_LEAGUE_IDS = ['fifa.world', 'fifa.wwc', 'fifa.world.u20', 'fifa.world.u17', 'fifa.wworld.u17', 'fifa.cwc', 
+  'fifa.friendly', 'fifa.friendly.w', 'fifa.friendly_u21', 'fifa.u20.friendly', 'fifa.shebelieves', 
+  'fifa.w.champions_cup', 'fifa.intercontinental_cup', 'fifa.olympics', 'fifa.w.olympics', 'fifa.worldq', 
+  'fifa.worldq.uefa', 'fifa.worldq.caf', 'fifa.worldq.afc', 'fifa.worldq.concacaf', 'fifa.worldq.conmebol', 
+  'fifa.worldq.ofc', 'fifa.wwcq.ply', 'fifa.wworldq.uefa', 'uefa.champions', 'uefa.champions_qual', 
+  'uefa.europa', 'uefa.europa_qual', 'uefa.europa.conf', 'uefa.europa.conf_qual', 'uefa.super_cup', 
+  'uefa.wchampions', 'uefa.euro', 'uefa.euroq', 'uefa.weuro', 'uefa.euro_u21', 'uefa.euro_u21_qual', 
+  'uefa.euro.u19', 'uefa.nations', 'uefa.w.nations', 'eng.1', 'eng.2', 'eng.3', 'eng.4', 'eng.5', 
+  'eng.fa', 'eng.league_cup', 'eng.trophy', 'eng.charity', 'eng.asia_trophy', 'eng.w.1', 'eng.w.fa', 
+  'eng.w.charity', 'esp.1', 'esp.2', 'esp.copa_del_rey', 'esp.super_cup', 'esp.joan_gamper', 'esp.w.1', 
+  'esp.copa_de_la_reina', 'ger.1', 'ger.2', 'ger.dfb_pokal', 'ger.super_cup', 'ger.playoff.relegation', 
+  'ger.2.promotion.relegation', 'ita.1', 'ita.2', 'ita.coppa_italia', 'ita.super_cup', 'fra.1', 'fra.2', 
+  'fra.coupe_de_france', 'fra.super_cup', 'fra.w.1', 'ned.1', 'ned.2', 'ned.3', 'ned.cup', 'ned.supercup', 
+  'ned.w.1', 'ned.w.knvb_cup', 'sco.1', 'sco.2', 'sco.3', 'sco.4', 'sco.tennents', 'sco.cis', 
+  'sco.challenge', 'por.1', 'por.taca.portugal', 'bel.1', 'aut.1', 'gre.1', 'tur.1', 'den.1', 'nor.1', 
+  'swe.1', 'cyp.1', 'irl.1', 'rus.1', 'usa.1', 'usa.open', 'usa.nwsl', 'usa.nwsl.cup', 
+  'usa.nwsl.summer.cup', 'usa.usl.1', 'usa.usl.l1', 'usa.w.usl.1', 'usa.ncaa.m.1', 'usa.ncaa.w.1', 
+  'concacaf.champions', 'concacaf.leagues.cup', 'concacaf.gold', 'concacaf.nations.league', 
+  'concacaf.w.gold', 'concacaf.w.champions_cup', 'campeones.cup', 'can.w.nsl', 'mex.1', 'mex.2', 
+  'mex.campeon', 'mex.supercopa', 'conmebol.libertadores', 'conmebol.sudamericana', 'conmebol.recopa', 
+  'conmebol.america', 'conmebol.america_qual', 'conmebol.america.femenina', 'global.finalissima', 
+  'arg.1', 'arg.copa', 'bra.1', 'bra.2', 'bra.copa_do_brazil', 'chi.1', 'col.1', 'par.1', 'per.1', 
+  'uru.1', 'bol.1', 'ecu.1', 'ven.1', 'caf.nations', 'caf.nations_qual', 'caf.champions', 
+  'caf.confed', 'rsa.1', 'nga.1', 'gha.1', 'afc.champions', 'afc.cup', 'afc.asian.cup', 'ksa.1', 
+  'ksa.kings.cup', 'jpn.1', 'chn.1', 'ind.1', 'tha.1', 'mys.1', 'sgp.1', 'aus.1', 'aus.w.1', 
+  'club.friendly', 'nonfifa', 'friendly.emirates_cup', 'global.champs_cup', 'generic.ussf'
     ];
 
     const targets = selectedLeague === 'all' 
