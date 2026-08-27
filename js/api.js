@@ -1,6 +1,8 @@
+// ==========================================
 // API & NETWORK DATA FETCHING MODULE (100% PURE ESPN API)
+// ==========================================
 
-// ESPN League Logo Loader
+// 1. ESPN League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -32,7 +34,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// ESPN Player Photo Loader
+// 2. ESPN Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -64,7 +66,25 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   await savePhotoToCache(cleanedName, espnUrl);
 }
 
-// Fetch All Matches for Selected Date and League Filter
+// 3. Fetch Detail / Summary Pertandingan (ESPN API)
+async function fetchMatchSummary(leagueId, eventId) {
+  if (!leagueId || !eventId) {
+    console.error("League ID atau Event ID tidak valid:", { leagueId, eventId });
+    return null;
+  }
+
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/summary?event=${eventId}`);
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    
+    return await res.json();
+  } catch (err) {
+    console.error("Gagal mengambil summary dari ESPN API:", err);
+    return null;
+  }
+}
+
+// 4. Fetch All Matches untuk Tanggal & Liga Pilihan
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
@@ -105,7 +125,7 @@ async function fetchAllMatches() {
   }
 }
 
-// Fetch Live Matches (Finished 24h, Active Live, Upcoming 12h)
+// 5. Fetch Live Matches (Finished 24h, Active Live, Upcoming 12h)
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -212,7 +232,7 @@ async function fetchLiveMatchesStructured() {
   }
 }
 
-// Fetch Favorited Matches
+// 6. Fetch Favorited Matches
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -343,7 +363,7 @@ async function fetchFavoritedMatchesStructured() {
   }
 }
 
-// Fetch Last 5 Matches for Specific Team
+// 7. Fetch 5 Pertandingan Terakhir Tim
 async function fetchTeamRecentMatches(leagueId, teamId) {
   try {
     const currentYear = new Date().getFullYear();
@@ -383,7 +403,7 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
   }
 }
 
-// Fetch and Render Form & Head to Head Section
+// 8. Fetch dan Render Bagian Form & Head to Head (H2H)
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');
   if (!container) return;
