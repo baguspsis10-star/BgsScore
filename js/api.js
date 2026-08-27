@@ -48,45 +48,55 @@ const LEAGUE_DICT = {
 
 // Helper Ekstraksi Data Liga Presisi dari ESPN Event & Array Leagues Induk
 function extractLeagueDataFromEvent(evt, globalLeagues = []) {
-  let rawId = evt.league?.id || evt.league?.slug || evt.competitions?.[0]?.league?.id || evt.competitions?.[0]?.league?.slug || '';
-  let rawName = evt.league?.name || evt.league?.displayName || evt.competitions?.[0]?.league?.name || '';
+  // 1. Ambil kandidat nama dari properti event atau headline catatan ESPN
+  let candidateName = 
+    evt.league?.name || 
+    evt.league?.displayName || 
+    evt.competitions?.[0]?.league?.name || 
+    evt.competitions?.[0]?.league?.displayName || 
+    evt.competitions?.[0]?.notes?.[0]?.headline || 
+    '';
 
-  // Ekstrak ID dari UID jika ID masih kosong (format ESPN: "s:6~l:15~e:12345")
+  // 2. Ambil ID & Slug
+  let rawSlug = evt.season?.slug || evt.league?.slug || evt.competitions?.[0]?.league?.slug || '';
+  let rawId = evt.league?.id || evt.competitions?.[0]?.league?.id || '';
+
   if (!rawId && evt.uid) {
     const match = evt.uid.match(/~l:([^~]+)~/);
     if (match) rawId = match[1];
   }
 
-  // Cari di array leagues global bawaan response ESPN API
+  // 3. Cek di LEAGUE_DICT
+  const dictBySlug = LEAGUE_DICT[rawSlug];
+  const dictById = LEAGUE_DICT[rawId];
+  const dictInfo = dictBySlug || dictById || {};
+
+  // 4. Cek di globalLeagues jika ada
   let foundGlobal = null;
   if (Array.isArray(globalLeagues) && globalLeagues.length > 0) {
     foundGlobal = globalLeagues.find(g => 
       String(g.id) === String(rawId) || 
-      g.slug === rawId || 
+      g.slug === rawSlug || 
       (g.uid && evt.uid && evt.uid.includes(g.uid))
     );
   }
 
-  if (foundGlobal && !rawName) {
-    rawName = foundGlobal.name || foundGlobal.displayName || foundGlobal.shortName || '';
-  }
-
-  const dictInfo = LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || LEAGUE_DICT[foundGlobal?.id] || {};
-  
+  // 5. Pencocokan ke daftar LEAGUES internal aplikasi
   const appLeagues = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES)) ? LEAGUES : [];
-  const matchedAppLeague = appLeagues.find(l => 
-    l.id === rawId || l.id === dictInfo.slug || l.id === foundGlobal?.slug
-  ) || {};
+  const matchedAppLeague = appLeagues.find(l => l.id === rawSlug || l.id === dictInfo.slug) || {};
 
-  const finalSlug = matchedAppLeague.id || dictInfo.slug || foundGlobal?.slug || rawId || 'club.friendly';
-  
-  // Prioritas Penentuan Nama: LEAGUE_DICT > foundGlobal > rawName > matchedAppLeague
-  let finalName = dictInfo.name || foundGlobal?.name || rawName || matchedAppLeague.name || '';
+  // 6. Tentukan Nama Liga Bersih (Tanpa ID angka di dalam tanda kurung)
+  let finalName = dictInfo.name || matchedAppLeague.name || candidateName || foundGlobal?.name || foundGlobal?.displayName || '';
 
-  if (!finalName || finalName.toLowerCase() === 'liga' || finalName === 'regular-season' || finalName === '2026-27') {
-    finalName = dictInfo.name || matchedAppLeague.name || (rawId ? `Liga (${rawId})` : 'Persahabatan');
+  if (!finalName || finalName.toLowerCase() === 'liga' || finalName.includes('2026') || finalName === 'regular-season') {
+    if (candidateName && candidateName !== 'regular-season') {
+      finalName = candidateName;
+    } else {
+      finalName = 'Liga'; // Fallback bersih tanpa ID angka!
+    }
   }
 
+  const finalSlug = matchedAppLeague.id || dictInfo.slug || rawSlug || 'club.friendly';
   const finalFlag = matchedAppLeague.flag || dictInfo.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalSlug) : '⚽');
 
   return {
