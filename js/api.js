@@ -46,13 +46,13 @@ const LEAGUE_DICT = {
   '19': { name: 'MLS', flag: '🇺🇸', slug: 'usa.1' }
 };
 
-// Helper Ekstraksi Data Liga Presisi & Anti-Crash dari ESPN Event
+// Helper Ekstraksi Data Liga Presisi & Priority LEAGUES Config
 function extractLeagueDataFromEvent(evt, globalLeagues = []) {
   try {
     if (!evt) return { leagueId: 'club.friendly', leagueName: 'Liga', leagueLogo: '', leagueFlag: '⚽' };
 
     let rawId = String(evt.league?.id || evt.competitions?.[0]?.league?.id || '');
-    let rawSlug = String(evt.league?.slug || evt.competitions?.[0]?.league?.slug || '');
+    let rawSlug = String(evt.league?.slug || evt.competitions?.[0]?.league?.slug || evt.season?.slug || '');
 
     if (!rawId && evt.uid) {
       const match = evt.uid.match(/~l:([^~]+)~/);
@@ -66,9 +66,16 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
       (g.uid && evt.uid && evt.uid.includes(g.uid))
     );
 
-    const dictInfo = LEAGUE_DICT[rawSlug] || LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || LEAGUE_DICT[foundGlobal?.id] || {};
+    // Prioritaskan array LEAGUES utama aplikasi jika ada
     const appLeagues = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES)) ? LEAGUES : [];
-    const matchedApp = appLeagues.find(l => l.id === rawSlug || l.id === dictInfo.slug || l.id === foundGlobal?.slug) || {};
+    const matchedApp = appLeagues.find(l => 
+      l.id === rawSlug || 
+      l.id === rawId || 
+      (foundGlobal?.slug && l.id === foundGlobal.slug) ||
+      (foundGlobal?.id && l.id === String(foundGlobal.id))
+    ) || {};
+
+    const dictInfo = LEAGUE_DICT[rawSlug] || LEAGUE_DICT[rawId] || LEAGUE_DICT[foundGlobal?.slug] || LEAGUE_DICT[foundGlobal?.id] || {};
 
     const nameFromApi = 
       evt.league?.name || 
@@ -79,14 +86,14 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
       foundGlobal?.displayName || 
       '';
 
-    let finalName = dictInfo.name || matchedApp.name || nameFromApi;
+    let finalName = matchedApp.name || dictInfo.name || nameFromApi || 'Liga';
 
     if (typeof finalName === 'string') {
       finalName = finalName.replace(/\s*\(\d+\)/g, '').trim();
     }
 
     if (!finalName || finalName.toLowerCase() === 'regular-season' || finalName.toLowerCase() === 'regular season') {
-      finalName = dictInfo.name || matchedApp.name || foundGlobal?.name || foundGlobal?.displayName || 'Liga';
+      finalName = matchedApp.name || dictInfo.name || foundGlobal?.name || foundGlobal?.displayName || 'Liga';
     }
 
     const finalSlug = matchedApp.id || dictInfo.slug || foundGlobal?.slug || rawSlug || rawId || 'club.friendly';
@@ -100,7 +107,7 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
 
     return {
       leagueId: finalSlug,
-      leagueName: finalName || 'Liga',
+      leagueName: finalName,
       leagueLogo: matchedApp.logo || evt.league?.logos?.[0]?.href || evt.competitions?.[0]?.league?.logos?.[0]?.href || foundGlobal?.logos?.[0]?.href || '',
       leagueFlag: finalFlag
     };
@@ -115,7 +122,7 @@ function extractLeagueDataFromEvent(evt, globalLeagues = []) {
   }
 }
 
-// Multi-Tier League Logo Loader
+// Multi-Tier League Logo Loader (ESPN -> SportsDB -> Custom Badge Fallback)
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -173,7 +180,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// Multi-Tier Player Photo Loader
+// Multi-Tier Player Photo Loader (ESPN -> SportsDB -> UI Avatars Fallback)
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -237,7 +244,7 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   img.src = avatarUrl;
 }
 
-// Fetch Fallback Match Data via Fotmob API
+// Fetch Fallback Match Data via Fotmob API (Khusus Korea & Indonesia)
 async function fetchFotmobMatches(dateStr) {
   try {
     const res = await fetch(`https://www.fotmob.com/api/matches?date=${dateStr}`);
@@ -325,7 +332,7 @@ async function fetchFotmobMatches(dateStr) {
   }
 }
 
-// Fetch All Matches (UPDATED)
+// Fetch All Matches for Selected Date and League Filter
 async function fetchAllMatches() {
   try {
     let espnEvents = [];
@@ -344,8 +351,8 @@ async function fetchAllMatches() {
           leagueFlag: lData.leagueFlag,
           league: {
             id: lData.leagueId,
-            name: `${lData.leagueFlag !== '⚽' ? lData.leagueFlag + ' ' : ''}${lData.leagueName}`,
-            displayName: `${lData.leagueFlag !== '⚽' ? lData.leagueFlag + ' ' : ''}${lData.leagueName}`,
+            name: lData.leagueName,
+            displayName: lData.leagueName,
             slug: lData.leagueId,
             logos: lData.leagueLogo ? [{ href: lData.leagueLogo }] : []
           }
@@ -368,8 +375,8 @@ async function fetchAllMatches() {
           leagueFlag: flagVal,
           league: {
             id: selectedLeague,
-            name: `${flagVal !== '⚽' ? flagVal + ' ' : ''}${nameVal}`,
-            displayName: `${flagVal !== '⚽' ? flagVal + ' ' : ''}${nameVal}`,
+            name: nameVal,
+            displayName: nameVal,
             slug: selectedLeague,
             logos: (matched.logo || lData.leagueLogo) ? [{ href: matched.logo || lData.leagueLogo }] : []
           }
@@ -419,7 +426,7 @@ async function fetchAllMatches() {
   }
 }
 
-// Fetch Live Matches Structured (UPDATED)
+// Fetch Live Matches (Finished 24h, Active Live, Upcoming 12h)
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -442,8 +449,8 @@ async function fetchLiveMatchesStructured() {
         leagueFlag: lData.leagueFlag,
         league: {
           id: lData.leagueId,
-          name: `${lData.leagueFlag !== '⚽' ? lData.leagueFlag + ' ' : ''}${lData.leagueName}`,
-          displayName: `${lData.leagueFlag !== '⚽' ? lData.leagueFlag + ' ' : ''}${lData.leagueName}`,
+          name: lData.leagueName,
+          displayName: lData.leagueName,
           slug: lData.leagueId,
           logos: lData.leagueLogo ? [{ href: lData.leagueLogo }] : []
         }
@@ -541,7 +548,7 @@ async function fetchLiveMatchesStructured() {
   }
 }
 
-// Fetch Favorited Matches Structured (UPDATED)
+// Fetch Favorited Matches (Finished 2 Days, Active Live, & Upcoming 7 Days)
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -577,8 +584,8 @@ async function fetchFavoritedMatchesStructured() {
         leagueFlag: lData.leagueFlag,
         league: {
           id: lData.leagueId,
-          name: `${lData.leagueFlag !== '⚽' ? lData.leagueFlag + ' ' : ''}${lData.leagueName}`,
-          displayName: `${lData.leagueFlag !== '⚽' ? lData.leagueFlag + ' ' : ''}${lData.leagueName}`,
+          name: lData.leagueName,
+          displayName: lData.leagueName,
           slug: lData.leagueId,
           logos: lData.leagueLogo ? [{ href: lData.leagueLogo }] : []
         }
@@ -731,7 +738,7 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');
   if (!container) return;
-  
+
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
       <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
