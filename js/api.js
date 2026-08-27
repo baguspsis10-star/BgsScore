@@ -1,113 +1,6 @@
 // API & NETWORK DATA FETCHING MODULE
 
-// Kamus Pemetaan Lengkap ID/Slug Liga ESPN ke Nama & Bendera Resmi
-const LEAGUE_DICT = {
-  // Slug Strings
-  'eng.1': { name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
-  'esp.1': { name: 'La Liga', flag: '🇪🇸' },
-  'ita.1': { name: 'Serie A', flag: '🇮🇹' },
-  'ger.1': { name: 'Bundesliga', flag: '🇩🇪' },
-  'fra.1': { name: 'Ligue 1', flag: '🇫🇷' },
-  'ned.1': { name: 'Eredivisie', flag: '🇳🇱' },
-  'por.1': { name: 'Primeira Liga', flag: '🇵🇹' },
-  'tur.1': { name: 'Süper Lig', flag: '🇹🇷' },
-  'bel.1': { name: 'Pro League', flag: '🇧🇪' },
-  'sco.1': { name: 'Scottish Premiership', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
-  'uefa.champions': { name: 'UEFA Champions League', flag: '🇪🇺' },
-  'uefa.europa': { name: 'UEFA Europa League', flag: '🇪🇺' },
-  'uefa.europa.conf': { name: 'UEFA Conference League', flag: '🇪🇺' },
-  'uefa.nations': { name: 'UEFA Nations League', flag: '🇪🇺' },
-  'idn.1': { name: 'BRI Liga 1', flag: '🇮🇩' },
-  'idn.2': { name: 'Pegadaian Liga 2', flag: '🇮🇩' },
-  'kr.1': { name: 'K League 1', flag: '🇰🇷' },
-  'kr.2': { name: 'K League 2', flag: '🇰🇷' },
-  'jpn.1': { name: 'J1 League', flag: '🇯🇵' },
-  'usa.1': { name: 'MLS', flag: '🇺🇸' },
-  'arg.1': { name: 'Liga Profesional', flag: '🇦🇷' },
-  'bra.1': { name: 'Brasileirão', flag: '🇧🇷' },
-  'saudi.1': { name: 'Saudi Pro League', flag: '🇸🇦' },
-  'fifa.friendly': { name: 'Laga Persahabatan', flag: '🌐' },
-  'club.friendly': { name: 'Persahabatan Klub', flag: '⚽' },
-
-  // Angka ID ESPN Fallback
-  '8': { name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', slug: 'eng.1' },
-  '15': { name: 'La Liga', flag: '🇪🇸', slug: 'esp.1' },
-  '12': { name: 'Serie A', flag: '🇮🇹', slug: 'ita.1' },
-  '10': { name: 'Bundesliga', flag: '🇩🇪', slug: 'ger.1' },
-  '9': { name: 'Ligue 1', flag: '🇫🇷', slug: 'fra.1' },
-  '11': { name: 'Eredivisie', flag: '🇳🇱', slug: 'ned.1' },
-  '14': { name: 'Primeira Liga', flag: '🇵🇹', slug: 'por.1' },
-  '18': { name: 'Süper Lig', flag: '🇹🇷', slug: 'tur.1' },
-  '5': { name: 'Scottish Premiership', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', slug: 'sco.1' },
-  '2': { name: 'UEFA Champions League', flag: '🇪🇺', slug: 'uefa.champions' },
-  '3': { name: 'UEFA Europa League', flag: '🇪🇺', slug: 'uefa.europa' },
-  '2310': { name: 'UEFA Conference League', flag: '🇪🇺', slug: 'uefa.europa.conf' },
-  '2070': { name: 'UEFA Nations League', flag: '🇪🇺', slug: 'uefa.nations' },
-  '19': { name: 'MLS', flag: '🇺🇸', slug: 'usa.1' }
-};
-
-// Helper Ekstraksi Data Liga Presisi dari ESPN Event & Array Leagues Induk
-function extractLeagueDataFromEvent(evt, globalLeagues = []) {
-  // 1. Ambil kandidat nama dari properti event atau headline catatan ESPN
-  let candidateName = 
-    evt.league?.name || 
-    evt.league?.displayName || 
-    evt.competitions?.[0]?.league?.name || 
-    evt.competitions?.[0]?.league?.displayName || 
-    evt.competitions?.[0]?.notes?.[0]?.headline || 
-    '';
-
-  // 2. Ambil ID & Slug
-  let rawSlug = evt.season?.slug || evt.league?.slug || evt.competitions?.[0]?.league?.slug || '';
-  let rawId = evt.league?.id || evt.competitions?.[0]?.league?.id || '';
-
-  if (!rawId && evt.uid) {
-    const match = evt.uid.match(/~l:([^~]+)~/);
-    if (match) rawId = match[1];
-  }
-
-  // 3. Cek di LEAGUE_DICT
-  const dictBySlug = LEAGUE_DICT[rawSlug];
-  const dictById = LEAGUE_DICT[rawId];
-  const dictInfo = dictBySlug || dictById || {};
-
-  // 4. Cek di globalLeagues jika ada
-  let foundGlobal = null;
-  if (Array.isArray(globalLeagues) && globalLeagues.length > 0) {
-    foundGlobal = globalLeagues.find(g => 
-      String(g.id) === String(rawId) || 
-      g.slug === rawSlug || 
-      (g.uid && evt.uid && evt.uid.includes(g.uid))
-    );
-  }
-
-  // 5. Pencocokan ke daftar LEAGUES internal aplikasi
-  const appLeagues = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES)) ? LEAGUES : [];
-  const matchedAppLeague = appLeagues.find(l => l.id === rawSlug || l.id === dictInfo.slug) || {};
-
-  // 6. Tentukan Nama Liga Bersih (Tanpa ID angka di dalam tanda kurung)
-  let finalName = dictInfo.name || matchedAppLeague.name || candidateName || foundGlobal?.name || foundGlobal?.displayName || '';
-
-  if (!finalName || finalName.toLowerCase() === 'liga' || finalName.includes('2026') || finalName === 'regular-season') {
-    if (candidateName && candidateName !== 'regular-season') {
-      finalName = candidateName;
-    } else {
-      finalName = 'Liga'; // Fallback bersih tanpa ID angka!
-    }
-  }
-
-  const finalSlug = matchedAppLeague.id || dictInfo.slug || rawSlug || 'club.friendly';
-  const finalFlag = matchedAppLeague.flag || dictInfo.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalSlug) : '⚽');
-
-  return {
-    leagueId: finalSlug,
-    leagueName: finalName,
-    leagueLogo: matchedAppLeague.logo || evt.league?.logos?.[0]?.href || foundGlobal?.logos?.[0]?.href || '',
-    leagueFlag: finalFlag
-  };
-}
-
-// Multi-Tier League Logo Loader
+// Multi-Tier League Logo Loader (ESPN -> SportsDB -> Custom Badge Fallback)
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -165,7 +58,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// Multi-Tier Player Photo Loader
+// Multi-Tier Player Photo Loader (ESPN -> SportsDB -> UI Avatars Fallback)
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -229,12 +122,13 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   img.src = avatarUrl;
 }
 
-// Fetch Fallback Match Data via Fotmob API
+// Fetch Fallback Match Data via Fotmob API (Khusus Korea & Indonesia)
 async function fetchFotmobMatches(dateStr) {
   try {
     const res = await fetch(`https://www.fotmob.com/api/matches?date=${dateStr}`);
     const data = await res.json();
     
+    // ID Liga Fotmob: 47 (Indo 1), 8985 (Indo 2), 140 (Korea 1), 9131 (Korea 2)
     const targetFotmobIds = [47, 8985, 140, 9131];
     const filteredLeagues = (data.leagues || []).filter(l => 
       targetFotmobIds.includes(l.id) || 
@@ -311,74 +205,56 @@ async function fetchFotmobMatches(dateStr) {
   }
 }
 
-// Fetch All Matches
+// Fetch All Matches for Selected Date and League Filter
 async function fetchAllMatches() {
-  try {
-    let espnEvents = [];
-    
-    if (selectedLeague === 'all') {
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${selectedDateFilter}`);
-      const data = await res.json();
-      const globalLeagues = data.leagues || [];
-      espnEvents = (data.events || []).map(evt => {
-        const lData = extractLeagueDataFromEvent(evt, globalLeagues);
-        return {
-          ...evt,
-          leagueName: lData.leagueName,
-          leagueId: lData.leagueId,
-          leagueLogo: lData.leagueLogo,
-          leagueFlag: lData.leagueFlag
-        };
-      });
-    } else {
-      const matched = LEAGUES.find(l => l.id === selectedLeague) || {};
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${selectedLeague}/scoreboard?dates=${selectedDateFilter}`);
-      const data = await res.json();
-      const globalLeagues = data.leagues || [];
-      espnEvents = (data.events || []).map(evt => {
-        const lData = extractLeagueDataFromEvent(evt, globalLeagues);
-        return {
-          ...evt,
-          leagueName: matched.name || lData.leagueName || 'Liga',
-          leagueId: selectedLeague,
-          leagueLogo: matched.logo || lData.leagueLogo || '',
-          leagueFlag: matched.flag || lData.leagueFlag || '⚽'
-        };
-      });
-    }
+  const targets = selectedLeague === 'all' 
+    ? LEAGUES 
+    : LEAGUES.filter(l => l.id === selectedLeague);
 
-    const shouldFetchFotmob = selectedLeague === 'all' || ['kr.1', 'kr.2', 'idn.1', 'idn.2'].includes(selectedLeague);
-    const fotmobEvents = shouldFetchFotmob ? await fetchFotmobMatches(selectedDateFilter) : [];
+  const espnPromises = targets.map(league => 
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${selectedDateFilter}`)
+      .then(res => res.json())
+      .then(data => (data.events || []).map(evt => ({ 
+        ...evt, 
+        leagueName: league.name, 
+        leagueId: league.id, 
+        leagueLogo: league.logo,
+        leagueFlag: league.flag 
+      })))
+      .catch(() => [])
+  );
 
-    let allEvents = [...espnEvents];
-    if (fotmobEvents.length > 0) {
-      const existingIds = new Set(allEvents.map(e => e.id));
-      fotmobEvents.forEach(fEvt => {
-        if (!existingIds.has(fEvt.id)) {
-          allEvents.push(fEvt);
-        }
-      });
-    }
+  const shouldFetchFotmob = selectedLeague === 'all' || 
+                            ['kr.1', 'kr.2', 'idn.1', 'idn.2'].includes(selectedLeague);
 
-    allEvents = sortEventsByFavoriteAndDate(allEvents);
-    cachedEvents = allEvents;
+  const fotmobPromise = shouldFetchFotmob ? fetchFotmobMatches(selectedDateFilter) : Promise.resolve([]);
 
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+  const [espnResults, fotmobEvents] = await Promise.all([
+    Promise.all(espnPromises),
+    fotmobPromise
+  ]);
 
-    renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
-    document.getElementById('matches-container').classList.remove('hidden');
-  } catch (err) {
-    console.warn("Gagal memuat pertandingan:", err);
-    document.getElementById('matches-container').innerHTML = `
-      <div class="text-center py-6 text-slate-500 border border-slate-800/40 rounded-2xl bg-slate-900/30 text-xs backdrop-blur">
-        Gagal mengambil data pertandingan. Silakan periksa koneksi internet Anda.
-      </div>
-    `;
-    document.getElementById('matches-container').classList.remove('hidden');
+  let allEvents = espnResults.flat();
+
+  if (fotmobEvents.length > 0) {
+    const existingIds = new Set(allEvents.map(e => e.id));
+    fotmobEvents.forEach(fEvt => {
+      if (!existingIds.has(fEvt.id)) {
+        allEvents.push(fEvt);
+      }
+    });
   }
+
+  allEvents = sortEventsByFavoriteAndDate(allEvents);
+  cachedEvents = allEvents;
+
+  allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+
+  renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
+  document.getElementById('matches-container').classList.remove('hidden');
 }
 
-// Fetch Live Matches
+// Fetch Live Matches (Finished 24h, Active Live, Upcoming 12h)
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   
@@ -386,105 +262,105 @@ async function fetchLiveMatchesStructured() {
   const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
   const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
-  try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${dateRangeStr}`);
-    const data = await res.json();
-    const globalLeagues = data.leagues || [];
-    const espnEvents = (data.events || []).map(evt => {
-      const lData = extractLeagueDataFromEvent(evt, globalLeagues);
-      return {
-        ...evt,
-        leagueName: lData.leagueName,
-        leagueId: lData.leagueId,
-        leagueLogo: lData.leagueLogo,
-        leagueFlag: lData.leagueFlag
-      };
-    });
+  const espnPromises = LEAGUES.map(league => 
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
+      .then(res => res.json())
+      .then(data => (data.events || []).map(evt => ({ 
+        ...evt, 
+        leagueName: league.name, 
+        leagueId: league.id, 
+        leagueLogo: league.logo,
+        leagueFlag: league.flag 
+      })))
+      .catch(() => [])
+  );
 
-    const fotmobEvents = await fetchFotmobMatches(getFormattedDate(today));
+  const fotmobPromise = fetchFotmobMatches(getFormattedDate(today));
 
-    const eventMap = new Map();
-    espnEvents.forEach(evt => eventMap.set(evt.id, evt));
-    fotmobEvents.forEach(evt => {
-      if (!eventMap.has(evt.id)) eventMap.set(evt.id, evt);
-    });
+  const [allEventArrays, fotmobEvents] = await Promise.all([
+    Promise.all(espnPromises),
+    fotmobPromise
+  ]);
 
-    let allEvents = Array.from(eventMap.values());
-    
-    cachedEvents = allEvents;
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+  const eventMap = new Map();
+  allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
+  fotmobEvents.forEach(evt => {
+    if (!eventMap.has(evt.id)) eventMap.set(evt.id, evt);
+  });
 
-    const now = new Date();
-    const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-    const next12h = new Date(now.getTime() + (12 * 60 * 60 * 1000));
+  let allEvents = Array.from(eventMap.values());
+  
+  cachedEvents = allEvents;
+  allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
-    const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
-      const d = new Date(e.date);
-      return e.status?.type?.state === 'post' && d >= past24h;
-    }));
+  const now = new Date();
+  const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+  const next12h = new Date(now.getTime() + (12 * 60 * 60 * 1000));
 
-    const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status?.type?.state === 'in'));
+  const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+    const d = new Date(e.date);
+    return e.status.type.state === 'post' && d >= past24h;
+  }));
 
-    const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
-      const d = new Date(e.date);
-      return e.status?.type?.state === 'pre' && d > now && d <= next12h;
-    }));
+  const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status.type.state === 'in'));
 
-    container.innerHTML = '';
+  const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+    const d = new Date(e.date);
+    return e.status.type.state === 'pre' && d > now && d <= next12h;
+  }));
 
-    const finishedSec = document.createElement('div');
-    finishedSec.className = 'space-y-2.5';
-    finishedSec.innerHTML = `
-      <button onclick="toggleFinishedInLiveView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
-        <span class="flex items-center gap-2">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
+  container.innerHTML = '';
+
+  const finishedSec = document.createElement('div');
+  finishedSec.className = 'space-y-2.5';
+  finishedSec.innerHTML = `
+    <button onclick="toggleFinishedInLiveView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+      <span class="flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
+      </span>
+      <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
+    </button>
+    <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
+  `;
+  container.appendChild(finishedSec);
+  renderMatchesCards('live-finished-grid', finishedEvents, true);
+
+  const liveSec = document.createElement('div');
+  liveSec.className = 'space-y-2.5';
+  liveSec.innerHTML = `
+    <div class="flex items-center justify-between pb-1 border-b border-slate-800 text-slate-300">
+      <span class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+        <span class="flex h-2 w-2 relative">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
         </span>
-        <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
-      </button>
-      <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
-    `;
-    container.appendChild(finishedSec);
-    renderMatchesCards('live-finished-grid', finishedEvents, true);
+        Pertandingan Sedang Live
+      </span>
+      <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">${liveEvents.length}</span>
+    </div>
+    <div id="live-active-grid" class="space-y-2.5"></div>
+  `;
+  container.appendChild(liveSec);
+  renderMatchesCards('live-active-grid', liveEvents, true);
 
-    const liveSec = document.createElement('div');
-    liveSec.className = 'space-y-2.5';
-    liveSec.innerHTML = `
-      <div class="flex items-center justify-between pb-1 border-b border-slate-800 text-slate-300">
-        <span class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-          <span class="flex h-2 w-2 relative">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-          </span>
-          Pertandingan Sedang Live
-        </span>
-        <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">${liveEvents.length}</span>
-      </div>
-      <div id="live-active-grid" class="space-y-2.5"></div>
-    `;
-    container.appendChild(liveSec);
-    renderMatchesCards('live-active-grid', liveEvents, true);
+  const upcomingSec = document.createElement('div');
+  upcomingSec.className = 'space-y-2.5';
+  upcomingSec.innerHTML = `
+    <button onclick="toggleUpcomingInLiveView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+      <span class="flex items-center gap-2">
+        <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
+      </span>
+      <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
+    </button>
+    <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
+  `;
+  container.appendChild(upcomingSec);
+  renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
 
-    const upcomingSec = document.createElement('div');
-    upcomingSec.className = 'space-y-2.5';
-    upcomingSec.innerHTML = `
-      <button onclick="toggleUpcomingInLiveView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
-        <span class="flex items-center gap-2">
-          <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
-        </span>
-        <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
-      </button>
-      <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
-    `;
-    container.appendChild(upcomingSec);
-    renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
-
-    container.classList.remove('hidden');
-  } catch (err) {
-    console.warn("Gagal memuat data live:", err);
-  }
+  container.classList.remove('hidden');
 }
 
-// Fetch Favorited Matches
+// Fetch Favorited Matches (Finished 2 Days, Active Live, & Upcoming 7 Days)
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -506,116 +382,119 @@ async function fetchFavoritedMatchesStructured() {
   const next7Days = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
   const dateRangeStr = `${getFormattedDate(past2Days)}-${getFormattedDate(next7Days)}`;
 
-  try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${dateRangeStr}`);
-    const data = await res.json();
-    const globalLeagues = data.leagues || [];
-    const espnEvents = (data.events || []).map(evt => {
-      const lData = extractLeagueDataFromEvent(evt, globalLeagues);
-      return {
-        ...evt,
-        leagueName: lData.leagueName,
-        leagueId: lData.leagueId,
-        leagueLogo: lData.leagueLogo,
-        leagueFlag: lData.leagueFlag
-      };
-    });
+  const espnPromises = LEAGUES.map(league => 
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateRangeStr}`)
+      .then(res => res.json())
+      .then(data => (data.events || []).map(evt => ({ 
+        ...evt, 
+        leagueName: league.name, 
+        leagueId: league.id, 
+        leagueLogo: league.logo,
+        leagueFlag: league.flag 
+      })))
+      .catch(() => [])
+  );
 
-    const fotmobEvents = await fetchFotmobMatches(getFormattedDate(today));
+  const fotmobPromise = fetchFotmobMatches(getFormattedDate(today));
 
-    const eventMap = new Map();
-    espnEvents.forEach(evt => eventMap.set(evt.id, evt));
-    fotmobEvents.forEach(evt => {
-      if (!eventMap.has(evt.id)) eventMap.set(evt.id, evt);
-    });
+  const [allEventArrays, fotmobEvents] = await Promise.all([
+    Promise.all(espnPromises),
+    fotmobPromise
+  ]);
 
-    const favEvents = Array.from(eventMap.values()).filter(evt => {
-      const comp = evt.competitions?.[0];
-      const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
-      const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
+  const eventMap = new Map();
+  allEventArrays.flat().forEach(evt => eventMap.set(evt.id, evt));
+  fotmobEvents.forEach(evt => {
+    if (!eventMap.has(evt.id)) eventMap.set(evt.id, evt);
+  });
 
-      return isFavorite(evt.id) || isTeamFavorite(homeId) || isTeamFavorite(awayId);
-    });
+  const favEvents = Array.from(eventMap.values()).filter(evt => {
+    const comp = evt.competitions?.[0];
+    const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
+    const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
 
-    cachedEvents = favEvents;
-    favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    return isFavorite(evt.id) || isTeamFavorite(homeId) || isTeamFavorite(awayId);
+  });
 
-    const finishedEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'post'));
-    const liveEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'in'));
-    const upcomingEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'pre'));
+  cachedEvents = favEvents;
+  favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
-    container.innerHTML = '';
+  const finishedEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'post'));
+  const liveEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'in'));
+  const upcomingEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'pre'));
 
-    if (finishedEvents.length === 0 && liveEvents.length === 0 && upcomingEvents.length === 0) {
-      container.innerHTML = `
-        <div class="text-center py-10 text-slate-500 bg-slate-900/40 border border-slate-800 rounded-2xl text-xs">
-          <i class="fa-solid fa-calendar-xmark text-2xl mb-2 block text-slate-600"></i>
-          Tidak ada jadwal pertandingan untuk klub/pertandingan favorit Anda minggu ini.
-        </div>
-      `;
-      container.classList.remove('hidden');
-      return;
-    }
+  container.innerHTML = '';
 
-    if (liveEvents.length > 0) {
-      const liveSec = document.createElement('div');
-      liveSec.className = 'space-y-2.5 mb-4';
-      liveSec.innerHTML = `
-        <div class="flex items-center justify-between pb-1.5 border-b border-red-500/30 text-slate-300">
-          <span class="text-xs font-black text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-            <span class="flex h-2 w-2 relative">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-            </span>
-            Pertandingan Live (${liveEvents.length})
-          </span>
-        </div>
-        <div id="fav-active-grid" class="space-y-2.5"></div>
-      `;
-      container.appendChild(liveSec);
-      renderMatchesCards('fav-active-grid', liveEvents, true);
-    }
-
-    if (finishedEvents.length > 0) {
-      showFinishedInFav = false;
-      
-      const finishedSec = document.createElement('div');
-      finishedSec.className = 'space-y-2.5 mb-4';
-      finishedSec.innerHTML = `
-        <button onclick="toggleFinishedInFavView()" class="w-full bg-slate-900 border border-emerald-500/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg shadow-emerald-950/20">
-          <span class="flex items-center gap-2">
-            <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
-          </span>
-          <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-down text-[10px]"></i>
-        </button>
-        <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
-      `;
-      container.appendChild(finishedSec);
-      renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
-    }
-
-    if (upcomingEvents.length > 0) {
-      showUpcomingInFav = true;
-
-      const upcomingSec = document.createElement('div');
-      upcomingSec.className = 'space-y-2.5 pt-2 border-t border-slate-800/60';
-      upcomingSec.innerHTML = `
-        <button onclick="toggleUpcomingInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
-          <span class="flex items-center gap-2">
-            <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (${upcomingEvents.length})
-          </span>
-          <i id="fav-upcoming-toggle-icon" class="fa-solid fa-chevron-up text-[10px]"></i>
-        </button>
-        <div id="fav-upcoming-grid" class="space-y-2.5"></div>
-      `;
-      container.appendChild(upcomingSec);
-      renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
-    }
-
+  if (finishedEvents.length === 0 && liveEvents.length === 0 && upcomingEvents.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-10 text-slate-500 bg-slate-900/40 border border-slate-800 rounded-2xl text-xs">
+        <i class="fa-solid fa-calendar-xmark text-2xl mb-2 block text-slate-600"></i>
+        Tidak ada jadwal pertandingan untuk klub/pertandingan favorit Anda minggu ini.
+      </div>
+    `;
     container.classList.remove('hidden');
-  } catch (err) {
-    console.warn("Gagal memuat favorit:", err);
+    return;
   }
+
+  // 1. LIVE FAVORITES
+  if (liveEvents.length > 0) {
+    const liveSec = document.createElement('div');
+    liveSec.className = 'space-y-2.5 mb-4';
+    liveSec.innerHTML = `
+      <div class="flex items-center justify-between pb-1.5 border-b border-red-500/30 text-slate-300">
+        <span class="text-xs font-black text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+          <span class="flex h-2 w-2 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+          </span>
+          Pertandingan Live (${liveEvents.length})
+        </span>
+      </div>
+      <div id="fav-active-grid" class="space-y-2.5"></div>
+    `;
+    container.appendChild(liveSec);
+    renderMatchesCards('fav-active-grid', liveEvents, true);
+  }
+
+  // 2. FINISHED FAVORITES
+  if (finishedEvents.length > 0) {
+    showFinishedInFav = false;
+    
+    const finishedSec = document.createElement('div');
+    finishedSec.className = 'space-y-2.5 mb-4';
+    finishedSec.innerHTML = `
+      <button onclick="toggleFinishedInFavView()" class="w-full bg-slate-900 border border-emerald-500/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg shadow-emerald-950/20">
+        <span class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
+        </span>
+        <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-down text-[10px]"></i>
+      </button>
+      <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
+    `;
+    container.appendChild(finishedSec);
+    renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
+  }
+
+  // 3. UPCOMING FAVORITES
+  if (upcomingEvents.length > 0) {
+    showUpcomingInFav = true;
+
+    const upcomingSec = document.createElement('div');
+    upcomingSec.className = 'space-y-2.5 pt-2 border-t border-slate-800/60';
+    upcomingSec.innerHTML = `
+      <button onclick="toggleUpcomingInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+        <span class="flex items-center gap-2">
+          <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (${upcomingEvents.length})
+        </span>
+        <i id="fav-upcoming-toggle-icon" class="fa-solid fa-chevron-up text-[10px]"></i>
+      </button>
+      <div id="fav-upcoming-grid" class="space-y-2.5"></div>
+    `;
+    container.appendChild(upcomingSec);
+    renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
+  }
+
+  container.classList.remove('hidden');
 }
 
 // Fetch Last 5 Matches for Specific Team Schedule
