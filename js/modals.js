@@ -224,13 +224,13 @@ function selectLeagueFromModal(leagueId) {
   changeLeague(leagueId);
 }
 
-// PERBAIKAN UTAMA: Smart Fetch Match Detail dengan Auto Detect Slug Liga
+// Smart Fetch Match Detail dengan Auto-Detect Slug Liga Resmi
 async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) {
   currentOpenModal = { leagueId, eventId, leagueName };
   const modal = document.getElementById('detail-modal');
   const loading = document.getElementById('modal-loading');
   const container = document.getElementById('modal-data-container');
-  const flag = getLeagueFlag(leagueId);
+  const flag = typeof getLeagueFlag === 'function' ? getLeagueFlag(leagueId) : '⚽';
   
   if (!isSilent && typeof closeTeamModal === 'function') {
     closeTeamModal();
@@ -252,17 +252,16 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       ? cachedEvents.find(e => String(e.id) === String(eventId)) 
       : null;
 
-    // Susun daftar liga kandidat untuk dicoba secara berurutan
+    // Susun daftar liga kandidat untuk dicoba
     const candidateLeagues = Array.from(new Set([
       leagueId,
       cachedEvt?.leagueId,
       cachedEvt?.league?.slug,
       cachedEvt?.season?.slug,
-      'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'usa.1', 'idn.1', 'fifa.friendly', 'club.friendly'
+      'esp.1', 'eng.1', 'ita.1', 'ger.1', 'fra.1', 'usa.1', 'idn.1', 'fifa.friendly', 'club.friendly'
     ].filter(l => l && l !== 'all')));
 
     let data = null;
-    let validLeague = candidateLeagues[0] || 'eng.1';
 
     for (const slug of candidateLeagues) {
       try {
@@ -271,7 +270,6 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
           const json = await res.json();
           if (json && json.header && json.header.competitions) {
             data = json;
-            validLeague = slug;
             break;
           }
         }
@@ -282,16 +280,30 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       throw new Error("Detail pertandingan tidak ditemukan pada API ESPN.");
     }
 
+    // Ambil slug liga ASLI langsung dari response JSON ESPN
+    const realLeagueSlug = data.header?.league?.slug || 
+                           data.leagues?.[0]?.slug || 
+                           data.header?.competitions?.[0]?.league?.slug || 
+                           cachedEvt?.leagueId || 
+                           leagueId;
+
+    const realLeagueName = data.header?.league?.name || 
+                           data.leagues?.[0]?.name || 
+                           data.header?.competitions?.[0]?.league?.name || 
+                           leagueName;
+
+    document.getElementById('modal-league-name').innerText = `${realLeagueName}`;
+
     const header = data.header?.competitions?.[0];
     const home = header?.competitors?.find(c => c.homeAway === 'home');
     const away = header?.competitors?.find(c => c.homeAway === 'away');
 
-    renderModalCompleteData(data, validLeague);
+    renderModalCompleteData(data, realLeagueSlug);
 
     if (!isSilent) {
-      if (validLeague && home?.team?.id && away?.team?.id) {
-        fetchModalStandings(validLeague, home.team.id, away.team.id);
-        fetchFormAndH2H(validLeague, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
+      if (realLeagueSlug && home?.team?.id && away?.team?.id) {
+        fetchModalStandings(realLeagueSlug, home.team.id, away.team.id);
+        fetchFormAndH2H(realLeagueSlug, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
       } else {
         document.getElementById('mcontent-standings').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
         document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Data riwayat tidak tersedia.</p>`;
@@ -325,7 +337,7 @@ async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
   `;
 
   try {
-    const targetLeague = LEAGUES.find(l => l.id === leagueId) || LEAGUES[0];
+    const targetLeague = LEAGUES.find(l => l.id === leagueId) || { id: leagueId, name: 'Klasemen' };
     container.innerHTML = '';
     await renderLeagueStandingsTable(targetLeague, container, [homeTeamId, awayTeamId]);
   } catch (err) {
@@ -411,7 +423,7 @@ function getBaseMinute(clockStr) {
   return parseInt(str) || 0;
 }
 
-// RENDER COMPLETE DATA DENGAN BACKGROUND STADION RADIAL & DEKORASI ELEGANKAN
+// Render Complete Match Detail Data
 function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;

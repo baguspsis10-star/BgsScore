@@ -1,5 +1,20 @@
 // API & NETWORK DATA FETCHING MODULE
 
+// Helper Ekstraksi Data Liga Presisi dari ESPN Event
+function extractLeagueDataFromEvent(evt) {
+  const rawSlug = evt.league?.slug || evt.competitions?.[0]?.league?.slug || evt.season?.slug || '';
+  const rawName = evt.league?.name || evt.competitions?.[0]?.league?.name || evt.season?.displayName || '';
+  
+  const matched = LEAGUES.find(l => l.id === rawSlug || l.id === evt.league?.id) || {};
+  
+  return {
+    leagueId: rawSlug || matched.id || 'club.friendly',
+    leagueName: rawName || matched.name || 'Liga',
+    leagueLogo: matched.logo || evt.league?.logos?.[0]?.href || '',
+    leagueFlag: matched.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(rawSlug) : '⚽')
+  };
+}
+
 // Multi-Tier League Logo Loader (ESPN -> SportsDB -> Custom Badge Fallback)
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
@@ -122,7 +137,7 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   img.src = avatarUrl;
 }
 
-// Fetch Fallback Match Data via Fotmob API (Khusus Korea & Indonesia)
+// Fetch Fallback Match Data via Fotmob API
 async function fetchFotmobMatches(dateStr) {
   try {
     const res = await fetch(`https://www.fotmob.com/api/matches?date=${dateStr}`);
@@ -182,7 +197,7 @@ async function fetchFotmobMatches(dateStr) {
                 }
               },
               {
-                homeAway: 'away',
+                awayAway: 'away',
                 score: String(m.away?.score ?? 0),
                 team: { 
                   id: m.away?.id, 
@@ -204,7 +219,7 @@ async function fetchFotmobMatches(dateStr) {
   }
 }
 
-// PERBAIKAN: Fetch All Matches Menggunakan Single Universal Endpoint
+// Fetch All Matches
 async function fetchAllMatches() {
   try {
     let espnEvents = [];
@@ -213,14 +228,13 @@ async function fetchAllMatches() {
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${selectedDateFilter}`);
       const data = await res.json();
       espnEvents = (data.events || []).map(evt => {
-        const lId = evt.season?.slug || evt.league?.slug || 'club.friendly';
-        const matched = LEAGUES.find(l => l.id === lId || l.id === evt.league?.slug) || {};
+        const lData = extractLeagueDataFromEvent(evt);
         return {
           ...evt,
-          leagueName: evt.league?.name || matched.name || 'Liga',
-          leagueId: matched.id || lId,
-          leagueLogo: matched.logo || '',
-          leagueFlag: matched.flag || '⚽'
+          leagueName: lData.leagueName,
+          leagueId: lData.leagueId,
+          leagueLogo: lData.leagueLogo,
+          leagueFlag: lData.leagueFlag
         };
       });
     } else {
@@ -267,7 +281,7 @@ async function fetchAllMatches() {
   }
 }
 
-// PERBAIKAN: Fetch Live Matches Menggunakan Single Universal Endpoint
+// Fetch Live Matches
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   
@@ -279,14 +293,13 @@ async function fetchLiveMatchesStructured() {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${dateRangeStr}`);
     const data = await res.json();
     const espnEvents = (data.events || []).map(evt => {
-      const lId = evt.season?.slug || evt.league?.slug || 'club.friendly';
-      const matched = LEAGUES.find(l => l.id === lId || l.id === evt.league?.slug) || {};
+      const lData = extractLeagueDataFromEvent(evt);
       return {
         ...evt,
-        leagueName: evt.league?.name || matched.name || 'Liga',
-        leagueId: matched.id || lId,
-        leagueLogo: matched.logo || '',
-        leagueFlag: matched.flag || '⚽'
+        leagueName: lData.leagueName,
+        leagueId: lData.leagueId,
+        leagueLogo: lData.leagueLogo,
+        leagueFlag: lData.leagueFlag
       };
     });
 
@@ -373,7 +386,7 @@ async function fetchLiveMatchesStructured() {
   }
 }
 
-// PERBAIKAN: Fetch Favorited Matches Menggunakan Single Universal Endpoint
+// Fetch Favorited Matches
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -399,14 +412,13 @@ async function fetchFavoritedMatchesStructured() {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${dateRangeStr}`);
     const data = await res.json();
     const espnEvents = (data.events || []).map(evt => {
-      const lId = evt.season?.slug || evt.league?.slug || 'club.friendly';
-      const matched = LEAGUES.find(l => l.id === lId || l.id === evt.league?.slug) || {};
+      const lData = extractLeagueDataFromEvent(evt);
       return {
         ...evt,
-        leagueName: evt.league?.name || matched.name || 'Liga',
-        leagueId: matched.id || lId,
-        leagueLogo: matched.logo || '',
-        leagueFlag: matched.flag || '⚽'
+        leagueName: lData.leagueName,
+        leagueId: lData.leagueId,
+        leagueLogo: lData.leagueLogo,
+        leagueFlag: lData.leagueFlag
       };
     });
 
@@ -446,7 +458,6 @@ async function fetchFavoritedMatchesStructured() {
       return;
     }
 
-    // 1. LIVE FAVORITES
     if (liveEvents.length > 0) {
       const liveSec = document.createElement('div');
       liveSec.className = 'space-y-2.5 mb-4';
@@ -466,7 +477,6 @@ async function fetchFavoritedMatchesStructured() {
       renderMatchesCards('fav-active-grid', liveEvents, true);
     }
 
-    // 2. FINISHED FAVORITES
     if (finishedEvents.length > 0) {
       showFinishedInFav = false;
       
@@ -485,7 +495,6 @@ async function fetchFavoritedMatchesStructured() {
       renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
     }
 
-    // 3. UPCOMING FAVORITES
     if (upcomingEvents.length > 0) {
       showUpcomingInFav = true;
 
