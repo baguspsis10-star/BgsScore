@@ -1,8 +1,8 @@
 // ==========================================
-// API & NETWORK DATA FETCHING MODULE (100% PURE ESPN API)
+// API & NETWORK DATA FETCHING MODULE (100% PURE ESPN API + WIKIPEDIA FALLBACK)
 // ==========================================
 
-// Helper untuk fetch batch agar tidak kena bloq/rate-limit ESPN
+// Helper untuk fetch batch agar tidak terkena rate-limit / blokir ESPN
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   const BATCH_SIZE = 15; // Kirim 15 liga per gelombang
   let allEvents = [];
@@ -66,12 +66,12 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// 2. ESPN Player Photo Loader
+// 2. ESPN & Wikipedia Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
 
-  const cleanedName = cleanPlayerName(pName);
+  const cleanedName = typeof cleanPlayerName === 'function' ? cleanPlayerName(pName) : pName.trim();
 
   if (playerPhotoCache[cleanedName]) {
     img.src = playerPhotoCache[cleanedName];
@@ -87,15 +87,46 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
 
   const espnUrl = pId 
     ? `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png` 
-    : `https://a.espncdn.com/i/headshots/nophoto.png`;
+    : null;
 
-  img.src = espnUrl;
-  img.onerror = () => {
-    img.src = `https://a.espncdn.com/i/headshots/nophoto.png`;
-  };
+  if (espnUrl) {
+    const testImg = new Image();
+    testImg.src = espnUrl;
+    testImg.onload = async () => {
+      img.src = espnUrl;
+      playerPhotoCache[cleanedName] = espnUrl;
+      await savePhotoToCache(cleanedName, espnUrl);
+    };
+    testImg.onerror = () => {
+      // Jika ESPN 404, otomatis ambil dari Wikipedia REST API
+      fetchWikipediaPhoto(img, cleanedName);
+    };
+  } else {
+    fetchWikipediaPhoto(img, cleanedName);
+  }
+}
 
-  playerPhotoCache[cleanedName] = espnUrl;
-  await savePhotoToCache(cleanedName, espnUrl);
+// Helper untuk mengambil foto dari Wikipedia API jika ESPN 404
+async function fetchWikipediaPhoto(img, pName) {
+  try {
+    const wikiRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pName)}`);
+    if (wikiRes.ok) {
+      const wikiData = await wikiRes.json();
+      if (wikiData.thumbnail && wikiData.thumbnail.source) {
+        const wikiPhotoUrl = wikiData.thumbnail.source;
+        img.src = wikiPhotoUrl;
+        playerPhotoCache[pName] = wikiPhotoUrl;
+        await savePhotoToCache(pName, wikiPhotoUrl);
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn(`Gagal mengambil foto Wikipedia untuk ${pName}:`, e);
+  }
+
+  // Fallback Terakhir: Avatar Inisial Berwarna dari UI-Avatars
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f766e&color=fff&bold=true&rounded=true`;
+  img.src = avatarUrl;
 }
 
 // 3. Fetch Detail / Summary Pertandingan (ESPN API)
