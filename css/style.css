@@ -125,3 +125,24 @@ body {
 .animate-bounce-ball {
   animation: bounceBall 0.8s infinite ease-in-out;
 }
+
+/* RESPONSIVE GRID FOR DESKTOP */
+@media (min-width: 768px) {
+  #matches-container,
+  #live-active-grid,
+  #live-finished-grid,
+  #live-upcoming-grid,
+  #fav-active-grid,
+  #fav-finished-grid,
+  #fav-upcoming-grid,
+  #search-matches-grid,
+  #league-live-grid,
+  #league-upcoming-grid,
+  #league-finished-grid,
+  #team-upcoming-grid,
+  #team-finished-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+}
