@@ -1,7 +1,17 @@
-/* GLOBAL STYLES & RESET */
+/* GLOBAL RESET & BASE STYLES */
 * {
   box-sizing: border-box;
   touch-action: manipulation;
+}
+
+body {
+  background-color: #090d16 !important;
+  color: #f1f5f9;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.05) 0%, transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(30, 58, 138, 0.05) 0%, transparent 50%);
+  background-attachment: fixed;
 }
 
 /* CUSTOM SCROLLBAR BAR */
@@ -13,100 +23,69 @@
   scrollbar-width: none;
 }
 
-/* BACKGROUND UTAMA APLIKASI (STADIUM VIBE & TEXTURE) */
-body {
-  background-color: #020617 !important;
-  background-image: 
-    radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 60%),
-    radial-gradient(circle at 50% 100%, rgba(15, 23, 42, 0.85) 0%, transparent 80%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
-  background-attachment: fixed;
-}
-
-/* 1. PERTANDINGAN MENDATANG (WARNA BIRU) */
+/* BASE MATCH CARD MODERN STYLES */
 .card-upcoming,
-#live-upcoming-grid > div {
-  background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 65%, #020617 100%) !important;
-  border: 1.5px solid #3b82f6 !important;
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
-}
-.card-upcoming:hover,
-#live-upcoming-grid > div:hover {
-  border-color: #60a5fa !important;
-  box-shadow: 0 6px 22px rgba(96, 165, 250, 0.4) !important;
-}
-
-/* 2. PERTANDINGAN LIVE (WARNA MERAH) */
 .card-live,
-#live-active-grid > div,
-#fav-active-grid > div {
-  background: linear-gradient(135deg, #7f1d1d 0%, #0f172a 65%, #020617 100%) !important;
-  border: 1.5px solid #ef4444 !important;
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
-}
-.card-live:hover,
-#live-active-grid > div:hover,
-#fav-active-grid > div:hover {
-  border-color: #f87171 !important;
-  box-shadow: 0 6px 22px rgba(248, 113, 113, 0.45) !important;
-}
-
-/* 3. PERTANDINGAN SELESAI (WARNA HIJAU) */
 .card-finished,
-#live-finished-grid > div {
-  background: linear-gradient(135deg, #044e3a 0%, #0f172a 65%, #020617 100%) !important;
-  border: 1.5px solid #10b981 !important;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
-}
-.card-finished:hover,
-#live-finished-grid > div:hover {
-  border-color: #34d399 !important;
-  box-shadow: 0 6px 22px rgba(52, 211, 153, 0.4) !important;
-}
-
-/* 4. PERTANDINGAN MENDATANG FAVORIT (WARNA EMAS / KUNING) */
 .card-fav-upcoming,
-#fav-upcoming-grid > div {
-  background: linear-gradient(135deg, #78350f 0%, #0f172a 65%, #020617 100%) !important;
-  border: 1.5px solid #f59e0b !important;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+.card-fav-finished {
+  background: #111827 !important;
+  border: 1px solid #1f2937 !important;
+  border-radius: 1rem !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
+
+.card-upcoming:hover,
+.card-live:hover,
+.card-finished:hover,
 .card-fav-upcoming:hover,
-#fav-upcoming-grid > div:hover {
-  border-color: #fbbf24 !important;
-  box-shadow: 0 6px 22px rgba(251, 191, 36, 0.45) !important;
+.card-fav-finished:hover {
+  background: #162032 !important;
+  border-color: #374151 !important;
+  transform: translateY(-1px);
 }
 
-/* 5. PERTANDINGAN SELESAI FAVORIT (WARNA BIRU / CYAN) */
-.card-fav-finished,
-#fav-finished-grid > div {
-  background: linear-gradient(135deg, #164e63 0%, #0f172a 65%, #020617 100%) !important;
-  border: 1.5px solid #06b6d4 !important;
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
-}
-.card-fav-finished:hover,
-#fav-finished-grid > div:hover {
-  border-color: #22d3ee !important;
-  box-shadow: 0 6px 22px rgba(34, 211, 238, 0.45) !important;
+/* ACCENT BORDERS FOR SPECIFIC MATCH STATES */
+.card-live {
+  border-left: 3px solid #ef4444 !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.06) 0%, #111827 60%) !important;
 }
 
-/* KARTU MODAL DETAIL PERTANDINGAN */
-#modal-score-header > div,
-#mcontent-summary > div,
-#mcontent-stats > div,
-#mcontent-lineup > div,
-#mcontent-h2h > div > div {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 70%, #020617 100%) !important;
-  border: 1.5px solid #334155 !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+.card-finished {
+  border-left: 3px solid #10b981 !important;
 }
 
-/* ANIMASI PULSE SAAT GOL TERJADI */
+.card-upcoming {
+  border-left: 3px solid #3b82f6 !important;
+}
+
+.card-fav-upcoming {
+  border-left: 3px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, #111827 60%) !important;
+}
+
+.card-fav-finished {
+  border-left: 3px solid #06b6d4 !important;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, #111827 60%) !important;
+}
+
+/* MODAL & HEADERS CONTAINER */
+.bg-stadium-card,
+#modal-score-header > div {
+  background: #111827 !important;
+  border: 1px solid #1f2937 !important;
+  border-radius: 1.25rem !important;
+}
+
+.bg-stadium-header {
+  background: linear-gradient(180deg, #182232 0%, #111827 100%) !important;
+  border: 1px solid #1f2937 !important;
+}
+
+/* GOAL ANIMATION PULSE */
 @keyframes goalPulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-  50% { transform: scale(1.08); box-shadow: 0 0 12px 6px rgba(16, 185, 129, 0); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  50% { transform: scale(1.05); box-shadow: 0 0 10px 4px rgba(16, 185, 129, 0.3); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
@@ -116,19 +95,7 @@ body {
   color: #ffffff !important;
 }
 
-/* ANIMASI BOLA MEMBENTUL SAAT GOL TERJADI */
-@keyframes bounceBall {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-
-.animate-bounce-ball {
-  animation: bounceBall 0.8s infinite ease-in-out;
-}
-
-/* RESPONSIVE MULTI-COLUMN GRID FOR TABLET, LAPTOP & DESKTOP WIDESCREEN */
-
-/* Tablet / HP Layar Lebar (2 Kolom) */
+/* RESPONSIVE GRID LAYOUTS FOR TABLET & DESKTOP */
 @media (min-width: 640px) {
   #matches-container,
   #live-active-grid,
@@ -149,7 +116,6 @@ body {
   }
 }
 
-/* Laptop / PC Standar (3 Kolom) */
 @media (min-width: 1024px) {
   #matches-container,
   #live-active-grid,
@@ -168,7 +134,6 @@ body {
   }
 }
 
-/* PC / Monitor Lebar Full Screen (4 Kolom) */
 @media (min-width: 1280px) {
   #matches-container,
   #live-active-grid,
@@ -184,24 +149,5 @@ body {
   #team-upcoming-grid,
   #team-finished-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  }
-}
-
-/* Monitor Ultra-Wide (5 Kolom) */
-@media (min-width: 1600px) {
-  #matches-container,
-  #live-active-grid,
-  #live-finished-grid,
-  #live-upcoming-grid,
-  #fav-active-grid,
-  #fav-finished-grid,
-  #fav-upcoming-grid,
-  #search-matches-grid,
-  #league-live-grid,
-  #league-upcoming-grid,
-  #league-finished-grid,
-  #team-upcoming-grid,
-  #team-finished-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   }
 }

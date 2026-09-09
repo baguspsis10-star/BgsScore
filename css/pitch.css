@@ -1,12 +1,11 @@
-/* SOCCER PITCH LAYOUT STYLES */
-
+/* SOCCER PITCH TACTICAL BOARD LAYOUT */
 .soccer-full-pitch {
-  background: radial-gradient(circle at center, #065f46 0%, #022c22 100%);
-  border: 2px solid #059669;
+  background: radial-gradient(circle at center, #064e3b 0%, #022c22 100%);
+  border: 1px solid #059669;
   position: relative;
   overflow: hidden;
-  min-height: 760px !important;
-  padding: 16px 2px !important;
+  min-height: 720px !important;
+  padding: 16px 4px !important;
 }
 
 .pitch-center-line-full {
@@ -14,8 +13,8 @@
   top: 50%;
   left: 0;
   right: 0;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.4);
+  height: 1px;
+  background: rgba(255, 255, 255, 0.25);
   transform: translateY(-50%);
   z-index: 1;
   pointer-events: none;
@@ -25,9 +24,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 110px;
-  height: 110px;
-  border: 2px solid rgba(255, 255, 255, 0.4);
+  width: 100px;
+  height: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   z-index: 1;
@@ -38,9 +37,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 6px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.6);
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   z-index: 1;
@@ -51,9 +50,9 @@
   position: absolute;
   top: 0;
   left: 50%;
-  width: 52%;
-  height: 55px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  width: 50%;
+  height: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-top: none;
   transform: translateX(-50%);
   z-index: 1;
@@ -64,9 +63,9 @@
   position: absolute;
   bottom: 0;
   left: 50%;
-  width: 52%;
-  height: 55px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  width: 50%;
+  height: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-bottom: none;
   transform: translateX(-50%);
   z-index: 1;
