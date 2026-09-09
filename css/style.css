@@ -126,8 +126,10 @@ body {
   animation: bounceBall 0.8s infinite ease-in-out;
 }
 
-/* RESPONSIVE GRID FOR DESKTOP */
-@media (min-width: 768px) {
+/* RESPONSIVE MULTI-COLUMN GRID FOR TABLET, LAPTOP & DESKTOP WIDESCREEN */
+
+/* Tablet / HP Layar Lebar (2 Kolom) */
+@media (min-width: 640px) {
   #matches-container,
   #live-active-grid,
   #live-finished-grid,
@@ -144,5 +146,62 @@ body {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 0.75rem !important;
+  }
+}
+
+/* Laptop / PC Standar (3 Kolom) */
+@media (min-width: 1024px) {
+  #matches-container,
+  #live-active-grid,
+  #live-finished-grid,
+  #live-upcoming-grid,
+  #fav-active-grid,
+  #fav-finished-grid,
+  #fav-upcoming-grid,
+  #search-matches-grid,
+  #league-live-grid,
+  #league-upcoming-grid,
+  #league-finished-grid,
+  #team-upcoming-grid,
+  #team-finished-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+/* PC / Monitor Lebar Full Screen (4 Kolom) */
+@media (min-width: 1280px) {
+  #matches-container,
+  #live-active-grid,
+  #live-finished-grid,
+  #live-upcoming-grid,
+  #fav-active-grid,
+  #fav-finished-grid,
+  #fav-upcoming-grid,
+  #search-matches-grid,
+  #league-live-grid,
+  #league-upcoming-grid,
+  #league-finished-grid,
+  #team-upcoming-grid,
+  #team-finished-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Monitor Ultra-Wide (5 Kolom) */
+@media (min-width: 1600px) {
+  #matches-container,
+  #live-active-grid,
+  #live-finished-grid,
+  #live-upcoming-grid,
+  #fav-active-grid,
+  #fav-finished-grid,
+  #fav-upcoming-grid,
+  #search-matches-grid,
+  #league-live-grid,
+  #league-upcoming-grid,
+  #league-finished-grid,
+  #team-upcoming-grid,
+  #team-finished-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   }
 }
