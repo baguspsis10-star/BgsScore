@@ -27,7 +27,22 @@ async function loadData(isSilent = false) {
   } else if (activeNav === 'league') {
     await fetchStandingsForSelectedLeague();
   } else if (activeNav === 'news') {
-    if (typeof fetchESPNNews === 'function') await fetchESPNNews();
+    const newsCont = document.getElementById('news-container');
+    if (newsCont) newsCont.classList.remove('hidden');
+
+    if (typeof fetchESPNNews === 'function') {
+      await fetchESPNNews();
+    } else {
+      if (newsCont) {
+        newsCont.innerHTML = `
+          <div class="text-center py-12 text-slate-400 space-y-2 bg-slate-900/50 border border-slate-800 rounded-2xl">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-2xl"></i>
+            <p class="text-xs font-bold text-white">File <code class="bg-slate-800 px-1.5 py-0.5 rounded text-emerald-400">js/news.js</code> belum ditemukan!</p>
+            <p class="text-[10px] text-slate-400">Pastikan kamu sudah membuat file <code class="text-slate-200">news.js</code> di dalam folder <code class="text-slate-200">js/</code>.</p>
+          </div>
+        `;
+      }
+    }
   }
 
   if (currentOpenModal) {

@@ -4,46 +4,66 @@ async function fetchESPNNews() {
   const container = document.getElementById('news-container');
   if (!container) return;
 
-  // Tampilkan kontainer berita
+  // Tampilkan kontainer berita & loading
   container.classList.remove('hidden');
-
   container.innerHTML = `
-    <div class="py-12 text-center text-xs text-slate-400">
-      <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-xl mb-2"></i>
-      <p>Memuat berita terbaru dari ESPN...</p>
+    <div class="py-12 text-center text-xs text-slate-400 space-y-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-2xl"></i>
+      <p class="font-medium">Memuat berita sepak bola terbaru...</p>
     </div>
   `;
 
-  try {
-    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/all/news');
-    const data = await res.json();
-    const articles = data.articles || [];
+  // Daftar endpoint cadangan jika satu URL gagal
+  const newsEndpoints = [
+    'https://site.api.espn.com/apis/site/v2/sports/soccer/all/news',
+    'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/news',
+    'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/news'
+  ];
 
-    if (articles.length === 0) {
-      container.innerHTML = `<div class="text-center py-10 text-xs text-slate-500">Tidak ada berita ditemukan.</div>`;
-      return;
+  let articles = [];
+
+  for (const url of newsEndpoints) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.articles && data.articles.length > 0) {
+          articles = data.articles;
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn("Gagal fetch news dari:", url);
     }
-
-    container.innerHTML = articles.map((item, idx) => `
-      <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl space-y-3 shadow-md">
-        ${item.images?.[0]?.url ? `<img src="${item.images[0].url}" class="w-full h-44 object-cover rounded-xl border border-slate-800" loading="lazy" alt="">` : ''}
-        <div>
-          <h3 id="news-title-${idx}" class="text-xs sm:text-sm font-bold text-white leading-snug">${item.headline}</h3>
-          <p id="news-desc-${idx}" class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">${item.description || ''}</p>
-        </div>
-        <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px]">
-          <a href="${item.links?.web?.href || '#'}" target="_blank" class="text-emerald-400 font-bold hover:underline flex items-center gap-1">
-            Baca di ESPN <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-          </a>
-          <button onclick="translateNews(${idx})" id="btn-trans-${idx}" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 font-semibold transition flex items-center gap-1">
-            <i class="fa-solid fa-language text-emerald-400"></i> Terjemahkan
-          </button>
-        </div>
-      </div>
-    `).join('');
-  } catch (e) {
-    container.innerHTML = `<div class="text-center py-10 text-xs text-red-400">Gagal memuat berita ESPN.</div>`;
   }
+
+  if (articles.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl text-xs space-y-2">
+        <i class="fa-solid fa-newspaper text-2xl text-slate-600 block"></i>
+        <p>Belum ada berita sepak bola terbaru saat ini.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = articles.map((item, idx) => `
+    <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl space-y-3 shadow-md">
+      ${item.images?.[0]?.url ? `<img src="${item.images[0].url}" class="w-full h-44 object-cover rounded-xl border border-slate-800" loading="lazy" alt="" onerror="this.style.display='none'">` : ''}
+      <div>
+        <h3 id="news-title-${idx}" class="text-xs sm:text-sm font-bold text-white leading-snug">${item.headline}</h3>
+        <p id="news-desc-${idx}" class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">${item.description || ''}</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px]">
+        <a href="${item.links?.web?.href || '#'}" target="_blank" rel="noopener" class="text-emerald-400 font-bold hover:underline flex items-center gap-1">
+          Baca di ESPN <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+        </a>
+        <button onclick="translateNews(${idx})" id="btn-trans-${idx}" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 font-semibold transition flex items-center gap-1">
+          <i class="fa-solid fa-language text-emerald-400"></i> Terjemahkan
+        </button>
+      </div>
+    </div>
+  `).join('');
 }
 
 // FUNGSI PENERJEMAH (MyMemory Free API)
