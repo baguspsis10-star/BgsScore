@@ -1,60 +1,83 @@
-// FETCH BERITA SEPAK BOLA ESPN, PAGINASI & TERJEMAHAN OTOMATIS
+// FETCH BERITA SEPAK BOLA ESPN, FILTER KATEGORI, PAGINASI & TERJEMAHAN OTOMATIS
 
 let allNewsArticles = [];
 let displayedNewsCount = 0;
 const NEWS_PER_PAGE = 10;
+let currentNewsCategory = 'all';
 
-async function fetchESPNNews() {
+const NEWS_CATEGORIES = [
+  { id: 'all', name: 'Semua', icon: 'fa-globe' },
+  { id: 'eng.1', name: 'Premier League', icon: 'fa-trophy' },
+  { id: 'uefa.champions', name: 'UCL', icon: 'fa-star' },
+  { id: 'esp.1', name: 'La Liga', icon: 'fa-trophy' },
+  { id: 'ita.1', name: 'Serie A', icon: 'fa-trophy' },
+  { id: 'idn.1', name: 'Liga 1 IDN', icon: 'fa-flag' }
+];
+
+async function fetchESPNNews(forceRefresh = false) {
   const container = document.getElementById('news-container');
   if (!container) return;
 
   container.classList.remove('hidden');
 
-  // Jika data berita sudah pernah di-fetch, tidak perlu request ulang
-  if (allNewsArticles.length > 0) {
+  // Pasang baris filter kategori di paling atas jika belum ada
+  if (!document.getElementById('news-category-bar')) {
+    renderNewsCategoryFilter(container);
+  } else {
+    updateCategoryFilterButtons();
+  }
+
+  const listContainer = document.getElementById('news-list-wrapper');
+  if (!listContainer) return;
+
+  if (!forceRefresh && allNewsArticles.length > 0) {
     return;
   }
 
-  container.innerHTML = `
+  listContainer.innerHTML = `
     <div class="py-12 text-center text-xs text-slate-400 space-y-2">
       <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-2xl"></i>
-      <p class="font-medium">Memuat berita sepak bola terbaru...</p>
+      <p class="font-medium">Memuat berita kategori...</p>
     </div>
   `;
 
-  // Minta hingga 50 berita dari API ESPN
-  const newsEndpoints = [
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/all/news?limit=50',
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/news?limit=50',
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/news?limit=50'
-  ];
+  let articles = [];
+  const primaryUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentNewsCategory}/news?limit=50`;
 
-  for (const url of newsEndpoints) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.articles && data.articles.length > 0) {
-          allNewsArticles = data.articles;
-          break;
-        }
-      }
-    } catch (e) {
-      console.warn("Gagal fetch news dari:", url);
+  try {
+    const res = await fetch(primaryUrl);
+    if (res.ok) {
+      const data = await res.json();
+      articles = data.articles || [];
     }
+  } catch (e) {
+    console.warn("Gagal fetch news dari:", primaryUrl);
   }
 
+  // Fallback ke 'all' jika kategori spesifik kosong/gagal
+  if (articles.length === 0 && currentNewsCategory !== 'all') {
+    try {
+      const fallbackRes = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/all/news?limit=50');
+      if (fallbackRes.ok) {
+        const fallbackData = await fallbackRes.json();
+        articles = fallbackData.articles || [];
+      }
+    } catch (e) {}
+  }
+
+  allNewsArticles = articles;
+
   if (allNewsArticles.length === 0) {
-    container.innerHTML = `
+    listContainer.innerHTML = `
       <div class="text-center py-12 text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl text-xs space-y-2">
         <i class="fa-solid fa-newspaper text-2xl text-slate-600 block"></i>
-        <p>Belum ada berita sepak bola terbaru saat ini.</p>
+        <p>Belum ada berita terbaru untuk kategori ini.</p>
       </div>
     `;
     return;
   }
 
-  container.innerHTML = `
+  listContainer.innerHTML = `
     <div id="news-list" class="space-y-3"></div>
     <div id="news-pagination-container" class="pt-2 text-center"></div>
   `;
@@ -63,7 +86,61 @@ async function fetchESPNNews() {
   renderNewsBatch();
 }
 
-// Render batch 10 berita
+// Render Strip Filter Kategori Berita
+function renderNewsCategoryFilter(parentContainer) {
+  const filterBar = document.createElement('div');
+  filterBar.id = 'news-category-bar';
+  filterBar.className = 'flex items-center gap-2 overflow-x-auto no-scrollbar py-1 mb-3';
+
+  filterBar.innerHTML = NEWS_CATEGORIES.map(cat => `
+    <button id="cat-btn-${cat.id}" onclick="switchNewsCategory('${cat.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+      currentNewsCategory === cat.id 
+        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 border border-emerald-500/50' 
+        : 'bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800'
+    }">
+      <i class="fa-solid ${cat.icon} text-[10px] ${currentNewsCategory === cat.id ? 'text-white' : 'text-emerald-400'}"></i>
+      ${cat.name}
+    </button>
+  `).join('');
+
+  const listWrapper = document.createElement('div');
+  listWrapper.id = 'news-list-wrapper';
+
+  parentContainer.innerHTML = '';
+  parentContainer.appendChild(filterBar);
+  parentContainer.appendChild(listWrapper);
+}
+
+// Update Highlight Tombol Filter
+function updateCategoryFilterButtons() {
+  NEWS_CATEGORIES.forEach(cat => {
+    const btn = document.getElementById(`cat-btn-${cat.id}`);
+    if (!btn) return;
+    const isActive = currentNewsCategory === cat.id;
+
+    btn.className = `px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+      isActive 
+        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 border border-emerald-500/50' 
+        : 'bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800'
+    }`;
+    
+    const icon = btn.querySelector('i');
+    if (icon) {
+      icon.className = `fa-solid ${cat.icon} text-[10px] ${isActive ? 'text-white' : 'text-emerald-400'}`;
+    }
+  });
+}
+
+// Switch Kategori Berita
+function switchNewsCategory(catId) {
+  if (currentNewsCategory === catId) return;
+  currentNewsCategory = catId;
+  allNewsArticles = [];
+  displayedNewsCount = 0;
+  fetchESPNNews(true);
+}
+
+// Render Batch 10 Berita
 function renderNewsBatch() {
   const listEl = document.getElementById('news-list');
   const pagEl = document.getElementById('news-pagination-container');
