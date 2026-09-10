@@ -239,7 +239,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
       <div class="flex items-center justify-between gap-1.5 pt-0.5">
         <!-- HOME TEAM -->
         <div class="flex items-center gap-2.5 w-[36%] min-w-0">
-          <div class="w-7 h-7 sm:w-8 sm:h-8 p-0.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 p-0.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
             <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
           </div>
           <span class="font-bold text-xs truncate leading-tight text-slate-100 flex items-center gap-1">
@@ -263,7 +263,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
             ${awayFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
             <span class="truncate">${away?.team?.shortDisplayName || ''}</span>
           </span>
-          <div class="w-7 h-7 sm:w-8 sm:h-8 p-0.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 p-0.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
             <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
           </div>
         </div>
