@@ -142,13 +142,14 @@
     <div id="live-container" class="space-y-4 hidden"></div>
     <div id="fav-container" class="space-y-4 hidden"></div>
     <div id="standings-container" class="space-y-3 hidden"></div>
+    <div id="news-container" class="space-y-3 hidden"></div>
     <div id="search-results-container" class="space-y-3 hidden"></div>
 
   </main>
 
   <!-- BOTTOM NAVIGATION BAR -->
-  <nav class="fixed bottom-3 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-40 bg-[#090d16]/90 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-1.5 shadow-2xl">
-    <div class="grid grid-cols-4 gap-1 text-center">
+  <nav class="fixed bottom-3 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[520px] z-40 bg-[#090d16]/90 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-1.5 shadow-2xl">
+    <div class="grid grid-cols-5 gap-1 text-center">
       
       <button id="bnav-all" onclick="bottomNavSwitch('all')" class="bnav-item py-2 px-1 rounded-xl flex flex-col items-center justify-center text-emerald-400 font-bold transition-all duration-150">
         <i class="fa-solid fa-house text-base mb-1"></i>
@@ -168,6 +169,11 @@
       <button id="bnav-league" onclick="bottomNavSwitch('league')" class="bnav-item py-2 px-1 rounded-xl flex flex-col items-center justify-center text-slate-400 transition-all duration-150">
         <i class="fa-solid fa-trophy text-base mb-1"></i>
         <span class="text-[10px]">Klasemen</span>
+      </button>
+
+      <button id="bnav-news" onclick="bottomNavSwitch('news')" class="bnav-item py-2 px-1 rounded-xl flex flex-col items-center justify-center text-slate-400 transition-all duration-150">
+        <i class="fa-solid fa-newspaper text-base mb-1"></i>
+        <span class="text-[10px]">Berita</span>
       </button>
 
     </div>
@@ -345,6 +351,7 @@
   <script src="js/matches.js"></script>
   <script src="js/teams.js"></script>
   <script src="js/standings.js"></script>
+  <script src="js/news.js"></script>
   <script src="js/modals.js"></script>
   <script src="js/app.js"></script>
 </body>
