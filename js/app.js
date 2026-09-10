@@ -11,6 +11,7 @@ async function loadData(isSilent = false) {
     document.getElementById('live-container').classList.add('hidden');
     if (document.getElementById('fav-container')) document.getElementById('fav-container').classList.add('hidden');
     document.getElementById('standings-container').classList.add('hidden');
+    if (document.getElementById('news-container')) document.getElementById('news-container').classList.add('hidden');
     document.getElementById('search-results-container').classList.add('hidden');
   }
 
@@ -25,6 +26,8 @@ async function loadData(isSilent = false) {
     await fetchFavoritedMatchesStructured();
   } else if (activeNav === 'league') {
     await fetchStandingsForSelectedLeague();
+  } else if (activeNav === 'news') {
+    if (typeof fetchESPNNews === 'function') await fetchESPNNews();
   }
 
   if (currentOpenModal) {
@@ -70,6 +73,10 @@ function bottomNavSwitch(navType) {
     document.getElementById('active-mode-tag').innerText = "League";
     selectedStandingsLeague = null;
     selectedStandingsTab = 'table';
+  } else if (navType === 'news') {
+    if (topHeader) topHeader.classList.add('hidden');
+    if (dateStrip) dateStrip.classList.add('hidden');
+    document.getElementById('active-badge-container').classList.add('hidden');
   }
 
   loadData(false);
@@ -92,6 +99,7 @@ function handleSearch(query) {
     if (activeNav === 'live') document.getElementById('live-container').classList.remove('hidden');
     if (activeNav === 'fav') document.getElementById('fav-container').classList.remove('hidden');
     if (activeNav === 'league') document.getElementById('standings-container').classList.remove('hidden');
+    if (activeNav === 'news' && document.getElementById('news-container')) document.getElementById('news-container').classList.remove('hidden');
     return;
   }
 
@@ -101,6 +109,7 @@ function handleSearch(query) {
   document.getElementById('live-container').classList.add('hidden');
   if (document.getElementById('fav-container')) document.getElementById('fav-container').classList.add('hidden');
   document.getElementById('standings-container').classList.add('hidden');
+  if (document.getElementById('news-container')) document.getElementById('news-container').classList.add('hidden');
   if (dateStrip) dateStrip.classList.add('hidden');
 
   searchContainer.innerHTML = '';

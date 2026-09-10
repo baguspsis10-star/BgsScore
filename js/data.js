@@ -131,8 +131,6 @@ const LEAGUES = [
   { id: 'usa.usl.1', name: "USL Championship", country: "Amerika Serikat", flag: "🇺🇸", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Amerika" },
   { id: 'usa.usl.l1', name: "USL League One", country: "Amerika Serikat", flag: "🇺🇸", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Amerika" },
   { id: 'usa.w.usl.1', name: "USL Super League", country: "Amerika Serikat", flag: "🇺🇸", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Amerika" },
-  { id: 'usa.ncaa.m.1', name: "NCAA Men's Soccer", country: "Amerika Serikat", flag: "🇺🇸", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Amerika" },
-  { id: 'usa.ncaa.w.1', name: "NCAA Women's Soccer", country: "Amerika Serikat", flag: "🇺🇸", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Amerika" },
   { id: 'concacaf.champions', name: "Concacaf Champions Cup", country: "CONCACAF", flag: "🌎", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Piala/kompetisi" },
   { id: 'concacaf.leagues.cup', name: "Leagues Cup", country: "CONCACAF", flag: "🌎", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Piala/kompetisi" },
   { id: 'concacaf.gold', name: "Concacaf Gold Cup", country: "CONCACAF", flag: "🌎", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Internasional" },
