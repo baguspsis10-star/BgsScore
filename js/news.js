@@ -1,11 +1,20 @@
-// FETCH BERITA SEPAK BOLA ESPN & TERJEMAHAN OTOMATIS
+// FETCH BERITA SEPAK BOLA ESPN, PAGINASI & TERJEMAHAN OTOMATIS
+
+let allNewsArticles = [];
+let displayedNewsCount = 0;
+const NEWS_PER_PAGE = 10;
 
 async function fetchESPNNews() {
   const container = document.getElementById('news-container');
   if (!container) return;
 
-  // Tampilkan kontainer berita & loading
   container.classList.remove('hidden');
+
+  // Jika data berita sudah pernah di-fetch, tidak perlu request ulang
+  if (allNewsArticles.length > 0) {
+    return;
+  }
+
   container.innerHTML = `
     <div class="py-12 text-center text-xs text-slate-400 space-y-2">
       <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-2xl"></i>
@@ -13,14 +22,12 @@ async function fetchESPNNews() {
     </div>
   `;
 
-  // Daftar endpoint cadangan jika satu URL gagal
+  // Minta hingga 50 berita dari API ESPN
   const newsEndpoints = [
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/all/news',
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/news',
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/news'
+    'https://site.api.espn.com/apis/site/v2/sports/soccer/all/news?limit=50',
+    'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/news?limit=50',
+    'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/news?limit=50'
   ];
-
-  let articles = [];
 
   for (const url of newsEndpoints) {
     try {
@@ -28,7 +35,7 @@ async function fetchESPNNews() {
       if (res.ok) {
         const data = await res.json();
         if (data.articles && data.articles.length > 0) {
-          articles = data.articles;
+          allNewsArticles = data.articles;
           break;
         }
       }
@@ -37,7 +44,7 @@ async function fetchESPNNews() {
     }
   }
 
-  if (articles.length === 0) {
+  if (allNewsArticles.length === 0) {
     container.innerHTML = `
       <div class="text-center py-12 text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl text-xs space-y-2">
         <i class="fa-solid fa-newspaper text-2xl text-slate-600 block"></i>
@@ -47,23 +54,78 @@ async function fetchESPNNews() {
     return;
   }
 
-  container.innerHTML = articles.map((item, idx) => `
-    <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl space-y-3 shadow-md">
+  container.innerHTML = `
+    <div id="news-list" class="space-y-3"></div>
+    <div id="news-pagination-container" class="pt-2 text-center"></div>
+  `;
+
+  displayedNewsCount = 0;
+  renderNewsBatch();
+}
+
+// Render batch 10 berita
+function renderNewsBatch() {
+  const listEl = document.getElementById('news-list');
+  const pagEl = document.getElementById('news-pagination-container');
+  if (!listEl) return;
+
+  const nextBatch = allNewsArticles.slice(displayedNewsCount, displayedNewsCount + NEWS_PER_PAGE);
+
+  nextBatch.forEach((item, batchIdx) => {
+    const globalIdx = displayedNewsCount + batchIdx;
+    const formattedDate = formatNewsDate(item.published || item.lastModified);
+
+    const card = document.createElement('div');
+    card.className = "bg-slate-900 border border-slate-800 p-3.5 rounded-2xl space-y-3 shadow-md";
+    card.innerHTML = `
       ${item.images?.[0]?.url ? `<img src="${item.images[0].url}" class="w-full h-44 object-cover rounded-xl border border-slate-800" loading="lazy" alt="" onerror="this.style.display='none'">` : ''}
       <div>
-        <h3 id="news-title-${idx}" class="text-xs sm:text-sm font-bold text-white leading-snug">${item.headline}</h3>
-        <p id="news-desc-${idx}" class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">${item.description || ''}</p>
+        <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400 mb-1.5">
+          <span class="bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded-md">
+            <i class="fa-solid fa-newspaper text-[9px] mr-1"></i>ESPN News
+          </span>
+          ${formattedDate ? `<span class="flex items-center gap-1 text-slate-400"><i class="fa-regular fa-clock text-[9px]"></i> ${formattedDate}</span>` : ''}
+        </div>
+        <h3 id="news-title-${globalIdx}" class="text-xs sm:text-sm font-bold text-white leading-snug">${item.headline}</h3>
+        <p id="news-desc-${globalIdx}" class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">${item.description || ''}</p>
       </div>
       <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px]">
         <a href="${item.links?.web?.href || '#'}" target="_blank" rel="noopener" class="text-emerald-400 font-bold hover:underline flex items-center gap-1">
           Baca di ESPN <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
         </a>
-        <button onclick="translateNews(${idx})" id="btn-trans-${idx}" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 font-semibold transition flex items-center gap-1">
+        <button onclick="translateNews(${globalIdx})" id="btn-trans-${globalIdx}" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 font-semibold transition flex items-center gap-1">
           <i class="fa-solid fa-language text-emerald-400"></i> Terjemahkan
         </button>
       </div>
-    </div>
-  `).join('');
+    `;
+    listEl.appendChild(card);
+  });
+
+  displayedNewsCount += nextBatch.length;
+
+  if (pagEl) {
+    if (displayedNewsCount < allNewsArticles.length) {
+      pagEl.innerHTML = `
+        <button onclick="renderNewsBatch()" class="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/40 hover:border-emerald-500 rounded-xl font-bold text-xs transition shadow-lg flex items-center justify-center gap-2 mx-auto active:scale-95">
+          <i class="fa-solid fa-arrows-rotate"></i> Muat Berita Lainnya (${allNewsArticles.length - displayedNewsCount} tersisa)
+        </button>
+      `;
+    } else {
+      pagEl.innerHTML = `
+        <p class="text-[11px] text-slate-500 font-medium py-2">Semua berita terbaru telah ditampilkan.</p>
+      `;
+    }
+  }
+}
+
+// Format Tanggal dan Jam
+function formatNewsDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const dateFormatted = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  const timeFormatted = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${dateFormatted} • ${timeFormatted} WIB`;
 }
 
 // FUNGSI PENERJEMAH (MyMemory Free API)
