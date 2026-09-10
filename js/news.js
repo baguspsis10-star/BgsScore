@@ -1,7 +1,11 @@
-// FETCH BERITA SEPAK BOLA ESPN
+// FETCH BERITA SEPAK BOLA ESPN & TERJEMAHAN OTOMATIS
+
 async function fetchESPNNews() {
   const container = document.getElementById('news-container');
   if (!container) return;
+
+  // Tampilkan kontainer berita
+  container.classList.remove('hidden');
 
   container.innerHTML = `
     <div class="py-12 text-center text-xs text-slate-400">

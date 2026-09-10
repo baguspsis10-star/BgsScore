@@ -77,6 +77,8 @@ function bottomNavSwitch(navType) {
     if (topHeader) topHeader.classList.add('hidden');
     if (dateStrip) dateStrip.classList.add('hidden');
     document.getElementById('active-badge-container').classList.add('hidden');
+    const newsCont = document.getElementById('news-container');
+    if (newsCont) newsCont.classList.remove('hidden');
   }
 
   loadData(false);
