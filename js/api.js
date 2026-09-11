@@ -1,98 +1,15 @@
 // ==========================================
-// API & NETWORK DATA FETCHING MODULE (ESPN + SOFASCORE FALLBACK)
+// API & NETWORK DATA FETCHING MODULE (100% PURE ESPN API + WIKIPEDIA FALLBACK)
 // ==========================================
 
-// 1. Fetch Liga 1 & Liga 2 Indonesia tanpa API Key (SofaScore Public API + CORS Proxy)
-async function fetchIndoLeagueSofaScore(leagueId, getDateStrFn) {
-  const rawDate = getDateStrFn(); // Format YYYYMMDD
-  const formattedDate = `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}`;
-
-  const sofaUrl = `https://api.sofascore.com/api/v1/sport/football/scheduled-events/${formattedDate}`;
-  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(sofaUrl)}`;
-
-  try {
-    const res = await fetch(proxyUrl);
-    if (!res.ok) return [];
-    const data = await res.json();
-    const events = data.events || [];
-
-    const filteredEvents = events.filter(evt => {
-      const tournamentName = (evt.tournament?.name || '').toLowerCase();
-      const categoryName = (evt.tournament?.category?.name || '').toLowerCase();
-      
-      if (categoryName !== 'indonesia') return false;
-
-      if (leagueId === 'idn.1') {
-        return tournamentName.includes('liga 1') || tournamentName.includes('super league');
-      } else if (leagueId === 'idn.2') {
-        return tournamentName.includes('liga 2');
-      }
-      return false;
-    });
-
-    return filteredEvents.map(evt => {
-      const isPost = evt.status?.type === 'finished';
-      const isLive = evt.status?.type === 'inprogress';
-      
-      return {
-        id: `sofa_${evt.id}`,
-        leagueId: leagueId,
-        leagueName: leagueId === 'idn.1' ? 'BRI Liga 1 Indonesia' : 'Liga 2 Indonesia',
-        leagueFlag: '🇮🇩',
-        date: new Date(evt.startTimestamp * 1000).toISOString(),
-        status: {
-          type: {
-            state: isPost ? 'post' : (isLive ? 'in' : 'pre'),
-            shortDetail: isLive ? 'LIVE' : (isPost ? 'FT' : 'PRE'),
-            description: evt.status?.description || ''
-          }
-        },
-        competitions: [{
-          competitors: [
-            {
-              homeAway: 'home',
-              score: String(evt.homeScore?.current ?? 0),
-              team: {
-                id: `sofa_team_${evt.homeTeam?.id}`,
-                displayName: evt.homeTeam?.name || '',
-                shortDisplayName: evt.homeTeam?.shortName || evt.homeTeam?.name || '',
-                logo: `https://api.sofascore.app/api/v1/team/${evt.homeTeam?.id}/image`
-              }
-            },
-            {
-              homeAway: 'away',
-              score: String(evt.awayScore?.current ?? 0),
-              team: {
-                id: `sofa_team_${evt.awayTeam?.id}`,
-                displayName: evt.awayTeam?.name || '',
-                shortDisplayName: evt.awayTeam?.shortName || evt.awayTeam?.name || '',
-                logo: `https://api.sofascore.app/api/v1/team/${evt.awayTeam?.id}/image`
-              }
-            }
-          ]
-        }]
-      };
-    });
-  } catch (e) {
-    console.warn("Gagal ambil data SofaScore Indo:", e);
-    return [];
-  }
-}
-
-// 2. Batch Fetching Liga (Campuran ESPN & SofaScore)
+// Helper untuk fetch batch agar tidak terkena rate-limit / blokir ESPN
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
-  const BATCH_SIZE = 15;
+  const BATCH_SIZE = 15; // Kirim 15 liga per gelombang
   let allEvents = [];
 
   for (let i = 0; i < leaguesList.length; i += BATCH_SIZE) {
     const batch = leaguesList.slice(i, i + BATCH_SIZE);
     const promises = batch.map(async (league) => {
-      // Jika Liga 1 / Liga 2 Indo, alihkan ke SofaScore
-      if (league.id === 'idn.1' || league.id === 'idn.2') {
-        return await fetchIndoLeagueSofaScore(league.id, getDateStrFn);
-      }
-
-      // Selain itu tetap gunakan ESPN API
       try {
         const dateStr = getDateStrFn(league);
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateStr}`);
@@ -117,7 +34,7 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   return allEvents;
 }
 
-// 3. ESPN League Logo Loader
+// 1. ESPN League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -149,7 +66,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// 4. ESPN & Wikipedia Player Photo Loader
+// 2. ESPN & Wikipedia Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -181,6 +98,7 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
       await savePhotoToCache(cleanedName, espnUrl);
     };
     testImg.onerror = () => {
+      // Jika ESPN 404, otomatis ambil dari Wikipedia REST API
       fetchWikipediaPhoto(img, cleanedName);
     };
   } else {
@@ -188,7 +106,7 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   }
 }
 
-// Helper untuk mengambil foto dari Wikipedia API
+// Helper untuk mengambil foto dari Wikipedia API jika ESPN 404
 async function fetchWikipediaPhoto(img, pName) {
   try {
     const wikiRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pName)}`);
@@ -206,17 +124,22 @@ async function fetchWikipediaPhoto(img, pName) {
     console.warn(`Gagal mengambil foto Wikipedia untuk ${pName}:`, e);
   }
 
+  // Fallback Terakhir: Avatar Inisial Berwarna dari UI-Avatars
   const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f766e&color=fff&bold=true&rounded=true`;
   img.src = avatarUrl;
 }
 
-// 5. Fetch Detail / Summary Pertandingan (ESPN API)
+// 3. Fetch Detail / Summary Pertandingan (ESPN API)
 async function fetchMatchSummary(leagueId, eventId) {
-  if (!leagueId || !eventId) return null;
+  if (!leagueId || !eventId) {
+    console.error("League ID atau Event ID tidak valid:", { leagueId, eventId });
+    return null;
+  }
 
   try {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/summary?event=${eventId}`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    
     return await res.json();
   } catch (err) {
     console.error("Gagal mengambil summary dari ESPN API:", err);
@@ -224,7 +147,7 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
-// 6. Fetch All Matches
+// 4. Fetch All Matches (Menu SEMUA - Mengambil SELURUH LIGA)
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
@@ -243,13 +166,13 @@ async function fetchAllMatches() {
     allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
     renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
   } catch (err) {
-    console.error("Gagal mengambil data pertandingan:", err);
-  } font-medium {
+    console.error("Gagal mengambil data pertandingan ESPN:", err);
+  } finally {
     if (container) container.classList.remove('hidden');
   }
 }
 
-// 7. Fetch Live Matches Structured
+// 5. Fetch Live Matches (Menu LIVE - Mengambil SELURUH LIGA)
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -339,7 +262,7 @@ async function fetchLiveMatchesStructured() {
   }
 }
 
-// 8. Fetch Favorited Matches Structured
+// 6. Fetch Favorited Matches
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -453,7 +376,7 @@ async function fetchFavoritedMatchesStructured() {
   }
 }
 
-// 9. Fetch 5 Pertandingan Terakhir Tim
+// 7. Fetch 5 Pertandingan Terakhir Tim
 async function fetchTeamRecentMatches(leagueId, teamId) {
   try {
     const currentYear = new Date().getFullYear();
@@ -493,7 +416,7 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
   }
 }
 
-// 10. Fetch Form & Head to Head (H2H)
+// 8. Fetch dan Render Bagian Form & Head to Head (H2H)
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');
   if (!container) return;
