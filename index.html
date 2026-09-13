@@ -194,37 +194,40 @@
     </div>
   </div>
 
-  <!-- MODAL: MATCH DETAIL -->
-  <div id="detail-modal" class="fixed inset-0 z-50 bg-[#090d16]/90 backdrop-blur-md flex flex-col justify-center sm:items-center p-0 sm:p-4 hidden">
-    <div class="bg-[#111827] border-0 sm:border border-slate-800 w-full max-w-md md:max-w-2xl lg:max-w-3xl h-full sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-3xl flex flex-col overflow-hidden shadow-2xl">
+  <!-- MODAL: MATCH DETAIL (MODERN REDESIGNED) -->
+  <div id="detail-modal" class="fixed inset-0 z-50 bg-[#090d16]/95 backdrop-blur-xl flex flex-col justify-center sm:items-center p-0 sm:p-4 hidden transition-all duration-300">
+    <div class="bg-[#0f172a]/90 border-0 sm:border border-slate-700/60 w-full max-w-md md:max-w-2xl lg:max-w-3xl h-full sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-3xl flex flex-col overflow-hidden shadow-2xl backdrop-blur-2xl">
       
-      <!-- Modal Header -->
-      <div class="p-3.5 border-b border-slate-800 flex items-center justify-between bg-[#090d16]/90 shrink-0">
-        <button onclick="closeModal()" class="text-emerald-400 hover:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+      <!-- Modal Header Bar -->
+      <div class="p-3.5 border-b border-slate-800/80 flex items-center justify-between bg-[#090d16]/80 backdrop-blur-md shrink-0">
+        <button onclick="closeModal()" class="text-emerald-400 hover:text-emerald-300 font-extrabold text-xs flex items-center gap-1.5 transition px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 active:scale-95">
           <i class="fa-solid fa-arrow-left"></i> Kembali
         </button>
-        <span id="modal-league-name" class="text-xs font-bold text-slate-200 truncate flex items-center gap-1.5 max-w-[65%]">Detail Pertandingan</span>
-        <button onclick="closeModal()" class="w-7 h-7 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs transition">
+        <span id="modal-league-name" class="text-xs font-black text-white truncate flex items-center justify-center gap-1.5 max-w-[60%] tracking-tight">Detail Pertandingan</span>
+        <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs transition active:scale-95">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div id="modal-loading" class="py-16 text-center space-y-3 flex-1 flex flex-col items-center justify-center">
-        <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400"></i>
-        <p class="text-xs text-slate-400 font-medium">Memuat rincian pertandingan...</p>
+      <!-- Loading State -->
+      <div id="modal-loading" class="py-20 text-center space-y-3 flex-1 flex flex-col items-center justify-center">
+        <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 shadow-inner">
+          <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400"></i>
+        </div>
+        <p class="text-xs text-slate-400 font-bold tracking-wide">Memuat rincian pertandingan...</p>
       </div>
 
       <!-- Modal Body Content -->
-      <div id="modal-data-container" class="flex-1 overflow-y-auto p-3 space-y-3 hidden">
+      <div id="modal-data-container" class="flex-1 overflow-y-auto p-3.5 space-y-4 hidden no-scrollbar">
         <div id="modal-score-header"></div>
 
-        <!-- Detail Navigation Sub-Tabs -->
-        <div class="flex bg-[#090d16] p-1 rounded-2xl border border-slate-800 overflow-x-auto no-scrollbar">
-          <button id="mtab-summary" onclick="switchModalTab('summary')" class="flex-1 py-2 px-3 text-[11px] font-bold text-emerald-400 border-b-2 border-emerald-500 transition whitespace-nowrap">Ringkasan</button>
-          <button id="mtab-stats" onclick="switchModalTab('stats')" class="flex-1 py-2 px-3 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">Statistik</button>
-          <button id="mtab-lineup" onclick="switchModalTab('lineup')" class="flex-1 py-2 px-3 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">Lineup</button>
-          <button id="mtab-standings" onclick="switchModalTab('standings')" class="flex-1 py-2 px-3 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">League</button>
-          <button id="mtab-h2h" onclick="switchModalTab('h2h')" class="flex-1 py-2 px-3 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap">Form & H2H</button>
+        <!-- Detail Navigation Segmented Pill Tabs -->
+        <div class="flex bg-[#090d16]/80 p-1.5 rounded-2xl border border-slate-800/90 overflow-x-auto no-scrollbar gap-1 shadow-inner backdrop-blur-md">
+          <button id="mtab-summary" onclick="switchModalTab('summary')" class="flex-1 py-2 px-3 text-[11px] font-extrabold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl shadow-lg shadow-emerald-500/25 transition-all duration-200 whitespace-nowrap">Ringkasan</button>
+          <button id="mtab-stats" onclick="switchModalTab('stats')" class="flex-1 py-2 px-3 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all duration-200 whitespace-nowrap">Statistik</button>
+          <button id="mtab-lineup" onclick="switchModalTab('lineup')" class="flex-1 py-2 px-3 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all duration-200 whitespace-nowrap">Lineup</button>
+          <button id="mtab-standings" onclick="switchModalTab('standings')" class="flex-1 py-2 px-3 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all duration-200 whitespace-nowrap">League</button>
+          <button id="mtab-h2h" onclick="switchModalTab('h2h')" class="flex-1 py-2 px-3 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all duration-200 whitespace-nowrap">Form & H2H</button>
         </div>
 
         <div id="mcontent-summary" class="space-y-3"></div>
