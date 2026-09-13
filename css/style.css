@@ -9,8 +9,8 @@ body {
   color: #f1f5f9;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.05) 0%, transparent 60%),
-    radial-gradient(circle at 100% 100%, rgba(30, 58, 138, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(30, 58, 138, 0.08) 0%, transparent 50%);
   background-attachment: fixed;
 }
 
@@ -69,12 +69,13 @@ body {
   background: linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, #111827 60%) !important;
 }
 
-/* MODAL & HEADERS CONTAINER */
-.bg-stadium-card,
-#modal-score-header > div {
-  background: #111827 !important;
-  border: 1px solid #1f2937 !important;
+/* MODAL & HEADERS CONTAINER GLASSMORPHISM */
+.bg-stadium-card {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border: 1px solid rgba(51, 65, 85, 0.7) !important;
   border-radius: 1.25rem !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
 }
 
 .bg-stadium-header {
