@@ -1,4 +1,4 @@
-// MODALS & DIALOG CONTROLLER MODULE
+// MODALS & DIALOG CONTROLLER MODULE (REDESIGNED ULTRA-MODERN)
 
 // Dynamic Z-Index Manager for Stacking Modals
 let globalModalZIndex = 50;
@@ -252,7 +252,6 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       ? cachedEvents.find(e => String(e.id) === String(eventId)) 
       : null;
 
-    // Susun daftar liga kandidat untuk dicoba
     const candidateLeagues = Array.from(new Set([
       leagueId,
       cachedEvt?.leagueId,
@@ -280,7 +279,6 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       throw new Error("Detail pertandingan tidak ditemukan pada API ESPN.");
     }
 
-    // Ambil slug liga ASLI langsung dari response JSON ESPN
     const realLeagueSlug = data.header?.league?.slug || 
                            data.leagues?.[0]?.slug || 
                            data.header?.competitions?.[0]?.league?.slug || 
@@ -423,7 +421,7 @@ function getBaseMinute(clockStr) {
   return parseInt(str) || 0;
 }
 
-// Render Complete Match Detail Data
+// Render Complete Match Detail Data (Modern Sleek UI)
 function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;
@@ -456,22 +454,31 @@ function renderModalCompleteData(data, leagueId) {
     if (weatherObj.condition) weather += `, ${weatherObj.condition}`;
   }
 
+  // MODERN GLASSMORPHISM INFO BADGE GRID
   const matchInfoBadgeHtml = `
-    <div class="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center text-[10px] text-slate-400">
-      <div class="bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/20 shadow-md backdrop-blur truncate" title="${stadium}">
-        <i class="fa-solid fa-location-dot text-emerald-400 mb-1 block text-xs"></i>
-        <span class="font-bold text-slate-200 block truncate">${stadium}</span>
-        <span class="text-[8px] text-slate-500 uppercase font-semibold">Stadion</span>
+    <div class="mt-4 pt-4 border-t border-slate-800/60 grid grid-cols-3 gap-2.5">
+      <div class="bg-[#0f172a]/80 backdrop-blur-md p-3 rounded-2xl border border-emerald-500/20 shadow-lg text-center flex flex-col items-center justify-center transition hover:border-emerald-500/40">
+        <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-1.5 text-emerald-400">
+          <i class="fa-solid fa-location-dot text-xs"></i>
+        </div>
+        <span class="font-black text-slate-100 text-[11px] block truncate w-full" title="${stadium}">${stadium}</span>
+        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Stadion</span>
       </div>
-      <div class="bg-slate-950/80 p-2.5 rounded-xl border border-blue-500/20 shadow-md backdrop-blur truncate" title="${referee}">
-        <i class="fa-solid fa-user-ninja text-blue-400 mb-1 block text-xs"></i>
-        <span class="font-bold text-slate-200 block truncate">${referee}</span>
-        <span class="text-[8px] text-slate-500 uppercase font-semibold">Wasit</span>
+
+      <div class="bg-[#0f172a]/80 backdrop-blur-md p-3 rounded-2xl border border-sky-500/20 shadow-lg text-center flex flex-col items-center justify-center transition hover:border-sky-500/40">
+        <div class="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center mb-1.5 text-sky-400">
+          <i class="fa-solid fa-user-ninja text-xs"></i>
+        </div>
+        <span class="font-black text-slate-100 text-[11px] block truncate w-full" title="${referee}">${referee}</span>
+        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Wasit</span>
       </div>
-      <div class="bg-slate-950/80 p-2.5 rounded-xl border border-amber-500/20 shadow-md backdrop-blur truncate" title="${weather}">
-        <i class="fa-solid fa-cloud-sun text-amber-400 mb-1 block text-xs"></i>
-        <span class="font-bold text-slate-200 block truncate">${weather}</span>
-        <span class="text-[8px] text-slate-500 uppercase font-semibold">Cuaca</span>
+
+      <div class="bg-[#0f172a]/80 backdrop-blur-md p-3 rounded-2xl border border-amber-500/20 shadow-lg text-center flex flex-col items-center justify-center transition hover:border-amber-500/40">
+        <div class="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-1.5 text-amber-400">
+          <i class="fa-solid fa-cloud-sun text-xs"></i>
+        </div>
+        <span class="font-black text-slate-100 text-[11px] block truncate w-full" title="${weather}">${weather}</span>
+        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Cuaca</span>
       </div>
     </div>
   `;
@@ -535,49 +542,61 @@ function renderModalCompleteData(data, leagueId) {
       rows += `
         <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
           <div class="text-right flex items-center justify-end gap-1.5 truncate">
-            ${hG ? `<span class="truncate font-medium">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-white shrink-0"></i>` : ''}
+            ${hG ? `<span class="truncate font-bold">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i>` : ''}
           </div>
           <div class="text-left flex items-center justify-start gap-1.5 truncate">
-            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-white shrink-0"></i> <span class="truncate font-medium">${aG.clock} ${aG.scorer}</span>` : ''}
+            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i> <span class="truncate font-bold">${aG.clock} ${aG.scorer}</span>` : ''}
           </div>
         </div>
       `;
     }
-    goalsHtml = `<div class="mt-3 pt-3 border-t border-slate-800/80 space-y-1">${rows}</div>`;
+    goalsHtml = `<div class="mt-4 pt-3.5 border-t border-slate-700/60 space-y-1.5">${rows}</div>`;
   }
 
   const liveOrStatusText = state === 'pre' 
     ? formattedTime 
     : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : header.status?.type?.description);
 
+  // MODERN HERO CARD HEADER WITH AMBIENT BLUR GLOW
   document.getElementById('modal-score-header').innerHTML = `
-    <div class="bg-stadium-header p-4 rounded-2xl border shadow-2xl relative overflow-hidden">
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#182232] via-[#111827] to-[#090d16] p-5 border border-slate-700/60 shadow-2xl backdrop-blur-xl">
+      <!-- Ambient Glow Effect -->
+      <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
       <div class="flex items-center justify-between relative z-10">
-        <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
-          <div class="w-14 h-14 p-1.5 bg-slate-950/80 rounded-2xl border border-slate-700/60 shadow-lg flex items-center justify-center">
-            <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain group-hover:scale-110 transition-transform" alt="">
+        <!-- Home Team -->
+        <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
+          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2.5 rounded-2xl bg-[#090d16]/90 border border-slate-700/70 shadow-xl flex items-center justify-center group-hover:scale-105 group-hover:border-emerald-500/50 transition-all duration-300">
+            <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
           </div>
-          <span class="font-bold text-xs text-white mt-1.5 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
+          <span class="font-black text-xs sm:text-sm text-white leading-tight group-hover:text-emerald-400 transition flex items-center justify-center gap-1">
             <span class="truncate">${home.team.displayName}</span>
-            ${isTeamFavorite(home.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
+            ${isTeamFavorite(home.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[9px]"></i>' : ''}
           </span>
         </div>
 
-        <div class="text-center w-2/12">
-          <span class="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">${state === 'pre' ? 'VS' : (home.score || '0') + ' - ' + (away.score || '0')}</span>
-          <div class="text-[10px] text-emerald-400 font-bold mt-1 bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30 inline-block">${liveOrStatusText}</div>
+        <!-- VS / Score Center Badge -->
+        <div class="text-center w-[24%] flex flex-col items-center justify-center">
+          <div class="bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm sm:text-lg px-4 py-1 rounded-full shadow-lg shadow-emerald-500/20 tracking-wider">
+            ${state === 'pre' ? 'VS' : (home.score || '0') + ' - ' + (away.score || '0')}
+          </div>
+          <div class="text-[10px] text-slate-300 font-bold mt-2.5 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-700/80 inline-flex items-center gap-1 shadow-inner">
+            ${liveOrStatusText}
+          </div>
         </div>
 
-        <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 w-5/12 text-center cursor-pointer hover:opacity-80 transition group">
-          <div class="w-14 h-14 p-1.5 bg-slate-950/80 rounded-2xl border border-slate-700/60 shadow-lg flex items-center justify-center">
-            <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain group-hover:scale-110 transition-transform" alt="">
+        <!-- Away Team -->
+        <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
+          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2.5 rounded-2xl bg-[#090d16]/90 border border-slate-700/70 shadow-xl flex items-center justify-center group-hover:scale-105 group-hover:border-emerald-500/50 transition-all duration-300">
+            <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
           </div>
-          <span class="font-bold text-xs text-white mt-1.5 leading-tight group-hover:text-emerald-400 transition flex items-center gap-1 justify-center">
+          <span class="font-black text-xs sm:text-sm text-white leading-tight group-hover:text-emerald-400 transition flex items-center justify-center gap-1">
             <span class="truncate">${away.team.displayName}</span>
-            ${isTeamFavorite(away.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>' : ''}
+            ${isTeamFavorite(away.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[9px]"></i>' : ''}
           </span>
         </div>
       </div>
+
       ${goalsHtml}
     </div>
   `;
@@ -920,8 +939,14 @@ function renderModalCompleteData(data, leagueId) {
   } else {
     eventsTimelineHtml = `
       <div class="bg-stadium-card p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-3">
-        <div class="text-xs font-extrabold text-slate-300 pb-2 border-b border-slate-800/80">Kejadian Pertandingan</div>
-        <div class="text-center py-6 text-slate-500 text-xs">Belum ada catatan kejadian penting.</div>
+        <div class="text-xs font-black text-slate-300 pb-2 border-b border-slate-800/80 uppercase tracking-wider flex items-center justify-between">
+          <span>Kejadian Pertandingan</span>
+          <i class="fa-regular fa-calendar-xmark text-slate-500 text-sm"></i>
+        </div>
+        <div class="py-8 text-center text-slate-400 text-xs font-medium space-y-1">
+          <p class="text-slate-300 font-bold">Belum ada catatan kejadian penting.</p>
+          <p class="text-[10px] text-slate-500">Gol, kartu, dan pergantian pemain akan tampil otomatis di sini.</p>
+        </div>
         ${matchInfoBadgeHtml}
       </div>
     `;
@@ -1097,6 +1122,7 @@ function renderModalCompleteData(data, leagueId) {
   document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
 }
 
+// SWITCH MODAL PILL TABS WITH MODERN ACTIVE / INACTIVE ANIMATIONS
 function switchModalTab(tabName) {
   const tabs = ['summary', 'stats', 'lineup', 'standings', 'h2h'];
 
@@ -1106,10 +1132,10 @@ function switchModalTab(tabName) {
 
     if (btn && content) {
       if (t === tabName) {
-        btn.className = "flex-1 py-2.5 px-2 text-[11px] font-bold text-emerald-400 border-b-2 border-emerald-500 transition whitespace-nowrap";
+        btn.className = "flex-1 py-2 px-3 text-[11px] font-extrabold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl shadow-lg shadow-emerald-500/25 transition-all duration-200 whitespace-nowrap";
         content.classList.remove('hidden');
       } else {
-        btn.className = "flex-1 py-2.5 px-2 text-[11px] font-bold text-slate-400 hover:text-white transition whitespace-nowrap";
+        btn.className = "flex-1 py-2 px-3 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all duration-200 whitespace-nowrap";
         content.classList.add('hidden');
       }
     }
