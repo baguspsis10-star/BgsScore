@@ -1,9 +1,9 @@
 // ==========================================
-// TEAM DETAIL MODAL MODULE (BULLETPROOF FIX)
+// TEAM DETAIL MODAL MODULE (BULLETPROOF & FOTMOB STYLE)
 // ==========================================
 
-let currentTeamData = null;
-let currentTeamTab = 'overview';
+window.currentTeamData = window.currentTeamData || null;
+window.currentTeamTab = window.currentTeamTab || 'overview';
 
 // 1. OPEN TEAM DETAIL MODAL
 async function openTeamDetail(leagueId, teamId, teamName) {
@@ -11,10 +11,16 @@ async function openTeamDetail(leagueId, teamId, teamName) {
   if (!modal) return;
 
   const container = document.getElementById('team-modal-content') || 
+                    document.getElementById('team-detail-container') || 
                     document.getElementById('team-data-container') || 
                     document.getElementById('team-modal-body');
   
-  modal.style.zIndex = typeof getNextZIndex === 'function' ? getNextZIndex() : 60;
+  if (typeof getNextZIndex === 'function') {
+    modal.style.zIndex = getNextZIndex();
+  } else {
+    modal.style.zIndex = '60';
+  }
+  
   modal.classList.remove('hidden');
 
   if (container) {
@@ -27,17 +33,25 @@ async function openTeamDetail(leagueId, teamId, teamName) {
   }
 
   try {
+    const validLeague = (leagueId && leagueId !== 'all') ? leagueId : 'eng.1';
+    
     const [teamRes, scheduleRes, rosterRes] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}`).catch(() => null),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`).catch(() => null),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/roster`).catch(() => null)
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${validLeague}/teams/${teamId}`).catch(() => 
+        fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}`).catch(() => null)
+      ),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${validLeague}/teams/${teamId}/schedule`).catch(() => 
+        fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`).catch(() => null)
+      ),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${validLeague}/teams/${teamId}/roster`).catch(() => 
+        fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/roster`).catch(() => null)
+      )
     ]);
 
     const teamData = (teamRes && teamRes.ok) ? await teamRes.json() : null;
     const scheduleData = (scheduleRes && scheduleRes.ok) ? await scheduleRes.json() : null;
     const rosterData = (rosterRes && rosterRes.ok) ? await rosterRes.json() : null;
 
-    currentTeamData = {
+    window.currentTeamData = {
       id: teamId,
       leagueId: leagueId || 'all',
       info: teamData?.team || {},
@@ -69,17 +83,18 @@ function closeTeamModal() {
 // 3. RENDER MAIN UI CONTAINER
 function renderTeamModalUI() {
   const container = document.getElementById('team-modal-content') || 
+                    document.getElementById('team-detail-container') || 
                     document.getElementById('team-data-container') || 
                     document.getElementById('team-modal-body');
-  if (!container || !currentTeamData) return;
+  if (!container || !window.currentTeamData) return;
 
-  const info = currentTeamData.info || {};
+  const info = window.currentTeamData.info || {};
   const teamColor = info.color ? `#${info.color}` : '#180d30';
   const logoUrl = typeof getTeamLogo === 'function' ? getTeamLogo(info) : (info.logos?.[0]?.href || '');
-  const country = info.standingSummary?.split('-')[0] || 'Klub';
-  const managerName = info.coaches?.[0]?.firstName ? `${info.coaches[0].firstName} ${info.coaches[0].lastName}` : 'Manager';
+  const country = info.standingSummary ? info.standingSummary.split('-')[0] : 'Klub';
+  const managerName = info.coaches?.[0]?.firstName ? `${info.coaches[0].firstName} ${info.coaches[0].lastName}` : 'Official Coach';
 
-  const isFav = typeof isTeamFavorite === 'function' ? isTeamFavorite(currentTeamData.id) : false;
+  const isFav = typeof isTeamFavorite === 'function' ? isTeamFavorite(window.currentTeamData.id) : false;
 
   container.innerHTML = `
     <!-- HEADER HERO BANNER -->
@@ -89,7 +104,7 @@ function renderTeamModalUI() {
           <i class="fa-solid fa-arrow-left text-xs"></i>
         </button>
         <div class="flex items-center gap-2">
-          <button onclick="if(typeof toggleTeamFavorite === 'function') toggleTeamFavorite('${currentTeamData.id}')" class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-amber-400 transition">
+          <button onclick="if(typeof toggleTeamFavorite === 'function') toggleTeamFavorite('${window.currentTeamData.id}')" class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-amber-400 transition">
             <i class="fa-${isFav ? 'solid' : 'regular'} fa-star text-xs"></i>
           </button>
         </div>
@@ -97,11 +112,11 @@ function renderTeamModalUI() {
 
       <div class="flex items-center gap-4 relative z-10">
         <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shrink-0 shadow-lg">
-          <img src="${logoUrl}" class="w-full h-full object-contain" alt="">
+          <img src="${logoUrl}" class="w-full h-full object-contain" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/soccer/500/default-team-logo.png'">
         </div>
         <div>
           <span class="text-[10px] font-black uppercase tracking-wider text-emerald-300 block">${country}</span>
-          <h2 class="text-xl sm:text-2xl font-black text-white leading-tight">${info.displayName || info.name || 'Tim'}</h2>
+          <h2 class="text-xl sm:text-2xl font-black text-white leading-tight">${info.displayName || info.name || 'Detail Tim'}</h2>
           <div class="mt-1 flex items-center gap-2">
             <span class="text-[10px] bg-white/15 px-2.5 py-0.5 rounded-full font-bold border border-white/10 text-slate-200">Manager: ${managerName}</span>
           </div>
@@ -110,27 +125,27 @@ function renderTeamModalUI() {
 
       <!-- NAVIGATION TABS -->
       <div class="flex items-center gap-1.5 mt-5 p-1 bg-black/40 rounded-full border border-white/10 overflow-x-auto no-scrollbar">
-        <button id="ttab-overview" onclick="switchTeamTab('overview')" class="flex-1 py-1.5 px-4 text-xs font-bold rounded-full transition whitespace-nowrap text-center ${currentTeamTab === 'overview' ? 'bg-white text-slate-950 shadow' : 'text-slate-300 hover:text-white'}">Overview</button>
-        <button id="ttab-fixtures" onclick="switchTeamTab('fixtures')" class="flex-1 py-1.5 px-4 text-xs font-bold rounded-full transition whitespace-nowrap text-center ${currentTeamTab === 'fixtures' ? 'bg-white text-slate-950 shadow' : 'text-slate-300 hover:text-white'}">Fixtures</button>
-        <button id="ttab-table" onclick="switchTeamTab('table')" class="flex-1 py-1.5 px-4 text-xs font-bold rounded-full transition whitespace-nowrap text-center ${currentTeamTab === 'table' ? 'bg-white text-slate-950 shadow' : 'text-slate-300 hover:text-white'}">Table</button>
-        <button id="ttab-squad" onclick="switchTeamTab('squad')" class="flex-1 py-1.5 px-4 text-xs font-bold rounded-full transition whitespace-nowrap text-center ${currentTeamTab === 'squad' ? 'bg-white text-slate-950 shadow' : 'text-slate-300 hover:text-white'}">Squad</button>
+        <button id="ttab-overview" onclick="switchTeamTab('overview')" class="flex-1 py-1.5 px-4 text-xs font-bold rounded-full transition whitespace-nowrap text-center ${window.currentTeamTab === 'overview' ? 'bg-white text-slate-950 shadow' : 'text-slate-300 hover:text-white'}">Overview</button>
+        <button id="ttab-fixtures" onclick="switchTeamTab('fixtures')" class="flex-1 py-1.5 px-4 text-xs font-bold rounded-full transition whitespace-nowrap text-center ${window.currentTeamTab === 'fixtures' ? 'bg-white text-slate-950 shadow' : 'text-slate-300 hover:text-white'}">Fixtures</button>
+        <button id="ttab-table" onclick="switchTeamTab('table')" class="flex-1 py-1.5 px-4 text-xs font-bold rounded-full transition whitespace-nowrap text-center ${window.currentTeamTab === 'table' ? 'bg-white text-slate-950 shadow' : 'text-slate-300 hover:text-white'}">Table</button>
+        <button id="ttab-squad" onclick="switchTeamTab('squad')" class="flex-1 py-1.5 px-4 text-xs font-bold rounded-full transition whitespace-nowrap text-center ${window.currentTeamTab === 'squad' ? 'bg-white text-slate-950 shadow' : 'text-slate-300 hover:text-white'}">Squad</button>
       </div>
     </div>
 
     <!-- TAB CONTENTS CONTAINER -->
     <div id="team-tab-body" class="mt-4 space-y-4">
-      ${getTeamTabHTML(currentTeamTab)}
+      ${getTeamTabHTML(window.currentTeamTab)}
     </div>
   `;
 
-  if (currentTeamTab === 'table') {
+  if (window.currentTeamTab === 'table') {
     loadTeamTableData();
   }
 }
 
 // 4. SWITCH TAB LOGIC
 function switchTeamTab(tabName) {
-  currentTeamTab = tabName;
+  window.currentTeamTab = tabName;
   const tabs = ['overview', 'fixtures', 'table', 'squad'];
   tabs.forEach(t => {
     const btn = document.getElementById(`ttab-${t}`);
@@ -163,8 +178,8 @@ function getTeamTabHTML(tabName) {
 
 // --- OVERVIEW TAB ---
 function renderOverviewTab() {
-  const events = currentTeamData?.events || [];
-  const teamId = String(currentTeamData?.id || '');
+  const events = window.currentTeamData?.events || [];
+  const teamId = String(window.currentTeamData?.id || '');
 
   const finishedEvents = events
     .filter(e => e.status?.type?.state === 'post')
@@ -206,7 +221,7 @@ function renderOverviewTab() {
       return `
         <div class="flex flex-col items-center gap-1.5 shrink-0 min-w-[36px]">
           <div class="w-7 h-7 p-1 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-            <img src="${oppLogo}" class="w-full h-full object-contain" alt="">
+            <img src="${oppLogo}" class="w-full h-full object-contain" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/soccer/500/default-team-logo.png'">
           </div>
           <span class="text-[10px] font-black text-slate-200">${myScore}-${oppScore}</span>
           <span class="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-bold border ${badge.bg}">
@@ -241,11 +256,11 @@ function renderOverviewTab() {
       <div class="grid grid-cols-2 gap-3 text-xs">
         <div class="bg-white/5 p-3 rounded-2xl border border-white/5">
           <span class="text-[9px] text-slate-400 block font-bold uppercase">Stadion Markas</span>
-          <span class="font-bold text-slate-200 truncate block mt-0.5">${currentTeamData?.info?.venue?.fullName || 'Stadion Utama'}</span>
+          <span class="font-bold text-slate-200 truncate block mt-0.5">${window.currentTeamData?.info?.venue?.fullName || 'Stadion Utama'}</span>
         </div>
         <div class="bg-white/5 p-3 rounded-2xl border border-white/5">
           <span class="text-[9px] text-slate-400 block font-bold uppercase">Julukan</span>
-          <span class="font-bold text-slate-200 truncate block mt-0.5">${currentTeamData?.info?.nickname || 'Klub'}</span>
+          <span class="font-bold text-slate-200 truncate block mt-0.5">${window.currentTeamData?.info?.nickname || 'Klub'}</span>
         </div>
       </div>
     </div>
@@ -265,15 +280,15 @@ function renderMiniMatchCard(evt, label) {
   const scoreText = isPost ? `${home?.score || 0} - ${away?.score || 0}` : new Date(evt.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
   return `
-    <div onclick="if(typeof openMatchDetail === 'function') openMatchDetail('${currentTeamData?.leagueId || 'all'}', '${evt.id}', '${evt.leagueName || 'Detail'}')" class="bg-[#180d30] border border-white/10 p-3 rounded-2xl space-y-2 cursor-pointer hover:border-emerald-500/50 transition">
+    <div onclick="if(typeof openMatchDetail === 'function') openMatchDetail('${window.currentTeamData?.leagueId || 'all'}', '${evt.id}', '${evt.leagueName || 'Detail'}')" class="bg-[#180d30] border border-white/10 p-3 rounded-2xl space-y-2 cursor-pointer hover:border-emerald-500/50 transition">
       <div class="flex items-center justify-between text-[9px] font-bold text-slate-400">
         <span class="text-emerald-400">${label}</span>
         <span>${isPost ? 'FT' : 'VS'}</span>
       </div>
       <div class="flex items-center justify-between gap-1">
-        <img src="${hLogo}" class="w-6 h-6 object-contain" alt="">
+        <img src="${hLogo}" class="w-6 h-6 object-contain" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/soccer/500/default-team-logo.png'">
         <span class="font-extrabold text-xs text-white">${scoreText}</span>
-        <img src="${aLogo}" class="w-6 h-6 object-contain" alt="">
+        <img src="${aLogo}" class="w-6 h-6 object-contain" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/soccer/500/default-team-logo.png'">
       </div>
     </div>
   `;
@@ -281,7 +296,7 @@ function renderMiniMatchCard(evt, label) {
 
 // --- FIXTURES TAB ---
 function renderFixturesTab() {
-  const events = currentTeamData?.events || [];
+  const events = window.currentTeamData?.events || [];
   if (events.length === 0) {
     return `<div class="text-center py-8 text-xs text-slate-400 bg-[#180d30] rounded-3xl border border-white/10">Belum ada jadwal pertandingan.</div>`;
   }
@@ -298,9 +313,9 @@ function renderFixturesTab() {
     const dateStr = new Date(evt.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 
     return `
-      <div onclick="if(typeof openMatchDetail === 'function') openMatchDetail('${currentTeamData?.leagueId || 'all'}', '${evt.id}', '${evt.leagueName || 'Match'}')" class="flex items-center justify-between bg-[#180d30] p-3 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition cursor-pointer text-xs">
+      <div onclick="if(typeof openMatchDetail === 'function') openMatchDetail('${window.currentTeamData?.leagueId || 'all'}', '${evt.id}', '${evt.leagueName || 'Match'}')" class="flex items-center justify-between bg-[#180d30] p-3 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition cursor-pointer text-xs">
         <div class="flex items-center gap-2 w-5/12 truncate">
-          <img src="${hLogo}" class="w-4 h-4 object-contain shrink-0" alt="">
+          <img src="${hLogo}" class="w-4 h-4 object-contain shrink-0" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/soccer/500/default-team-logo.png'">
           <span class="truncate font-semibold text-slate-200">${home?.team?.shortDisplayName || home?.team?.displayName}</span>
         </div>
         
@@ -312,7 +327,7 @@ function renderFixturesTab() {
 
         <div class="flex items-center justify-end gap-2 w-5/12 truncate text-right">
           <span class="truncate font-semibold text-slate-200">${away?.team?.shortDisplayName || away?.team?.displayName}</span>
-          <img src="${aLogo}" class="w-4 h-4 object-contain shrink-0" alt="">
+          <img src="${aLogo}" class="w-4 h-4 object-contain shrink-0" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/soccer/500/default-team-logo.png'">
         </div>
       </div>
     `;
@@ -335,17 +350,17 @@ function renderTableTab() {
 
 async function loadTeamTableData() {
   const container = document.getElementById('team-modal-table-container');
-  if (!container || !currentTeamData) return;
+  if (!container || !window.currentTeamData) return;
 
   try {
-    const leagueSlug = currentTeamData.leagueId && currentTeamData.leagueId !== 'all' ? currentTeamData.leagueId : 'ita.1';
+    const leagueSlug = (window.currentTeamData.leagueId && window.currentTeamData.leagueId !== 'all') ? window.currentTeamData.leagueId : 'ita.1';
     const targetLeague = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES))
       ? LEAGUES.find(l => l.id === leagueSlug) || { id: leagueSlug, name: 'Klasemen' }
       : { id: leagueSlug, name: 'Klasemen' };
 
     container.innerHTML = '';
     if (typeof renderLeagueStandingsTable === 'function') {
-      await renderLeagueStandingsTable(targetLeague, container, [currentTeamData.id]);
+      await renderLeagueStandingsTable(targetLeague, container, [window.currentTeamData.id]);
     } else {
       container.innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Fungsi klasemen belum siap.</p>`;
     }
@@ -356,7 +371,7 @@ async function loadTeamTableData() {
 
 // --- SQUAD TAB ---
 function renderSquadTab() {
-  const roster = currentTeamData?.roster || [];
+  const roster = window.currentTeamData?.roster || [];
   if (roster.length === 0) {
     return `<div class="text-center py-8 text-xs text-slate-400 bg-[#180d30] rounded-3xl border border-white/10">Data skuad pemain belum dirilis.</div>`;
   }
