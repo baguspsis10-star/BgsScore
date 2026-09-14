@@ -176,11 +176,10 @@
     </div>
   </div>
 
-  <!-- MODAL: MATCH DETAIL (MODERN REDESIGNED) -->
+  <!-- MODAL: MATCH DETAIL -->
   <div id="detail-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex flex-col justify-center sm:items-center p-0 sm:p-4 hidden transition-all duration-300">
     <div class="bg-slate-50 border-0 sm:border border-slate-200 w-full max-w-md md:max-w-2xl lg:max-w-3xl h-full sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-3xl flex flex-col overflow-hidden shadow-2xl">
       
-      <!-- Modal Header Bar -->
       <div class="p-3.5 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
         <button onclick="closeModal()" class="text-emerald-700 hover:text-emerald-800 font-extrabold text-xs flex items-center gap-1.5 transition px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 active:scale-95">
           <i class="fa-solid fa-arrow-left"></i> Kembali
@@ -191,7 +190,6 @@
         </button>
       </div>
 
-      <!-- Loading State -->
       <div id="modal-loading" class="py-20 text-center space-y-3 flex-1 flex flex-col items-center justify-center bg-white">
         <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-sm">
           <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-600"></i>
@@ -199,11 +197,9 @@
         <p class="text-xs text-slate-500 font-bold tracking-wide">Memuat rincian pertandingan...</p>
       </div>
 
-      <!-- Modal Body Content -->
       <div id="modal-data-container" class="flex-1 overflow-y-auto p-3.5 space-y-4 hidden no-scrollbar">
         <div id="modal-score-header"></div>
 
-        <!-- Detail Navigation Segmented Pill Tabs -->
         <div class="flex bg-slate-200/80 p-1.5 rounded-2xl border border-slate-300/60 overflow-x-auto no-scrollbar gap-1 shadow-inner">
           <button id="mtab-summary" onclick="switchModalTab('summary')" class="flex-1 py-2 px-3 text-[11px] font-extrabold text-white bg-emerald-600 rounded-xl shadow-md transition-all duration-200 whitespace-nowrap">Ringkasan</button>
           <button id="mtab-stats" onclick="switchModalTab('stats')" class="flex-1 py-2 px-3 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-300/50 rounded-xl transition-all duration-200 whitespace-nowrap">Statistik</button>
@@ -222,32 +218,19 @@
     </div>
   </div>
 
-  <!-- MODAL: TEAM DETAIL -->
-  <div id="team-detail-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex flex-col justify-center sm:items-center p-0 sm:p-4 hidden">
-    <div class="bg-slate-50 border-0 sm:border border-slate-200 w-full max-w-md md:max-w-2xl lg:max-w-3xl h-full sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-3xl flex flex-col overflow-hidden shadow-2xl">
+  <!-- MODAL: TEAM DETAIL (FOTMOB STYLE - FIXED) -->
+  <div id="team-detail-modal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex flex-col justify-center sm:items-center p-0 sm:p-4 hidden">
+    <div class="bg-[#08170d] border-0 sm:border border-white/10 w-full max-w-md md:max-w-2xl lg:max-w-3xl h-full sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-3xl flex flex-col overflow-hidden shadow-2xl">
       
-      <div class="p-3.5 border-b border-slate-200 flex items-center justify-between shrink-0 bg-white">
-        <button onclick="closeTeamModal()" class="text-emerald-700 hover:text-emerald-800 font-bold text-xs flex items-center gap-1.5 transition px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200">
-          <i class="fa-solid fa-arrow-left"></i> Kembali
-        </button>
-        <span id="team-modal-title" class="text-xs font-black text-slate-900 truncate max-w-[65%]">Detail Klub</span>
-        <button onclick="closeTeamModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs transition">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
+      <!-- Top Banner & Single Navigation Bar (Overview | Fixtures | Table | Squad) -->
+      <div id="team-modal-banner"></div>
 
-      <div id="team-modal-banner" class="p-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0"></div>
-
-      <div class="flex bg-white p-1 border-b border-slate-200 shrink-0">
-        <button id="ttab-player" onclick="switchTeamModalTab('player')" class="flex-1 py-2 text-xs font-bold text-emerald-600 border-b-2 border-emerald-600 transition">Skuad Pemain</button>
-        <button id="ttab-summary" onclick="switchTeamModalTab('summary')" class="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition">Pertandingan</button>
-        <button id="ttab-standings" onclick="switchTeamModalTab('standings')" class="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition">Klasemen</button>
-      </div>
-
-      <div id="team-modal-body" class="flex-1 overflow-y-auto p-3 space-y-3">
-        <div id="tcontent-player" class="space-y-3"></div>
+      <!-- Modal Body Content -->
+      <div id="team-modal-body" class="flex-1 overflow-y-auto p-3.5 space-y-3 no-scrollbar">
+        <div id="tcontent-overview" class="space-y-3"></div>
         <div id="tcontent-summary" class="space-y-3 hidden"></div>
         <div id="tcontent-standings" class="space-y-3 hidden"></div>
+        <div id="tcontent-player" class="space-y-3 hidden"></div>
       </div>
 
     </div>
