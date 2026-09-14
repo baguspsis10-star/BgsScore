@@ -1,6 +1,6 @@
-// TEAMS & CLUB DETAILS MODULE - FOTMOB DARK GREEN THEME (FIXED)
+// TEAMS & CLUB DETAILS MODULE - FOTMOB REALTIME FORMATION & FIXTURES FIX
 
-// Helper Extract Score dari Data ESPN
+// Helper Extract Skor
 function extractScore(competitor) {
   if (!competitor) return '0';
   if (competitor.score !== undefined && competitor.score !== null) {
@@ -12,7 +12,7 @@ function extractScore(competitor) {
   return '0';
 }
 
-// Helper Cek Pertandingan Selesai
+// Helper Cek Laga Selesai
 function isMatchFinished(evt) {
   const state = evt.status?.type?.state;
   const completed = evt.status?.type?.completed;
@@ -20,13 +20,11 @@ function isMatchFinished(evt) {
   return state === 'post' || completed === true || detail.includes('ft') || detail.includes('final');
 }
 
-// Check if Team is Favorited
 function isTeamFavorite(teamId) {
   if (!teamId) return false;
   return favoriteTeams.some(id => String(id) === String(teamId));
 }
 
-// Toggle Team Favorite State
 function toggleTeamFavorite(teamId, e) {
   if (e) e.stopPropagation();
   const idStr = String(teamId);
@@ -46,20 +44,17 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
   if (event) event.stopPropagation();
   currentOpenTeam = { leagueId, teamId, teamName };
 
-  if (typeof closeModal === 'function') {
-    closeModal();
-  }
+  if (typeof closeModal === 'function') closeModal();
 
   const modal = document.getElementById('team-detail-modal');
   modal.classList.remove('hidden');
 
   const isFavTeam = isTeamFavorite(teamId);
   const teamLogo = dataSaverMode ? PLAIN_SHIELD_LOGO : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-  const validLeagueId = (!leagueId || leagueId === 'all') ? 'ita.1' : leagueId;
-  const leagueObj = LEAGUES.find(l => l.id === validLeagueId) || { country: 'ITALIA', name: 'Liga' };
-  const countryUpper = (leagueObj.country || 'ITALIA').toUpperCase();
+  const validLeagueId = (!leagueId || leagueId === 'all') ? 'esp.1' : leagueId;
+  const leagueObj = LEAGUES.find(l => l.id === validLeagueId) || { country: 'SPANYOL', name: 'Liga' };
+  const countryUpper = (leagueObj.country || 'SPANYOL').toUpperCase();
 
-  // Render Header & Menu Utama FotMob (Satu-satunya Menu Navigasi)
   const banner = document.getElementById('team-modal-banner');
   banner.className = "p-4 sm:p-5 bg-gradient-to-b from-[#0d2d1a] via-[#091f12] to-[#08170d] text-white shrink-0 border-b border-white/10";
   banner.innerHTML = `
@@ -86,7 +81,6 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
       </div>
     </div>
 
-    <!-- Navigasi Utama -->
     <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
       <button id="ttab-overview" onclick="switchTeamModalTab('overview')" class="px-4 py-1.5 text-xs font-black rounded-full transition bg-white text-slate-900 shadow">Overview</button>
       <button id="ttab-summary" onclick="switchTeamModalTab('summary')" class="px-4 py-1.5 text-xs font-bold rounded-full transition text-slate-300 hover:text-white hover:bg-white/10">Fixtures</button>
@@ -99,13 +93,11 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
   loadTeamFullData(validLeagueId, teamId, teamName);
 }
 
-// Close Team Detail Modal
 function closeTeamModal() {
   currentOpenTeam = null;
   document.getElementById('team-detail-modal').classList.add('hidden');
 }
 
-// Switch Sub-Tabs
 function switchTeamModalTab(tabName) {
   const tabs = ['overview', 'summary', 'standings', 'player'];
   tabs.forEach(t => {
@@ -124,7 +116,7 @@ function switchTeamModalTab(tabName) {
   });
 }
 
-// Load All ESPN Data for Team
+// Main Data Fetcher
 async function loadTeamFullData(leagueId, teamId, teamName) {
   const overviewContainer = document.getElementById('tcontent-overview');
   const summaryContainer = document.getElementById('tcontent-summary');
@@ -134,30 +126,60 @@ async function loadTeamFullData(leagueId, teamId, teamName) {
     overviewContainer.innerHTML = `
       <div class="py-12 text-center text-xs text-slate-400 space-y-2">
         <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-2xl"></i>
-        <p class="font-bold">Memuat data klub...</p>
+        <p class="font-bold">Memuat data klub & formasi terakhir...</p>
       </div>
     `;
   }
 
   try {
-    const targetLeague = (!leagueId || leagueId === 'all') ? 'ita.1' : leagueId;
+    const targetLeague = (!leagueId || leagueId === 'all') ? 'esp.1' : leagueId;
 
-    const [scheduleRes, rosterRes] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/schedule`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/roster`).then(r => r.ok ? r.json() : null).catch(() => null)
-    ]);
+    // Fetch Schedule & Roster
+    let scheduleRes = null;
+    let rosterRes = null;
 
-    const events = scheduleRes?.events || [];
+    try {
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/schedule`);
+      if (res.ok) scheduleRes = await res.json();
+    } catch(e){}
+
+    try {
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/roster`);
+      if (res.ok) rosterRes = await res.json();
+    } catch(e){}
+
+    let events = scheduleRes?.events || [];
+
+    // Jika schedule tim kosong, ambil dari cachedEvents global
+    if (events.length === 0 && typeof cachedEvents !== 'undefined' && Array.isArray(cachedEvents)) {
+      events = cachedEvents.filter(evt => {
+        const comp = evt.competitions?.[0];
+        const hId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
+        const aId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
+        return String(hId) === String(teamId) || String(aId) === String(teamId);
+      });
+    }
+
     const finishedEvents = events.filter(e => isMatchFinished(e)).sort((a,b) => new Date(b.date) - new Date(a.date));
     const upcomingEvents = events.filter(e => !isMatchFinished(e)).sort((a,b) => new Date(a.date) - new Date(b.date));
 
-    // Render Overview
-    renderFotmobOverview(overviewContainer, teamId, teamName, finishedEvents, upcomingEvents, rosterRes);
+    // Fetch Detail Summary dari Pertandingan Terakhir untuk Formasi & Starter Asli
+    let lastMatchSummary = null;
+    if (finishedEvents.length > 0) {
+      const lastMatchId = finishedEvents[0].id;
+      try {
+        const sumRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/summary?event=${lastMatchId}`);
+        if (sumRes.ok) lastMatchSummary = await sumRes.json();
+      } catch(e){}
+    }
 
-    // Render Fixtures (Pertandingan Selesai + Skor)
-    renderFotmobFixtures(summaryContainer, finishedEvents, teamId);
+    // Render Overview (dengan Formasi & Starter Asli)
+    renderFotmobOverview(overviewContainer, teamId, teamName, finishedEvents, upcomingEvents, rosterRes, lastMatchSummary);
 
-    // Render Table
+    // Render Fixtures Tab
+    renderFotmobFixtures(summaryContainer, finishedEvents, upcomingEvents, teamId);
+
+    // Render Standings
     const targetLeagueObj = LEAGUES.find(l => l.id === targetLeague) || LEAGUES[0];
     standingsContainer.innerHTML = '';
     await renderLeagueStandingsTable(targetLeagueObj, standingsContainer, teamId);
@@ -173,15 +195,15 @@ async function loadTeamFullData(leagueId, teamId, teamName) {
   }
 }
 
-// RENDER OVERVIEW TAB
-function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcomingEvents, rosterData) {
+// Render Overview dengan Formasi Terakhir Asli dari API
+function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcomingEvents, rosterData, lastMatchSummary) {
   if (!container) return;
   container.innerHTML = '';
 
   const wrapper = document.createElement('div');
   wrapper.className = 'space-y-4';
 
-  // 1. CAROUSEL HASIL & JADWAL LAGA
+  // 1. MATCH CAROUSEL CARD
   const topMatches = [...finishedEvents.slice(0, 2), ...upcomingEvents.slice(0, 1)];
   if (topMatches.length > 0) {
     const carouselSection = document.createElement('div');
@@ -201,7 +223,7 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
 
       const card = document.createElement('div');
       card.className = 'bg-[#102719] border border-white/10 p-2.5 rounded-2xl flex flex-col justify-between text-center cursor-pointer hover:bg-[#163522] transition';
-      card.onclick = () => openMatchDetail(evt.leagueId || 'ita.1', evt.id, evt.leagueName || 'Detail');
+      card.onclick = () => openMatchDetail(evt.leagueId || 'esp.1', evt.id, evt.leagueName || 'Detail');
 
       card.innerHTML = `
         <div class="text-[9px] font-bold text-emerald-400 truncate mb-1 flex items-center justify-center gap-1">
@@ -268,40 +290,71 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
     wrapper.appendChild(formCard);
   }
 
-  // 3. FORMATION & MANAGER
-  const rawCoach = rosterData?.coach?.[0];
-  const coachName = rawCoach ? (rawCoach.displayName || rawCoach.fullName) : null;
+  // 3. DYNAMIC FORMATION BOARD FROM LAST MATCH
+  let formationName = '4-3-3';
+  let pitchGk = [], pitchDef = [], pitchMid = [], pitchFwd = [];
+
+  if (lastMatchSummary && lastMatchSummary.rosters) {
+    const teamRosterObj = lastMatchSummary.rosters.find(r => String(r.team?.id) === String(teamId)) || lastMatchSummary.rosters[0];
+    if (teamRosterObj) {
+      if (teamRosterObj.formation) formationName = teamRosterObj.formation;
+
+      const starters = (teamRosterObj.roster || []).filter(p => p.starter);
+      starters.forEach(p => {
+        const pos = (p.position?.abbreviation || p.position?.name || '').toUpperCase();
+        const jersey = p.jersey || '?';
+        const name = p.athlete?.shortName || p.athlete?.displayName || p.athlete?.lastName || 'Pemain';
+
+        const pData = { jersey, name };
+
+        if (pos.includes('GK') || pos.includes('G')) pitchGk.push(pData);
+        else if (pos.includes('CB') || pos.includes('LB') || pos.includes('RB') || pos.includes('WB') || pos.includes('DF') || pos.includes('D')) pitchDef.push(pData);
+        else if (pos.includes('CM') || pos.includes('DM') || pos.includes('AM') || pos.includes('LM') || pos.includes('RM') || pos.includes('MF') || pos.includes('M')) pitchMid.push(pData);
+        else pitchFwd.push(pData);
+      });
+    }
+  }
+
+  // Fallback jika roster kosong
+  if (pitchGk.length === 0) pitchGk = [{ jersey: '1', name: 'GK' }];
+  if (pitchDef.length === 0) pitchDef = [{ jersey: '4', name: 'DF' }, { jersey: '3', name: 'DF' }, { jersey: '5', name: 'DF' }, { jersey: '2', name: 'DF' }];
+  if (pitchMid.length === 0) pitchMid = [{ jersey: '8', name: 'MF' }, { jersey: '6', name: 'MF' }, { jersey: '10', name: 'MF' }];
+  if (pitchFwd.length === 0 && pitchDef.length + pitchMid.length < 10) pitchFwd = [{ jersey: '9', name: 'FW' }];
+
+  const renderPitchRow = (players) => `
+    <div class="flex items-center justify-around w-full z-10 my-1">
+      ${players.map(p => `
+        <div class="flex flex-col items-center">
+          <span class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9.5px] sm:text-[10.5px] flex items-center justify-center shadow-md">${p.jersey}</span>
+          <span class="text-[8.5px] sm:text-[9.5px] font-bold text-white bg-slate-950/80 px-1.5 py-0.2 rounded mt-0.5 max-w-[65px] truncate text-center">${p.name}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
 
   const formationCard = document.createElement('div');
   formationCard.className = 'bg-[#102719] border border-white/10 p-3.5 rounded-3xl space-y-3';
   formationCard.innerHTML = `
     <div class="flex items-center justify-between text-xs font-black text-white">
       <span>Latest Formation</span>
-      <span class="text-xs font-extrabold text-emerald-400">4-3-3</span>
+      <span class="text-xs font-extrabold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40">${formationName}</span>
     </div>
-    <div class="soccer-full-pitch rounded-2xl p-2 py-4 flex flex-col justify-between relative !min-h-[260px]">
+    <div class="soccer-full-pitch rounded-2xl p-2 py-4 flex flex-col justify-between relative !min-h-[300px]">
       <div class="pitch-center-line-full"></div>
       <div class="pitch-center-circle"></div>
       <div class="pitch-center-dot"></div>
       
-      <div class="flex items-center justify-around z-10">
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">GK</span></div>
-      </div>
-      <div class="flex items-center justify-around z-10">
-        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">DF</span></div>
-        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">DF</span></div>
-        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">DF</span></div>
-        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">DF</span></div>
-      </div>
-      <div class="flex items-center justify-around z-10">
-        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">MF</span></div>
-        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">MF</span></div>
-        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">MF</span></div>
-      </div>
+      ${renderPitchRow(pitchGk)}
+      ${renderPitchRow(pitchDef)}
+      ${renderPitchRow(pitchMid)}
+      ${pitchFwd.length > 0 ? renderPitchRow(pitchFwd) : ''}
     </div>
   `;
   wrapper.appendChild(formationCard);
 
+  // 4. MANAGER CARD
+  const rawCoach = rosterData?.coach?.[0];
+  const coachName = rawCoach ? (rawCoach.displayName || rawCoach.fullName) : null;
   if (coachName) {
     const managerCard = document.createElement('div');
     managerCard.className = 'bg-[#102719] border border-white/10 p-3.5 rounded-3xl flex items-center gap-3';
@@ -320,33 +373,36 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
   container.appendChild(wrapper);
 }
 
-// RENDER FIXTURES TAB (PERTANDINGAN SELESAI + SKOR)
-function renderFotmobFixtures(container, finishedEvents, teamId) {
+// Render Fixtures Tab
+function renderFotmobFixtures(container, finishedEvents, upcomingEvents, teamId) {
   if (!container) return;
   container.innerHTML = '';
 
-  if (!finishedEvents || finishedEvents.length === 0) {
-    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Tidak ada pertandingan selesai.</div>`;
+  const allList = [...finishedEvents, ...upcomingEvents];
+  if (allList.length === 0) {
+    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Tidak ada riwayat pertandingan.</div>`;
     return;
   }
 
   const wrapper = document.createElement('div');
   wrapper.className = 'space-y-2.5';
 
-  finishedEvents.forEach(evt => {
+  allList.forEach(evt => {
     const comp = evt.competitions?.[0];
     const home = comp?.competitors?.find(c => c.homeAway === 'home');
     const away = comp?.competitors?.find(c => c.homeAway === 'away');
+    const finished = isMatchFinished(evt);
 
     const homeLogo = getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO;
     const awayLogo = getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO;
     const homeScore = extractScore(home);
     const awayScore = extractScore(away);
     const dateFormatted = new Date(evt.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    const timeFormatted = new Date(evt.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
 
     const card = document.createElement('div');
     card.className = 'bg-[#102719] border border-white/10 p-3 rounded-2xl flex items-center justify-between text-xs cursor-pointer hover:bg-[#163522] transition';
-    card.onclick = () => openMatchDetail(evt.leagueId || 'ita.1', evt.id, evt.leagueName || 'Detail');
+    card.onclick = () => openMatchDetail(evt.leagueId || 'esp.1', evt.id, evt.leagueName || 'Detail');
 
     card.innerHTML = `
       <!-- Home Team -->
@@ -355,12 +411,17 @@ function renderFotmobFixtures(container, finishedEvents, teamId) {
         <span class="font-extrabold text-white truncate text-[11px]">${home?.team?.shortDisplayName || home?.team?.displayName || 'Home'}</span>
       </div>
 
-      <!-- Score Center (Tampil Skor Hasil Pertandingan) -->
+      <!-- Score / Time Center -->
       <div class="w-[24%] text-center shrink-0">
-        <span class="font-black text-white text-xs bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40 tracking-wider inline-block shadow">
-          ${homeScore} - ${awayScore}
-        </span>
-        <span class="block text-[8.5px] text-slate-400 font-bold mt-0.5">${dateFormatted} • FT</span>
+        ${finished ? `
+          <span class="font-black text-white text-xs bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40 tracking-wider inline-block shadow">
+            ${homeScore} - ${awayScore}
+          </span>
+          <span class="block text-[8.5px] text-slate-400 font-bold mt-0.5">${dateFormatted} • FT</span>
+        ` : `
+          <span class="block text-[10px] font-bold text-white">${dateFormatted}</span>
+          <span class="block text-[9px] text-slate-400 font-semibold">${timeFormatted}</span>
+        `}
       </div>
 
       <!-- Away Team -->
@@ -430,16 +491,15 @@ function formatPlayerData(p, posGroupStr = '') {
     name: p.fullName || p.displayName || 'Pemain',
     jersey: p.jersey ? `#${p.jersey}` : `#${Math.floor(Math.random()*40)+1}`,
     category,
-    country: p.citizenship || p.birthPlace?.country || 'Italia',
+    country: p.citizenship || p.birthPlace?.country || 'Pemain',
     isInjured: (p.injuries && p.injuries.length > 0) || false
   };
 }
 
 function generateFallbackSquadData() {
   return [
-    { id: 101, name: 'A Muric', jersey: '#49', category: 'Goalkeeper', country: 'Kosovo', isInjured: false },
-    { id: 201, name: 'Jay Idzes', jersey: '#21', category: 'Defender', country: 'Indonesia', isInjured: false },
-    { id: 301, name: 'Nemanja Matic', jersey: '#18', category: 'Midfielder', country: 'Serbia', isInjured: false }
+    { id: 101, name: 'Pemain 1', jersey: '#1', category: 'Goalkeeper', country: 'Pemain', isInjured: false },
+    { id: 201, name: 'Pemain 2', jersey: '#4', category: 'Defender', country: 'Pemain', isInjured: false }
   ];
 }
 
