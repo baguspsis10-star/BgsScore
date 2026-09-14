@@ -1,6 +1,5 @@
-// MODALS & DIALOG CONTROLLER MODULE (REDESIGNED ULTRA-MODERN)
+// MODALS & DIALOG CONTROLLER MODULE (REDESIGNED HIGH-CONTRAST MODERN)
 
-// Dynamic Z-Index Manager for Stacking Modals
 let globalModalZIndex = 50;
 
 function getNextZIndex() {
@@ -18,7 +17,6 @@ function checkResetZIndex() {
   }
 }
 
-// Global Web Audio Context Instance
 let globalAudioCtx = null;
 
 function getAudioContext() {
@@ -32,7 +30,6 @@ function getAudioContext() {
   return globalAudioCtx;
 }
 
-// Notification Settings Modal Handlers
 function openSettingsModal() {
   document.getElementById('snd-master').checked = soundSettings.master;
   document.getElementById('snd-goal').checked = soundSettings.goal;
@@ -74,12 +71,12 @@ function updateNotifPermissionUI() {
   if (Notification.permission === 'granted') {
     statusLabel.innerText = 'Izin Notifikasi Aktif';
     btn.innerText = 'Aktif';
-    btn.className = 'px-2.5 py-1 bg-slate-800 text-emerald-400 rounded-lg text-[10px] font-bold cursor-default';
+    btn.className = 'px-2.5 py-1 bg-slate-100 text-emerald-700 rounded-lg text-[10px] font-bold cursor-default';
     btn.disabled = true;
   } else if (Notification.permission === 'denied') {
     statusLabel.innerText = 'Izin ditolak di pengaturan browser/HP';
     btn.innerText = 'Ditolak';
-    btn.className = 'px-2.5 py-1 bg-red-950 text-red-400 rounded-lg text-[10px] font-bold cursor-default';
+    btn.className = 'px-2.5 py-1 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold cursor-default';
     btn.disabled = true;
   } else {
     statusLabel.innerText = 'Izin belum diberikan';
@@ -192,7 +189,6 @@ function playEventSound(type) {
   }
 }
 
-// League Selector Modal Handlers
 function openLeagueModal() {
   renderLeagueModalGrid();
   const modal = document.getElementById('league-modal');
@@ -208,11 +204,11 @@ function closeLeagueModal() {
 function renderLeagueModalGrid() {
   const grid = document.getElementById('league-selector-grid');
   grid.innerHTML = `
-    <button onclick="selectLeagueFromModal('all')" class="w-full p-2 bg-slate-950 hover:bg-slate-800 border ${selectedLeague === 'all' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800'} rounded-xl flex items-center gap-2.5 transition text-left mb-2">
-      <i class="fa-solid fa-globe text-emerald-400 text-base"></i>
+    <button onclick="selectLeagueFromModal('all')" class="w-full p-2.5 bg-slate-50 hover:bg-slate-100 border ${selectedLeague === 'all' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'} rounded-xl flex items-center gap-2.5 transition text-left mb-2 shadow-sm">
+      <i class="fa-solid fa-globe text-emerald-600 text-base"></i>
       <div>
-        <div class="text-xs font-bold text-white">Semua Liga</div>
-        <div class="text-[9px] text-slate-400">Tampilkan seluruh pertandingan global</div>
+        <div class="text-xs font-bold text-slate-900">Semua Liga</div>
+        <div class="text-[9px] text-slate-500">Tampilkan seluruh pertandingan global</div>
       </div>
     </button>
     ${renderCategorizedLeagueGrid('selectLeagueFromModal')}
@@ -224,7 +220,6 @@ function selectLeagueFromModal(leagueId) {
   changeLeague(leagueId);
 }
 
-// Smart Fetch Match Detail dengan Auto-Detect Slug Liga Resmi
 async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) {
   currentOpenModal = { leagueId, eventId, leagueName };
   const modal = document.getElementById('detail-modal');
@@ -303,8 +298,8 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
         fetchModalStandings(realLeagueSlug, home.team.id, away.team.id);
         fetchFormAndH2H(realLeagueSlug, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
       } else {
-        document.getElementById('mcontent-standings').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
-        document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Data riwayat tidak tersedia.</p>`;
+        document.getElementById('mcontent-standings').innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Klasemen tidak tersedia.</p>`;
+        document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Data riwayat tidak tersedia.</p>`;
       }
     }
 
@@ -314,7 +309,7 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     console.error("Detail Fetch Error:", err);
     if (!isSilent) {
       document.getElementById('modal-data-container').innerHTML = `
-        <div class="text-center py-12 text-slate-400 space-y-2">
+        <div class="text-center py-12 text-slate-500 space-y-2">
           <i class="fa-solid fa-circle-exclamation text-2xl text-amber-500"></i>
           <p class="text-xs">Rincian pertandingan belum tersedia di server ESPN.</p>
         </div>
@@ -328,9 +323,9 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
 async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
   const container = document.getElementById('mcontent-standings');
   container.innerHTML = `
-    <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
-      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
-      <p class="text-xs">Memuat klasemen liga...</p>
+    <div class="flex flex-col items-center justify-center py-8 text-slate-500 gap-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-600"></i>
+      <p class="text-xs font-semibold">Memuat klasemen liga...</p>
     </div>
   `;
 
@@ -339,15 +334,15 @@ async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
     container.innerHTML = '';
     await renderLeagueStandingsTable(targetLeague, container, [homeTeamId, awayTeamId]);
   } catch (err) {
-    container.innerHTML = `<p class="text-center text-slate-500 text-xs py-6">Klasemen tidak tersedia.</p>`;
+    container.innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Klasemen tidak tersedia.</p>`;
   }
 }
 
 function renderFormBlock(teamName, matches, teamId) {
   if (!matches || matches.length === 0) {
     return `
-      <div class="bg-stadium-card p-3.5 rounded-xl border border-slate-800/80">
-        <div class="text-xs font-bold text-white mb-1">${teamName}</div>
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="text-xs font-bold text-slate-900 mb-1">${teamName}</div>
         <p class="text-[10px] text-slate-500">Tidak ada riwayat pertandingan terbaru.</p>
       </div>
     `;
@@ -362,11 +357,11 @@ function renderFormBlock(teamName, matches, teamId) {
     const myScore = parseInt(myTeam?.score || '0');
     const oppScore = parseInt(oppTeam?.score || '0');
 
-    let resBadge = { label: 'S', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' };
+    let resBadge = { label: 'S', color: 'bg-amber-100 text-amber-700 border-amber-300' };
     if (myScore > oppScore) {
-      resBadge = { label: 'M', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' };
+      resBadge = { label: 'M', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' };
     } else if (myScore < oppScore) {
-      resBadge = { label: 'K', color: 'bg-red-500/20 text-red-400 border-red-500/40' };
+      resBadge = { label: 'K', color: 'bg-red-100 text-red-700 border-red-300' };
     }
 
     formBadges += `<span class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold border ${resBadge.color}">${resBadge.label}</span>`;
@@ -376,15 +371,15 @@ function renderFormBlock(teamName, matches, teamId) {
     const formattedDate = new Date(m.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 
     return `
-      <div class="flex items-center justify-between bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80 text-xs hover:bg-slate-800/60 transition">
+      <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs hover:bg-slate-100 transition">
         <div class="flex items-center gap-2 truncate max-w-[62%]">
-          <span class="text-[9px] font-bold font-mono ${isHome ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/50' : 'text-blue-400 bg-blue-950/60 border-blue-800/50'} px-1.5 py-0.5 rounded border">${isHome ? 'HOME' : 'AWAY'}</span>
+          <span class="text-[9px] font-bold font-mono ${isHome ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-blue-700 bg-blue-50 border-blue-200'} px-1.5 py-0.5 rounded border">${isHome ? 'HOME' : 'AWAY'}</span>
           <img src="${oppLogo}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="">
-          <span class="truncate font-semibold text-slate-100">${oppTeam?.team?.shortDisplayName || oppTeam?.team?.displayName || 'Lawan'}</span>
+          <span class="truncate font-semibold text-slate-800">${oppTeam?.team?.shortDisplayName || oppTeam?.team?.displayName || 'Lawan'}</span>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <span class="text-[10px] text-slate-400">${formattedDate}</span>
-          <span class="font-extrabold text-white bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800 text-[11px]">${myScore} - ${oppScore}</span>
+          <span class="text-[10px] text-slate-500">${formattedDate}</span>
+          <span class="font-extrabold text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-[11px] shadow-sm">${myScore} - ${oppScore}</span>
           <span class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold border ${resBadge.color}">${resBadge.label}</span>
         </div>
       </div>
@@ -392,9 +387,9 @@ function renderFormBlock(teamName, matches, teamId) {
   }).join('');
 
   return `
-    <div class="bg-stadium-card p-3.5 rounded-2xl border border-slate-800/80 space-y-3 shadow-lg">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-        <span class="text-xs font-bold text-white truncate max-w-[170px]">${teamName}</span>
+    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <span class="text-xs font-bold text-slate-900 truncate max-w-[170px]">${teamName}</span>
         <div class="flex items-center gap-1.5">${formBadges}</div>
       </div>
       <div class="space-y-2">${matchRows}</div>
@@ -421,7 +416,7 @@ function getBaseMinute(clockStr) {
   return parseInt(str) || 0;
 }
 
-// Render Complete Match Detail Data (Modern Sleek UI)
+// Render Complete Match Detail Data (Light Modern UI)
 function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;
@@ -454,31 +449,31 @@ function renderModalCompleteData(data, leagueId) {
     if (weatherObj.condition) weather += `, ${weatherObj.condition}`;
   }
 
-  // MODERN GLASSMORPHISM INFO BADGE GRID
+  // MODERN LIGHT INFO BADGE GRID
   const matchInfoBadgeHtml = `
-    <div class="mt-4 pt-4 border-t border-slate-800/60 grid grid-cols-3 gap-2.5">
-      <div class="bg-[#0f172a]/80 backdrop-blur-md p-3 rounded-2xl border border-emerald-500/20 shadow-lg text-center flex flex-col items-center justify-center transition hover:border-emerald-500/40">
-        <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-1.5 text-emerald-400">
+    <div class="mt-4 pt-4 border-t border-slate-200 grid grid-cols-3 gap-2.5">
+      <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center flex flex-col items-center justify-center">
+        <div class="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center mb-1.5 text-emerald-600">
           <i class="fa-solid fa-location-dot text-xs"></i>
         </div>
-        <span class="font-black text-slate-100 text-[11px] block truncate w-full" title="${stadium}">${stadium}</span>
-        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Stadion</span>
+        <span class="font-extrabold text-slate-800 text-[11px] block truncate w-full" title="${stadium}">${stadium}</span>
+        <span class="text-[8px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Stadion</span>
       </div>
 
-      <div class="bg-[#0f172a]/80 backdrop-blur-md p-3 rounded-2xl border border-sky-500/20 shadow-lg text-center flex flex-col items-center justify-center transition hover:border-sky-500/40">
-        <div class="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center mb-1.5 text-sky-400">
+      <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center flex flex-col items-center justify-center">
+        <div class="w-8 h-8 rounded-xl bg-sky-100 flex items-center justify-center mb-1.5 text-sky-600">
           <i class="fa-solid fa-user-ninja text-xs"></i>
         </div>
-        <span class="font-black text-slate-100 text-[11px] block truncate w-full" title="${referee}">${referee}</span>
-        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Wasit</span>
+        <span class="font-extrabold text-slate-800 text-[11px] block truncate w-full" title="${referee}">${referee}</span>
+        <span class="text-[8px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Wasit</span>
       </div>
 
-      <div class="bg-[#0f172a]/80 backdrop-blur-md p-3 rounded-2xl border border-amber-500/20 shadow-lg text-center flex flex-col items-center justify-center transition hover:border-amber-500/40">
-        <div class="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-1.5 text-amber-400">
+      <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center flex flex-col items-center justify-center">
+        <div class="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center mb-1.5 text-amber-600">
           <i class="fa-solid fa-cloud-sun text-xs"></i>
         </div>
-        <span class="font-black text-slate-100 text-[11px] block truncate w-full" title="${weather}">${weather}</span>
-        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Cuaca</span>
+        <span class="font-extrabold text-slate-800 text-[11px] block truncate w-full" title="${weather}">${weather}</span>
+        <span class="text-[8px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Cuaca</span>
       </div>
     </div>
   `;
@@ -540,36 +535,33 @@ function renderModalCompleteData(data, leagueId) {
       const hG = homeGoals[i];
       const aG = awayGoals[i];
       rows += `
-        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
+        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-700">
           <div class="text-right flex items-center justify-end gap-1.5 truncate">
-            ${hG ? `<span class="truncate font-bold">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i>` : ''}
+            ${hG ? `<span class="truncate font-bold">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-600 shrink-0"></i>` : ''}
           </div>
           <div class="text-left flex items-center justify-start gap-1.5 truncate">
-            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i> <span class="truncate font-bold">${aG.clock} ${aG.scorer}</span>` : ''}
+            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-600 shrink-0"></i> <span class="truncate font-bold">${aG.clock} ${aG.scorer}</span>` : ''}
           </div>
         </div>
       `;
     }
-    goalsHtml = `<div class="mt-4 pt-3.5 border-t border-slate-700/60 space-y-1.5">${rows}</div>`;
+    goalsHtml = `<div class="mt-4 pt-3.5 border-t border-slate-700/50 space-y-1.5">${rows}</div>`;
   }
 
   const liveOrStatusText = state === 'pre' 
     ? formattedTime 
     : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : header.status?.type?.description);
 
-  // MODERN HERO CARD HEADER WITH AMBIENT BLUR GLOW
+  // MODERN HERO CARD HEADER WITH DEEP SLATE ACCENT
   document.getElementById('modal-score-header').innerHTML = `
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#182232] via-[#111827] to-[#090d16] p-5 border border-slate-700/60 shadow-2xl backdrop-blur-xl">
-      <!-- Ambient Glow Effect -->
-      <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 p-5 shadow-xl text-white">
       <div class="flex items-center justify-between relative z-10">
         <!-- Home Team -->
         <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
-          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2.5 rounded-2xl bg-[#090d16]/90 border border-slate-700/70 shadow-xl flex items-center justify-center group-hover:scale-105 group-hover:border-emerald-500/50 transition-all duration-300">
+          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2.5 rounded-2xl bg-white border border-slate-700/60 shadow-lg flex items-center justify-center group-hover:scale-105 transition-all duration-300">
             <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
           </div>
-          <span class="font-black text-xs sm:text-sm text-white leading-tight group-hover:text-emerald-400 transition flex items-center justify-center gap-1">
+          <span class="font-extrabold text-xs sm:text-sm text-white leading-tight group-hover:text-emerald-400 transition flex items-center justify-center gap-1">
             <span class="truncate">${home.team.displayName}</span>
             ${isTeamFavorite(home.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[9px]"></i>' : ''}
           </span>
@@ -577,20 +569,20 @@ function renderModalCompleteData(data, leagueId) {
 
         <!-- VS / Score Center Badge -->
         <div class="text-center w-[24%] flex flex-col items-center justify-center">
-          <div class="bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm sm:text-lg px-4 py-1 rounded-full shadow-lg shadow-emerald-500/20 tracking-wider">
+          <div class="bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm sm:text-lg px-4 py-1 rounded-full shadow-md tracking-wider">
             ${state === 'pre' ? 'VS' : (home.score || '0') + ' - ' + (away.score || '0')}
           </div>
-          <div class="text-[10px] text-slate-300 font-bold mt-2.5 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-700/80 inline-flex items-center gap-1 shadow-inner">
+          <div class="text-[10px] text-slate-200 font-bold mt-2.5 bg-slate-800/90 px-3 py-1 rounded-full border border-slate-700 inline-flex items-center gap-1">
             ${liveOrStatusText}
           </div>
         </div>
 
         <!-- Away Team -->
         <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
-          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2.5 rounded-2xl bg-[#090d16]/90 border border-slate-700/70 shadow-xl flex items-center justify-center group-hover:scale-105 group-hover:border-emerald-500/50 transition-all duration-300">
+          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2.5 rounded-2xl bg-white border border-slate-700/60 shadow-lg flex items-center justify-center group-hover:scale-105 transition-all duration-300">
             <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
           </div>
-          <span class="font-black text-xs sm:text-sm text-white leading-tight group-hover:text-emerald-400 transition flex items-center justify-center gap-1">
+          <span class="font-extrabold text-xs sm:text-sm text-white leading-tight group-hover:text-emerald-400 transition flex items-center justify-center gap-1">
             <span class="truncate">${away.team.displayName}</span>
             ${isTeamFavorite(away.team.id) ? '<i class="fa-solid fa-star text-amber-400 text-[9px]"></i>' : ''}
           </span>
@@ -604,9 +596,9 @@ function renderModalCompleteData(data, leagueId) {
   let statsBlockHtml = '';
   if (state === 'pre') {
     statsBlockHtml = `
-      <div class="bg-stadium-card border border-slate-800 rounded-2xl p-6 text-center shadow-xl">
-        <i class="fa-solid fa-chart-line text-3xl text-slate-600 mb-2 block"></i>
-        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Statistik Belum Tersedia</h4>
+      <div class="bg-white border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
+        <i class="fa-solid fa-chart-line text-3xl text-slate-300 mb-2 block"></i>
+        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Statistik Belum Tersedia</h4>
         <p class="text-[10px] text-slate-500 mt-1">Statistik live akan muncul secara otomatis ketika pertandingan telah dimulai.</p>
       </div>
     `;
@@ -655,31 +647,31 @@ function renderModalCompleteData(data, leagueId) {
       const isAwayDominant = aValNum > hValNum;
 
       return `
-        <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-1.5 transition hover:border-slate-700">
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 transition">
           <div class="flex items-center justify-between text-xs">
-            <span class="font-black ${isHomeDominant ? 'text-blue-400 text-sm' : 'text-slate-300'}">${homeVal}${isPercentage ? '%' : ''}</span>
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">${label}</span>
-            <span class="font-black ${isAwayDominant ? 'text-emerald-400 text-sm' : 'text-slate-300'}">${awayVal}${isPercentage ? '%' : ''}</span>
+            <span class="font-extrabold ${isHomeDominant ? 'text-blue-600 text-sm' : 'text-slate-700'}">${homeVal}${isPercentage ? '%' : ''}</span>
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">${label}</span>
+            <span class="font-extrabold ${isAwayDominant ? 'text-emerald-600 text-sm' : 'text-slate-700'}">${awayVal}${isPercentage ? '%' : ''}</span>
           </div>
-          <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden flex p-0.5 border border-slate-800/80">
-            <div class="bg-gradient-to-r from-blue-600 to-blue-400 h-full rounded-l-full transition-all duration-500" style="width: ${hPct}%"></div>
-            <div class="bg-gradient-to-r from-emerald-400 to-emerald-600 h-full rounded-r-full transition-all duration-500" style="width: ${aPct}%"></div>
+          <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden flex p-0.5">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-500 h-full rounded-l-full transition-all duration-500" style="width: ${hPct}%"></div>
+            <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 h-full rounded-r-full transition-all duration-500" style="width: ${aPct}%"></div>
           </div>
         </div>
       `;
     };
 
     statsBlockHtml = `
-      <div class="bg-stadium-card border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
-        <div class="flex items-center justify-between text-xs font-black pb-3 border-b border-slate-800">
-          <div class="flex items-center gap-2 text-blue-400 truncate max-w-[45%]">
-            <span class="w-2.5 h-2.5 bg-blue-500 rounded-full shrink-0 shadow-lg shadow-blue-500/50"></span>
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+        <div class="flex items-center justify-between text-xs font-black pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2 text-blue-600 truncate max-w-[45%]">
+            <span class="w-2.5 h-2.5 bg-blue-600 rounded-full shrink-0"></span>
             <span class="truncate">${home.team.shortDisplayName || home.team.displayName}</span>
           </div>
-          <span class="text-[10px] text-slate-500 uppercase font-mono tracking-wider">STATISTIK</span>
-          <div class="flex items-center gap-2 text-emerald-400 truncate max-w-[45%] justify-end text-right">
+          <span class="text-[10px] text-slate-400 uppercase font-mono tracking-wider">STATISTIK</span>
+          <div class="flex items-center gap-2 text-emerald-600 truncate max-w-[45%] justify-end text-right">
             <span class="truncate">${away.team.shortDisplayName || away.team.displayName}</span>
-            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full shrink-0 shadow-lg shadow-emerald-500/50"></span>
+            <span class="w-2.5 h-2.5 bg-emerald-600 rounded-full shrink-0"></span>
           </div>
         </div>
 
@@ -731,14 +723,14 @@ function renderModalCompleteData(data, leagueId) {
 
     let timelineItems = `
       <div class="relative flex items-center justify-center pt-2 pb-1">
-        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
-        <div class="relative bg-slate-900 px-3 text-slate-400 text-sm">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+        <div class="relative bg-slate-100 px-3 text-slate-500 text-sm rounded-full border border-slate-200">
           <i class="fa-solid fa-stopwatch"></i>
         </div>
       </div>
       <div class="relative flex items-center justify-center mb-3">
-        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
-        <span class="relative bg-slate-900 px-3 text-xs font-black tracking-wider text-white uppercase">FT ${ftScoreStr}</span>
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+        <span class="relative bg-slate-900 px-3 py-0.5 rounded-full text-xs font-black tracking-wider text-white uppercase">FT ${ftScoreStr}</span>
       </div>
     `;
 
@@ -751,8 +743,8 @@ function renderModalCompleteData(data, leagueId) {
         htInserted = true;
         dividerHtml = `
           <div class="relative flex items-center justify-center my-3">
-            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
-            <span class="relative bg-slate-900 px-3 text-xs font-black tracking-wider text-slate-400 uppercase">HT</span>
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+            <span class="relative bg-slate-200 px-3 py-0.5 rounded-full text-xs font-black tracking-wider text-slate-700 uppercase">HT</span>
           </div>
         `;
       }
@@ -774,7 +766,7 @@ function renderModalCompleteData(data, leagueId) {
       if (typeText.includes('var') || typeText.includes('disallowed') || typeText.includes('cancelled') || rawText.includes('var') || rawText.includes('disallowed')) {
         const scorer = getPlayerName(0);
         const varBadge = `
-          <span class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0">
+          <span class="bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0">
             <i class="fa-solid fa-tv"></i> VAR: Gol Dibatalkan
           </span>
         `;
@@ -782,7 +774,7 @@ function renderModalCompleteData(data, leagueId) {
         mainContent = `
           <div class="flex items-center gap-1.5 min-w-0 ${isHomeEvent ? '' : 'justify-end'}">
             ${isHomeEvent ? varBadge : ''}
-            <span class="text-xs font-bold text-slate-300 truncate flex-1 min-w-0">${scorer}</span>
+            <span class="text-xs font-bold text-slate-800 truncate flex-1 min-w-0">${scorer}</span>
             ${!isHomeEvent ? varBadge : ''}
           </div>
         `;
@@ -790,9 +782,9 @@ function renderModalCompleteData(data, leagueId) {
       } else if (typeText.includes('missed penalty') || typeText.includes('penalty miss') || (typeText.includes('penalty') && typeText.includes('miss'))) {
         const scorer = getPlayerName(0);
         const missedPenIcon = `
-          <div class="relative inline-flex items-center justify-center shrink-0 animate-bounce-ball">
-            <i class="fa-solid fa-futbol text-emerald-400 text-sm"></i>
-            <i class="fa-solid fa-xmark text-red-500 text-[11px] font-black absolute inset-0 flex items-center justify-center drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]"></i>
+          <div class="relative inline-flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-futbol text-emerald-600 text-sm"></i>
+            <i class="fa-solid fa-xmark text-red-600 text-[11px] font-black absolute inset-0 flex items-center justify-center"></i>
           </div>
         `;
 
@@ -800,8 +792,8 @@ function renderModalCompleteData(data, leagueId) {
           <div class="flex items-center gap-1.5 min-w-0 ${isHomeEvent ? '' : 'justify-end'}">
             ${isHomeEvent ? missedPenIcon : ''}
             <div class="flex flex-col ${isHomeEvent ? 'text-left' : 'text-right'} min-w-0 flex-1">
-              <span class="text-xs font-bold text-slate-200 truncate">${scorer}</span>
-              <span class="text-[9px] font-bold text-red-400 uppercase tracking-tight flex items-center gap-1 ${isHomeEvent ? '' : 'justify-end'}"><i class="fa-solid fa-ban text-[8px]"></i> Penalti Gagal</span>
+              <span class="text-xs font-bold text-slate-800 truncate">${scorer}</span>
+              <span class="text-[9px] font-bold text-red-600 uppercase tracking-tight flex items-center gap-1 ${isHomeEvent ? '' : 'justify-end'}"><i class="fa-solid fa-ban text-[8px]"></i> Penalti Gagal</span>
             </div>
             ${!isHomeEvent ? missedPenIcon : ''}
           </div>
@@ -814,15 +806,15 @@ function renderModalCompleteData(data, leagueId) {
         const isPen = typeText.includes('penalty') || typeText.includes('penalti');
         const runningScore = item.scoreValue || 'GOL';
 
-        let goalIcon = `<i class="fa-solid fa-futbol text-white text-sm animate-bounce-ball shrink-0"></i>`;
+        let goalIcon = `<i class="fa-solid fa-futbol text-slate-900 text-sm shrink-0"></i>`;
         let goalLabel = '';
 
         if (isPen) {
           goalLabel = 'Gol Penalti';
-          goalIcon = `<i class="fa-solid fa-futbol text-emerald-400 text-sm animate-bounce-ball shrink-0"></i>`;
+          goalIcon = `<i class="fa-solid fa-futbol text-emerald-600 text-sm shrink-0"></i>`;
         } else if (isOG) {
           goalLabel = 'Gol Bunuh Diri';
-          goalIcon = `<i class="fa-solid fa-futbol text-red-400 text-sm animate-bounce-ball shrink-0"></i>`;
+          goalIcon = `<i class="fa-solid fa-futbol text-red-600 text-sm shrink-0"></i>`;
         }
 
         if (isHomeEvent) {
@@ -830,11 +822,11 @@ function renderModalCompleteData(data, leagueId) {
             <div class="flex items-start gap-2 min-w-0">
               <div class="flex flex-col items-center shrink-0">
                 ${goalIcon}
-                ${runningScore ? `<span class="bg-blue-600 text-white font-black text-[8px] px-1 py-0.2 rounded mt-0.5">${runningScore}</span>` : ''}
+                ${runningScore ? `<span class="bg-emerald-600 text-white font-black text-[8px] px-1.5 py-0.2 rounded mt-0.5">${runningScore}</span>` : ''}
               </div>
               <div class="flex flex-col text-left min-w-0 flex-1">
-                <span class="text-xs font-black text-white leading-tight break-words">${scorer}</span>
-                ${goalLabel ? `<span class="text-[9px] text-emerald-400 font-bold truncate mt-0.5">${goalLabel}</span>` : (assist ? `<span class="text-[9px] text-slate-400 font-medium truncate mt-0.5 flex items-center gap-1"><i class="fa-solid fa-shoe-prints text-[8px] text-emerald-400"></i>${assist}</span>` : '')}
+                <span class="text-xs font-black text-slate-900 leading-tight break-words">${scorer}</span>
+                ${goalLabel ? `<span class="text-[9px] text-emerald-700 font-bold truncate mt-0.5">${goalLabel}</span>` : (assist ? `<span class="text-[9px] text-slate-500 font-medium truncate mt-0.5 flex items-center gap-1"><i class="fa-solid fa-shoe-prints text-[8px] text-emerald-600"></i>${assist}</span>` : '')}
               </div>
             </div>
           `;
@@ -842,12 +834,12 @@ function renderModalCompleteData(data, leagueId) {
           mainContent = `
             <div class="flex items-start justify-end gap-2 min-w-0 text-right">
               <div class="flex flex-col text-right min-w-0 flex-1">
-                <span class="text-xs font-black text-white leading-tight break-words">${scorer}</span>
-                ${goalLabel ? `<span class="text-[9px] text-emerald-400 font-bold truncate mt-0.5">${goalLabel}</span>` : (assist ? `<span class="text-[9px] text-slate-400 font-medium truncate mt-0.5 flex items-center justify-end gap-1"><i class="fa-solid fa-shoe-prints text-[8px] text-emerald-400"></i>${assist}</span>` : '')}
+                <span class="text-xs font-black text-slate-900 leading-tight break-words">${scorer}</span>
+                ${goalLabel ? `<span class="text-[9px] text-emerald-700 font-bold truncate mt-0.5">${goalLabel}</span>` : (assist ? `<span class="text-[9px] text-slate-500 font-medium truncate mt-0.5 flex items-center justify-end gap-1"><i class="fa-solid fa-shoe-prints text-[8px] text-emerald-600"></i>${assist}</span>` : '')}
               </div>
               <div class="flex flex-col items-center shrink-0">
                 ${goalIcon}
-                ${runningScore ? `<span class="bg-blue-600 text-white font-black text-[8px] px-1 py-0.2 rounded mt-0.5">${runningScore}</span>` : ''}
+                ${runningScore ? `<span class="bg-emerald-600 text-white font-black text-[8px] px-1.5 py-0.2 rounded mt-0.5">${runningScore}</span>` : ''}
               </div>
             </div>
           `;
@@ -860,11 +852,11 @@ function renderModalCompleteData(data, leagueId) {
         if (isHomeEvent) {
           mainContent = `
             <div class="flex flex-col text-left min-w-0 flex-1">
-              <div class="flex items-center gap-1 text-xs font-bold text-emerald-400 min-w-0">
-                <i class="fa-solid fa-circle-arrow-right text-emerald-500 text-xs shrink-0"></i>
+              <div class="flex items-center gap-1 text-xs font-bold text-emerald-700 min-w-0">
+                <i class="fa-solid fa-circle-arrow-right text-emerald-600 text-xs shrink-0"></i>
                 <span class="truncate">${playerIn}</span>
               </div>
-              <div class="flex items-center gap-1 text-xs font-bold text-red-500/90 mt-0.5 min-w-0">
+              <div class="flex items-center gap-1 text-xs font-bold text-red-600 mt-0.5 min-w-0">
                 <i class="fa-solid fa-circle-arrow-left text-red-500 text-xs shrink-0"></i>
                 <span class="truncate">${playerOut}</span>
               </div>
@@ -873,11 +865,11 @@ function renderModalCompleteData(data, leagueId) {
         } else {
           mainContent = `
             <div class="flex flex-col text-right min-w-0 flex-1">
-              <div class="flex items-center justify-end gap-1 text-xs font-bold text-emerald-400 min-w-0">
+              <div class="flex items-center justify-end gap-1 text-xs font-bold text-emerald-700 min-w-0">
                 <span class="truncate">${playerIn}</span>
-                <i class="fa-solid fa-circle-arrow-right text-emerald-500 text-xs shrink-0"></i>
+                <i class="fa-solid fa-circle-arrow-right text-emerald-600 text-xs shrink-0"></i>
               </div>
-              <div class="flex items-center justify-end gap-1 text-xs font-bold text-red-500/90 mt-0.5 min-w-0">
+              <div class="flex items-center justify-end gap-1 text-xs font-bold text-red-600 mt-0.5 min-w-0">
                 <span class="truncate">${playerOut}</span>
                 <i class="fa-solid fa-circle-arrow-left text-red-500 text-xs shrink-0"></i>
               </div>
@@ -889,14 +881,14 @@ function renderModalCompleteData(data, leagueId) {
         const isRed = typeText.includes('red') || typeText.includes('merah');
         const playerName = getPlayerName(0);
         const cardLabel = isRed ? 'Kartu Merah' : 'Kartu Kuning';
-        const cardBox = `<div class="w-2.5 h-3.5 ${isRed ? 'bg-red-500' : 'bg-amber-400'} rounded-sm shrink-0 shadow"></div>`;
+        const cardBox = `<div class="w-2.5 h-3.5 ${isRed ? 'bg-red-500' : 'bg-amber-400'} rounded-sm shrink-0 shadow-sm border border-slate-300"></div>`;
 
         mainContent = `
           <div class="flex items-center gap-1.5 min-w-0 ${isHomeEvent ? '' : 'justify-end'}">
             ${isHomeEvent ? cardBox : ''}
             <div class="flex flex-col min-w-0 flex-1 ${isHomeEvent ? 'text-left' : 'text-right'}">
-              <span class="text-xs font-bold text-slate-200 truncate">${playerName}</span>
-              <span class="text-[9px] text-slate-400 truncate">${cardLabel}</span>
+              <span class="text-xs font-bold text-slate-800 truncate">${playerName}</span>
+              <span class="text-[9px] text-slate-500 truncate">${cardLabel}</span>
             </div>
             ${!isHomeEvent ? cardBox : ''}
           </div>
@@ -905,10 +897,10 @@ function renderModalCompleteData(data, leagueId) {
 
       return `
         ${dividerHtml}
-        <div class="grid grid-cols-12 items-center py-2 min-h-[44px] border-b border-slate-800/60 gap-1">
+        <div class="grid grid-cols-12 items-center py-2 min-h-[44px] border-b border-slate-100 gap-1">
           <div class="col-span-6 flex items-center pr-1 min-w-0">
             ${isHomeEvent ? `
-              <span class="text-[10px] font-mono font-bold text-slate-400 w-8 text-left shrink-0">${clock}</span>
+              <span class="text-[10px] font-mono font-bold text-slate-500 w-8 text-left shrink-0">${clock}</span>
               <div class="flex-1 min-w-0">${mainContent}</div>
             ` : ''}
           </div>
@@ -916,7 +908,7 @@ function renderModalCompleteData(data, leagueId) {
           <div class="col-span-6 flex items-center justify-end pl-1 min-w-0">
             ${!isHomeEvent ? `
               <div class="flex-1 min-w-0">${mainContent}</div>
-              <span class="text-[10px] font-mono font-bold text-slate-400 w-8 text-right shrink-0">${clock}</span>
+              <span class="text-[10px] font-mono font-bold text-slate-500 w-8 text-right shrink-0">${clock}</span>
             ` : ''}
           </div>
         </div>
@@ -924,12 +916,12 @@ function renderModalCompleteData(data, leagueId) {
     }).join('');
 
     eventsTimelineHtml = `
-      <div class="bg-stadium-card p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-1">
-        <div class="flex items-center justify-between text-xs font-extrabold text-slate-300 pb-2 mb-2 border-b border-slate-800/80">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+        <div class="flex items-center justify-between text-xs font-extrabold text-slate-900 pb-2 mb-2 border-b border-slate-100">
           <span>Kejadian Pertandingan</span>
           <div class="flex items-center gap-1.5">
-            <span class="text-[10px] text-slate-400 font-normal">Gol</span>
-            <div class="w-2.5 h-2.5 bg-slate-200 rounded-full"></div>
+            <span class="text-[10px] text-slate-500 font-normal">Gol</span>
+            <div class="w-2.5 h-2.5 bg-slate-800 rounded-full"></div>
           </div>
         </div>
         ${timelineItems}
@@ -938,14 +930,14 @@ function renderModalCompleteData(data, leagueId) {
     `;
   } else {
     eventsTimelineHtml = `
-      <div class="bg-stadium-card p-4 rounded-2xl border border-slate-800/80 shadow-xl space-y-3">
-        <div class="text-xs font-black text-slate-300 pb-2 border-b border-slate-800/80 uppercase tracking-wider flex items-center justify-between">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div class="text-xs font-black text-slate-900 pb-2 border-b border-slate-100 uppercase tracking-wider flex items-center justify-between">
           <span>Kejadian Pertandingan</span>
-          <i class="fa-regular fa-calendar-xmark text-slate-500 text-sm"></i>
+          <i class="fa-regular fa-calendar-xmark text-slate-400 text-sm"></i>
         </div>
-        <div class="py-8 text-center text-slate-400 text-xs font-medium space-y-1">
-          <p class="text-slate-300 font-bold">Belum ada catatan kejadian penting.</p>
-          <p class="text-[10px] text-slate-500">Gol, kartu, dan pergantian pemain akan tampil otomatis di sini.</p>
+        <div class="py-8 text-center text-slate-500 text-xs font-medium space-y-1">
+          <p class="text-slate-800 font-bold">Belum ada catatan kejadian penting.</p>
+          <p class="text-[10px] text-slate-400">Gol, kartu, dan pergantian pemain akan tampil otomatis di sini.</p>
         </div>
         ${matchInfoBadgeHtml}
       </div>
@@ -1010,13 +1002,13 @@ function renderModalCompleteData(data, leagueId) {
             return `
               <div class="flex flex-col items-center group relative cursor-pointer flex-1 min-w-0 max-w-[70px] sm:max-w-[85px]">
                 <div class="relative shrink-0">
-                  <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 ${borderColor} bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
+                  <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 ${borderColor} bg-white overflow-hidden shadow-md flex items-center justify-center">
                     <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
                   </div>
-                  <span class="absolute -top-1 -right-1 bg-slate-950 text-white font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full shadow-lg border border-slate-700 z-10">#${jersey}</span>
+                  <span class="absolute -top-1 -right-1 bg-slate-900 text-white font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full shadow z-10">#${jersey}</span>
                   ${badgeHtml}
                 </div>
-                <span class="text-[8.5px] sm:text-[9.5px] font-bold text-white bg-slate-950/90 px-1 py-0.5 rounded shadow-md w-full text-center mt-1 border border-slate-800/80 leading-tight break-words" title="${pFullName}">${pMultiLine}</span>
+                <span class="text-[8.5px] sm:text-[9.5px] font-bold text-slate-900 bg-white/95 px-1.5 py-0.5 rounded shadow-sm w-full text-center mt-1 border border-slate-200 leading-tight break-words" title="${pFullName}">${pMultiLine}</span>
               </div>
             `;
           }).join('')}
@@ -1039,15 +1031,15 @@ function renderModalCompleteData(data, leagueId) {
         return `
           <div class="flex items-center gap-2 py-1.5 px-0.5 min-w-0 flex-1">
             <div class="relative shrink-0">
-              <div class="w-8 h-8 rounded-full bg-slate-950 overflow-hidden border border-slate-700/80 flex items-center justify-center">
+              <div class="w-8 h-8 rounded-full bg-slate-100 overflow-hidden border border-slate-300 flex items-center justify-center">
                 <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
               </div>
               ${badgeHtml}
             </div>
             <div class="min-w-0 flex-1">
               <div class="flex items-start gap-1 leading-tight">
-                <span class="text-blue-400 font-black text-xs shrink-0">#${jersey}</span>
-                <span class="text-xs font-bold text-slate-100 leading-snug break-words">${pMultiLine}</span>
+                <span class="text-blue-600 font-black text-xs shrink-0">#${jersey}</span>
+                <span class="text-xs font-bold text-slate-800 leading-snug break-words">${pMultiLine}</span>
               </div>
             </div>
           </div>
@@ -1058,18 +1050,18 @@ function renderModalCompleteData(data, leagueId) {
         const hP = homeSubs[i];
         const aP = awaySubs[i];
         subRowsHtml += `
-          <div class="flex items-center border-b border-slate-800/40 last:border-b-0">
-            <div class="w-1/2 pr-1.5 border-r border-slate-800/80">${renderSubItem(hP)}</div>
+          <div class="flex items-center border-b border-slate-100 last:border-b-0">
+            <div class="w-1/2 pr-1.5 border-r border-slate-200">${renderSubItem(hP)}</div>
             <div class="w-1/2 pl-1.5">${renderSubItem(aP)}</div>
           </div>
         `;
       }
 
       return `
-        <div class="bg-stadium-card border border-slate-800/80 rounded-2xl p-3 shadow-xl space-y-2 mt-3">
-          <div class="text-sm font-extrabold text-white pb-2 border-b border-slate-800 flex items-center justify-between">
+        <div class="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2 mt-3">
+          <div class="text-sm font-extrabold text-slate-900 pb-2 border-b border-slate-100 flex items-center justify-between">
             <span>Substitutes</span>
-            <span class="text-[10px] text-slate-400 font-normal">Cadangan</span>
+            <span class="text-[10px] text-slate-500 font-normal">Cadangan</span>
           </div>
           <div class="space-y-0.5">
             ${subRowsHtml}
@@ -1079,19 +1071,19 @@ function renderModalCompleteData(data, leagueId) {
     };
 
     lineupHtml = `
-      <div class="space-y-3 bg-stadium-card border border-slate-800 p-2.5 rounded-2xl shadow-xl">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2 text-[10px]">
-          <div class="flex items-center gap-1.5 text-blue-400 font-bold">
+      <div class="space-y-3 bg-white border border-slate-200 p-2.5 rounded-2xl shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2 text-[10px]">
+          <div class="flex items-center gap-1.5 text-blue-700 font-bold">
             <img src="${homeLogo}" loading="lazy" class="w-4 h-4 object-contain">
             <span>${home.team.displayName} (${homeRoster.formation || 'Formasi'})</span>
           </div>
-          <div class="flex items-center gap-1.5 text-emerald-400 font-bold">
+          <div class="flex items-center gap-1.5 text-emerald-700 font-bold">
             <span>(${awayRoster.formation || 'Formasi'}) ${away.team.displayName}</span>
             <img src="${awayLogo}" loading="lazy" class="w-4 h-4 object-contain">
           </div>
         </div>
 
-        <div class="soccer-full-pitch rounded-xl p-1 py-3 shadow-inner flex flex-col justify-between relative">
+        <div class="soccer-full-pitch rounded-xl p-1 py-3 flex flex-col justify-between relative">
           <div class="pitch-center-line-full"></div>
           <div class="pitch-center-circle"></div>
           <div class="pitch-center-dot"></div>
@@ -1117,12 +1109,11 @@ function renderModalCompleteData(data, leagueId) {
       </div>
     `;
   } else {
-    lineupHtml = `<div class="text-center py-8 text-slate-500 bg-stadium-card rounded-xl border border-slate-800"><i class="fa-solid fa-user-slash text-2xl mb-2 block"></i>Susunan pemain resmi belum dirilis oleh official.</div>`;
+    lineupHtml = `<div class="text-center py-8 text-slate-500 bg-white rounded-xl border border-slate-200"><i class="fa-solid fa-user-slash text-2xl mb-2 block"></i>Susunan pemain resmi belum dirilis oleh official.</div>`;
   }
   document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
 }
 
-// SWITCH MODAL PILL TABS WITH MODERN ACTIVE / INACTIVE ANIMATIONS
 function switchModalTab(tabName) {
   const tabs = ['summary', 'stats', 'lineup', 'standings', 'h2h'];
 
@@ -1132,10 +1123,10 @@ function switchModalTab(tabName) {
 
     if (btn && content) {
       if (t === tabName) {
-        btn.className = "flex-1 py-2 px-3 text-[11px] font-extrabold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl shadow-lg shadow-emerald-500/25 transition-all duration-200 whitespace-nowrap";
+        btn.className = "flex-1 py-2 px-3 text-[11px] font-extrabold text-white bg-emerald-600 rounded-xl shadow-md transition-all duration-200 whitespace-nowrap";
         content.classList.remove('hidden');
       } else {
-        btn.className = "flex-1 py-2 px-3 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all duration-200 whitespace-nowrap";
+        btn.className = "flex-1 py-2 px-3 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-300/50 rounded-xl transition-all duration-200 whitespace-nowrap";
         content.classList.add('hidden');
       }
     }
