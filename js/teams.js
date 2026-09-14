@@ -1,4 +1,24 @@
-// TEAMS & CLUB DETAILS MODULE - FOTMOB DARK GREEN THEME REWRITE
+// TEAMS & CLUB DETAILS MODULE - FOTMOB DARK GREEN THEME (FIXED)
+
+// Helper Extract Score dari Data ESPN
+function extractScore(competitor) {
+  if (!competitor) return '0';
+  if (competitor.score !== undefined && competitor.score !== null) {
+    if (typeof competitor.score === 'object') {
+      return competitor.score.displayValue ?? competitor.score.value ?? '0';
+    }
+    return String(competitor.score);
+  }
+  return '0';
+}
+
+// Helper Cek Pertandingan Selesai
+function isMatchFinished(evt) {
+  const state = evt.status?.type?.state;
+  const completed = evt.status?.type?.completed;
+  const detail = (evt.status?.type?.shortDetail || evt.status?.type?.description || '').toLowerCase();
+  return state === 'post' || completed === true || detail.includes('ft') || detail.includes('final');
+}
 
 // Check if Team is Favorited
 function isTeamFavorite(teamId) {
@@ -21,7 +41,7 @@ function toggleTeamFavorite(teamId, e) {
   }
 }
 
-// Open Team Detail Modal (FotMob Dark Green Style)
+// Open Team Detail Modal
 async function openTeamDetail(leagueId, teamId, teamName, event) {
   if (event) event.stopPropagation();
   currentOpenTeam = { leagueId, teamId, teamName };
@@ -35,14 +55,14 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
 
   const isFavTeam = isTeamFavorite(teamId);
   const teamLogo = dataSaverMode ? PLAIN_SHIELD_LOGO : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-  const leagueObj = LEAGUES.find(l => l.id === leagueId) || { country: 'Klub Sepak Bola', name: 'Liga' };
-  const countryUpper = (leagueObj.country || 'INTERNATIONAL').toUpperCase();
+  const validLeagueId = (!leagueId || leagueId === 'all') ? 'ita.1' : leagueId;
+  const leagueObj = LEAGUES.find(l => l.id === validLeagueId) || { country: 'ITALIA', name: 'Liga' };
+  const countryUpper = (leagueObj.country || 'ITALIA').toUpperCase();
 
-  // RENDER FOTMOB HEADER (GREEN GRADIENT & NAVIGATION TABS)
+  // Render Header & Menu Utama FotMob (Satu-satunya Menu Navigasi)
   const banner = document.getElementById('team-modal-banner');
   banner.className = "p-4 sm:p-5 bg-gradient-to-b from-[#0d2d1a] via-[#091f12] to-[#08170d] text-white shrink-0 border-b border-white/10";
   banner.innerHTML = `
-    <!-- Top Action Bar -->
     <div class="flex items-center justify-between mb-4">
       <button onclick="closeTeamModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs transition">
         <i class="fa-solid fa-arrow-left"></i>
@@ -54,7 +74,6 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
       </div>
     </div>
 
-    <!-- Team Title Info Block -->
     <div class="flex items-center gap-3.5 mb-5">
       <div class="w-14 h-14 bg-emerald-950/60 rounded-2xl p-2 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-lg">
         <img src="${teamLogo}" loading="lazy" class="w-full h-full object-contain" onError="this.src='${PLAIN_SHIELD_LOGO}'">
@@ -67,7 +86,7 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
       </div>
     </div>
 
-    <!-- FotMob Pill Navigation Bar -->
+    <!-- Navigasi Utama -->
     <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
       <button id="ttab-overview" onclick="switchTeamModalTab('overview')" class="px-4 py-1.5 text-xs font-black rounded-full transition bg-white text-slate-900 shadow">Overview</button>
       <button id="ttab-summary" onclick="switchTeamModalTab('summary')" class="px-4 py-1.5 text-xs font-bold rounded-full transition text-slate-300 hover:text-white hover:bg-white/10">Fixtures</button>
@@ -76,9 +95,8 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
     </div>
   `;
 
-  // Render content
   switchTeamModalTab('overview');
-  loadTeamFullData(leagueId, teamId, teamName);
+  loadTeamFullData(validLeagueId, teamId, teamName);
 }
 
 // Close Team Detail Modal
@@ -87,7 +105,7 @@ function closeTeamModal() {
   document.getElementById('team-detail-modal').classList.add('hidden');
 }
 
-// Switch Sub-Tabs in Team Modal
+// Switch Sub-Tabs
 function switchTeamModalTab(tabName) {
   const tabs = ['overview', 'summary', 'standings', 'player'];
   tabs.forEach(t => {
@@ -111,7 +129,6 @@ async function loadTeamFullData(leagueId, teamId, teamName) {
   const overviewContainer = document.getElementById('tcontent-overview');
   const summaryContainer = document.getElementById('tcontent-summary');
   const standingsContainer = document.getElementById('tcontent-standings');
-  const squadContainer = document.getElementById('tcontent-player');
 
   if (overviewContainer) {
     overviewContainer.innerHTML = `
@@ -123,30 +140,29 @@ async function loadTeamFullData(leagueId, teamId, teamName) {
   }
 
   try {
-    let targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'esp.1';
+    const targetLeague = (!leagueId || leagueId === 'all') ? 'ita.1' : leagueId;
 
-    // Fetch Schedule & Roster parallel
     const [scheduleRes, rosterRes] = await Promise.all([
       fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/schedule`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/roster`).then(r => r.ok ? r.json() : null).catch(() => null)
     ]);
 
     const events = scheduleRes?.events || [];
-    const finishedEvents = events.filter(e => e.status?.type?.state === 'post').sort((a,b) => new Date(b.date) - new Date(a.date));
-    const upcomingEvents = events.filter(e => e.status?.type?.state === 'pre' || e.status?.type?.state === 'in').sort((a,b) => new Date(a.date) - new Date(b.date));
+    const finishedEvents = events.filter(e => isMatchFinished(e)).sort((a,b) => new Date(b.date) - new Date(a.date));
+    const upcomingEvents = events.filter(e => !isMatchFinished(e)).sort((a,b) => new Date(a.date) - new Date(b.date));
 
-    // Render Overview View (Screenshot 1 & 2)
+    // Render Overview
     renderFotmobOverview(overviewContainer, teamId, teamName, finishedEvents, upcomingEvents, rosterRes);
 
-    // Render Fixtures View (Screenshot 4)
-    renderFotmobFixtures(summaryContainer, events, teamId);
+    // Render Fixtures (Pertandingan Selesai + Skor)
+    renderFotmobFixtures(summaryContainer, finishedEvents, teamId);
 
-    // Render Standings View (Screenshot 3)
+    // Render Table
     const targetLeagueObj = LEAGUES.find(l => l.id === targetLeague) || LEAGUES[0];
     standingsContainer.innerHTML = '';
     await renderLeagueStandingsTable(targetLeagueObj, standingsContainer, teamId);
 
-    // Render Squad View
+    // Render Squad
     loadStyledSquadRosterUI(targetLeague, teamId);
 
   } catch (err) {
@@ -157,7 +173,7 @@ async function loadTeamFullData(leagueId, teamId, teamName) {
   }
 }
 
-// RENDER OVERVIEW TAB (Screenshot 1 & 2 Replica)
+// RENDER OVERVIEW TAB
 function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcomingEvents, rosterData) {
   if (!container) return;
   container.innerHTML = '';
@@ -165,8 +181,8 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
   const wrapper = document.createElement('div');
   wrapper.className = 'space-y-4';
 
-  // 1. MATCH CAROUSEL CARD (Top Row Cards: Last result, Next match)
-  const topMatches = [...finishedEvents.slice(0, 1), ...upcomingEvents.slice(0, 2)];
+  // 1. CAROUSEL HASIL & JADWAL LAGA
+  const topMatches = [...finishedEvents.slice(0, 2), ...upcomingEvents.slice(0, 1)];
   if (topMatches.length > 0) {
     const carouselSection = document.createElement('div');
     carouselSection.className = 'grid grid-cols-3 gap-2';
@@ -175,28 +191,28 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
       const comp = evt.competitions?.[0];
       const home = comp?.competitors?.find(c => c.homeAway === 'home');
       const away = comp?.competitors?.find(c => c.homeAway === 'away');
-      const state = evt.status?.type?.state;
-      const isPost = state === 'post';
+      const finished = isMatchFinished(evt);
 
       const homeLogo = getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO;
       const awayLogo = getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO;
+      const homeScore = extractScore(home);
+      const awayScore = extractScore(away);
       const dateFormatted = new Date(evt.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-      const timeFormatted = new Date(evt.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
 
       const card = document.createElement('div');
       card.className = 'bg-[#102719] border border-white/10 p-2.5 rounded-2xl flex flex-col justify-between text-center cursor-pointer hover:bg-[#163522] transition';
-      card.onclick = () => openMatchDetail(evt.leagueId || 'esp.1', evt.id, evt.leagueName || 'Detail');
+      card.onclick = () => openMatchDetail(evt.leagueId || 'ita.1', evt.id, evt.leagueName || 'Detail');
 
       card.innerHTML = `
-        <div class="text-[9px] font-bold text-emerald-400 truncate mb-1.5 flex items-center justify-center gap-1">
-          <i class="fa-solid fa-trophy text-[8px]"></i> ${evt.season?.slug || 'League'}
+        <div class="text-[9px] font-bold text-emerald-400 truncate mb-1 flex items-center justify-center gap-1">
+          <i class="fa-solid fa-trophy text-[8px]"></i> ${evt.season?.slug || 'Liga'}
         </div>
         <div class="flex items-center justify-between my-1 px-1">
-          <img src="${homeLogo}" class="w-5 h-5 object-contain">
+          <img src="${homeLogo}" class="w-5 h-5 object-contain" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
           <span class="text-xs font-black text-white px-1">
-            ${isPost ? `${home?.score || 0} - ${away?.score || 0}` : `${dateFormatted}<br><span class="text-[9px] text-slate-400 font-normal">${timeFormatted}</span>`}
+            ${finished ? `${homeScore} - ${awayScore}` : dateFormatted}
           </span>
-          <img src="${awayLogo}" class="w-5 h-5 object-contain">
+          <img src="${awayLogo}" class="w-5 h-5 object-contain" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
         </div>
       `;
       carouselSection.appendChild(card);
@@ -204,7 +220,7 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
     wrapper.appendChild(carouselSection);
   }
 
-  // 2. LAST 10 MATCHES WIDGET (Screenshot 1 - Middle Widget)
+  // 2. LAST MATCHES FORM WIDGET
   const last10 = finishedEvents.slice(0, 10).reverse();
   if (last10.length > 0) {
     const startDate = new Date(last10[0].date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' });
@@ -215,23 +231,23 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
     
     let itemsHtml = last10.map(evt => {
       const comp = evt.competitions?.[0];
-      const myTeam = comp?.competitors?.find(c => String(c.team.id) === String(teamId));
-      const oppTeam = comp?.competitors?.find(c => String(c.team.id) !== String(teamId));
+      const myTeam = comp?.competitors?.find(c => String(c.team?.id) === String(teamId));
+      const oppTeam = comp?.competitors?.find(c => String(c.team?.id) !== String(teamId));
       
-      const myScore = parseInt(myTeam?.score || '0');
-      const oppScore = parseInt(oppTeam?.score || '0');
+      const myScore = parseInt(extractScore(myTeam));
+      const oppScore = parseInt(extractScore(oppTeam));
       const oppLogo = getTeamLogo(oppTeam?.team) || PLAIN_SHIELD_LOGO;
 
-      let resBadge = { icon: 'fa-minus', color: 'bg-[#2a3d30] text-slate-300' }; // Draw
+      let resBadge = { icon: 'fa-minus', color: 'bg-[#2a3d30] text-slate-300' };
       if (myScore > oppScore) {
-        resBadge = { icon: 'fa-check', color: 'bg-emerald-600 text-white' }; // Win
+        resBadge = { icon: 'fa-check', color: 'bg-emerald-600 text-white' };
       } else if (myScore < oppScore) {
-        resBadge = { icon: 'fa-xmark', color: 'bg-red-600/80 text-white' }; // Loss
+        resBadge = { icon: 'fa-xmark', color: 'bg-red-600/80 text-white' };
       }
 
       return `
         <div class="flex flex-col items-center gap-1 flex-1 min-w-0">
-          <img src="${oppLogo}" class="w-5 h-5 object-contain" title="${oppTeam?.team?.displayName || ''}">
+          <img src="${oppLogo}" class="w-5 h-5 object-contain" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
           <span class="text-[9.5px] font-mono font-bold text-slate-200">${myScore}-${oppScore}</span>
           <span class="w-4 h-4 rounded-md flex items-center justify-center text-[8px] font-black ${resBadge.color}">
             <i class="fa-solid ${resBadge.icon}"></i>
@@ -252,7 +268,7 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
     wrapper.appendChild(formCard);
   }
 
-  // 3. LATEST FORMATION / SQUAD PITCH (Screenshot 2)
+  // 3. FORMATION & MANAGER
   const rawCoach = rosterData?.coach?.[0];
   const coachName = rawCoach ? (rawCoach.displayName || rawCoach.fullName) : null;
 
@@ -263,31 +279,29 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
       <span>Latest Formation</span>
       <span class="text-xs font-extrabold text-emerald-400">4-3-3</span>
     </div>
-    <div class="soccer-full-pitch rounded-2xl p-2 py-4 flex flex-col justify-between relative !min-h-[320px]">
+    <div class="soccer-full-pitch rounded-2xl p-2 py-4 flex flex-col justify-between relative !min-h-[260px]">
       <div class="pitch-center-line-full"></div>
       <div class="pitch-center-circle"></div>
       <div class="pitch-center-dot"></div>
       
-      <!-- Mini Tactical Pitch Preview -->
       <div class="flex items-center justify-around z-10">
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">49</span><span class="text-[9px] font-bold text-white mt-0.5">A Muric</span></div>
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">GK</span></div>
       </div>
       <div class="flex items-center justify-around z-10">
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">46</span><span class="text-[9px] font-bold text-white mt-0.5">S Cinque</span></div>
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">21</span><span class="text-[9px] font-bold text-white mt-0.5">J Idzes</span></div>
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">16</span><span class="text-[9px] font-bold text-white mt-0.5">F Leysen</span></div>
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">3</span><span class="text-[9px] font-bold text-white mt-0.5">J Doig</span></div>
+        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">DF</span></div>
+        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">DF</span></div>
+        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">DF</span></div>
+        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">DF</span></div>
       </div>
       <div class="flex items-center justify-around z-10">
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">42</span><span class="text-[9px] font-bold text-white mt-0.5">Thorstvedt</span></div>
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">18</span><span class="text-[9px] font-bold text-white mt-0.5">N Matic</span></div>
-        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">35</span><span class="text-[9px] font-bold text-white mt-0.5">L Lipani</span></div>
+        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">MF</span></div>
+        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">MF</span></div>
+        <div class="flex flex-col items-center"><span class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">MF</span></div>
       </div>
     </div>
   `;
   wrapper.appendChild(formationCard);
 
-  // 4. MANAGER CARD (Screenshot 5)
   if (coachName) {
     const managerCard = document.createElement('div');
     managerCard.className = 'bg-[#102719] border border-white/10 p-3.5 rounded-3xl flex items-center gap-3';
@@ -306,57 +320,53 @@ function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcom
   container.appendChild(wrapper);
 }
 
-// RENDER FIXTURES TAB (Screenshot 4 Replica)
-function renderFotmobFixtures(container, events, teamId) {
+// RENDER FIXTURES TAB (PERTANDINGAN SELESAI + SKOR)
+function renderFotmobFixtures(container, finishedEvents, teamId) {
   if (!container) return;
   container.innerHTML = '';
 
-  if (!events || events.length === 0) {
-    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Tidak ada jadwal pertandingan.</div>`;
+  if (!finishedEvents || finishedEvents.length === 0) {
+    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Tidak ada pertandingan selesai.</div>`;
     return;
   }
 
   const wrapper = document.createElement('div');
   wrapper.className = 'space-y-2.5';
 
-  events.forEach(evt => {
+  finishedEvents.forEach(evt => {
     const comp = evt.competitions?.[0];
     const home = comp?.competitors?.find(c => c.homeAway === 'home');
     const away = comp?.competitors?.find(c => c.homeAway === 'away');
-    const state = evt.status?.type?.state;
-    const isPost = state === 'post';
 
     const homeLogo = getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO;
     const awayLogo = getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO;
+    const homeScore = extractScore(home);
+    const awayScore = extractScore(away);
     const dateFormatted = new Date(evt.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-    const timeFormatted = new Date(evt.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
 
     const card = document.createElement('div');
     card.className = 'bg-[#102719] border border-white/10 p-3 rounded-2xl flex items-center justify-between text-xs cursor-pointer hover:bg-[#163522] transition';
-    card.onclick = () => openMatchDetail(evt.leagueId || 'esp.1', evt.id, evt.leagueName || 'Detail');
+    card.onclick = () => openMatchDetail(evt.leagueId || 'ita.1', evt.id, evt.leagueName || 'Detail');
 
     card.innerHTML = `
       <!-- Home Team -->
       <div class="flex items-center gap-2 w-[38%] min-w-0">
-        <img src="${homeLogo}" class="w-5 h-5 object-contain shrink-0">
+        <img src="${homeLogo}" class="w-5 h-5 object-contain shrink-0" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
         <span class="font-extrabold text-white truncate text-[11px]">${home?.team?.shortDisplayName || home?.team?.displayName || 'Home'}</span>
       </div>
 
-      <!-- Score / Time Center -->
+      <!-- Score Center (Tampil Skor Hasil Pertandingan) -->
       <div class="w-[24%] text-center shrink-0">
-        ${isPost ? `
-          <span class="font-black text-white text-xs bg-black/40 px-2 py-0.5 rounded-lg border border-white/10">${home?.score || 0} - ${away?.score || 0}</span>
-          <span class="block text-[8px] text-emerald-400 font-bold mt-0.5">FT</span>
-        ` : `
-          <span class="block text-[10px] font-bold text-white">${dateFormatted}</span>
-          <span class="block text-[9px] text-slate-400 font-semibold">${timeFormatted}</span>
-        `}
+        <span class="font-black text-white text-xs bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40 tracking-wider inline-block shadow">
+          ${homeScore} - ${awayScore}
+        </span>
+        <span class="block text-[8.5px] text-slate-400 font-bold mt-0.5">${dateFormatted} • FT</span>
       </div>
 
       <!-- Away Team -->
       <div class="flex items-center justify-end gap-2 w-[38%] min-w-0 text-right">
         <span class="font-extrabold text-white truncate text-[11px]">${away?.team?.shortDisplayName || away?.team?.displayName || 'Away'}</span>
-        <img src="${awayLogo}" class="w-5 h-5 object-contain shrink-0">
+        <img src="${awayLogo}" class="w-5 h-5 object-contain shrink-0" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
       </div>
     `;
     wrapper.appendChild(card);
@@ -365,7 +375,7 @@ function renderFotmobFixtures(container, events, teamId) {
   container.appendChild(wrapper);
 }
 
-// Load Squad Roster UI (Reused with Green Badges)
+// Load Squad Roster UI
 async function loadStyledSquadRosterUI(leagueId, teamId) {
   const container = document.getElementById('tcontent-player');
   if (!container) return;
@@ -420,7 +430,7 @@ function formatPlayerData(p, posGroupStr = '') {
     name: p.fullName || p.displayName || 'Pemain',
     jersey: p.jersey ? `#${p.jersey}` : `#${Math.floor(Math.random()*40)+1}`,
     category,
-    country: p.citizenship || p.birthPlace?.country || 'England',
+    country: p.citizenship || p.birthPlace?.country || 'Italia',
     isInjured: (p.injuries && p.injuries.length > 0) || false
   };
 }
