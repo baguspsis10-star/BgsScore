@@ -1,16 +1,19 @@
-/* GLOBAL RESET & BASE LIGHT STYLES */
+/* ============================================================
+   BGS SCOREHUB - MODERN DARK PURPLE NEON THEME
+   ============================================================ */
+
 * {
   box-sizing: border-box;
   touch-action: manipulation;
 }
 
 body {
-  background-color: #f8fafc !important;
-  color: #0f172a;
+  background-color: #120924 !important;
+  color: #f1f5f9;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.05) 0%, transparent 60%),
-    radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 50% -10%, #3b154c 0%, transparent 60%),
+    radial-gradient(circle at 100% 100%, #1e1035 0%, transparent 50%);
   background-attachment: fixed;
 }
 
@@ -23,17 +26,17 @@ body {
   scrollbar-width: none;
 }
 
-/* BASE MATCH CARD MODERN LIGHT STYLES */
+/* DARK PURPLE CONTAINER CARDS */
 .card-upcoming,
 .card-live,
 .card-finished,
 .card-fav-upcoming,
 .card-fav-finished {
-  background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 1.125rem !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
+  background: #1c1033 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 1.25rem !important;
+  transition: all 0.2s ease-in-out !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
 }
 
 .card-upcoming:hover,
@@ -41,16 +44,16 @@ body {
 .card-finished:hover,
 .card-fav-upcoming:hover,
 .card-fav-finished:hover {
-  background: #ffffff !important;
-  border-color: #cbd5e1 !important;
+  background: #251642 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* ACCENT BORDERS & TINTS FOR SPECIFIC MATCH STATES */
+/* ACCENT BORDERS & NEON TINTS */
 .card-live {
   border-left: 4px solid #ef4444 !important;
-  background: linear-gradient(135deg, rgba(254, 242, 242, 0.8) 0%, #ffffff 60%) !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, #1c1033 70%) !important;
 }
 
 .card-finished {
@@ -58,38 +61,63 @@ body {
 }
 
 .card-upcoming {
-  border-left: 4px solid #3b82f6 !important;
+  border-left: 4px solid #38bdf8 !important;
 }
 
 .card-fav-upcoming {
   border-left: 4px solid #f59e0b !important;
-  background: linear-gradient(135deg, rgba(254, 252, 232, 0.8) 0%, #ffffff 60%) !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, #1c1033 70%) !important;
 }
 
 .card-fav-finished {
-  border-left: 4px solid #06b6d4 !important;
-  background: linear-gradient(135deg, rgba(236, 254, 255, 0.8) 0%, #ffffff 60%) !important;
+  border-left: 4px solid #a855f7 !important;
 }
 
-/* MODAL & HEADERS CONTAINER LIGHT CARDS */
-.bg-stadium-card {
-  background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 1.25rem !important;
-  backdrop-filter: blur(16px) !important;
-  box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.05) !important;
+/* CAPSULE PILLS NAVIGATION */
+.tab-pill-active {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.2);
 }
 
-.bg-stadium-header {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
-  border: 1px solid #334155 !important;
+.tab-pill-inactive {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-weight: 600 !important;
+}
+
+.tab-pill-inactive:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
   color: #ffffff !important;
+}
+
+/* TIMELINE EVENT CAPSULES */
+.timeline-capsule-home {
+  background: #281947;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 4px solid #ff4d6d;
+  border-radius: 1rem;
+}
+
+.timeline-capsule-away {
+  background: #281947;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 4px solid #38bdf8;
+  border-radius: 1rem;
+}
+
+.timeline-capsule-goal {
+  background: linear-gradient(90deg, #1e3a37 0%, #134e4a 100%);
+  border: 1px solid #2dd4bf;
+  color: #2dd4bf;
+  border-radius: 9999px;
 }
 
 /* GOAL ANIMATION PULSE */
 @keyframes goalPulse {
   0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
-  50% { transform: scale(1.05); box-shadow: 0 0 10px 4px rgba(16, 185, 129, 0.4); }
+  50% { transform: scale(1.05); box-shadow: 0 0 12px 4px rgba(16, 185, 129, 0.5); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
@@ -99,7 +127,7 @@ body {
   color: #ffffff !important;
 }
 
-/* RESPONSIVE GRID LAYOUTS FOR TABLET & DESKTOP */
+/* RESPONSIVE GRID LAYOUTS */
 @media (min-width: 640px) {
   #matches-container,
   #live-active-grid,
