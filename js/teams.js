@@ -1,5 +1,5 @@
 // ==========================================
-// TEAM DETAIL MODAL MODULE (FOTMOB / FM STYLE)
+// TEAM DETAIL MODAL MODULE (BULLETPROOF FIX)
 // ==========================================
 
 let currentTeamData = null;
@@ -10,34 +10,36 @@ async function openTeamDetail(leagueId, teamId, teamName) {
   const modal = document.getElementById('team-detail-modal');
   if (!modal) return;
 
+  const container = document.getElementById('team-modal-content') || 
+                    document.getElementById('team-data-container') || 
+                    document.getElementById('team-modal-body');
+  
   modal.style.zIndex = typeof getNextZIndex === 'function' ? getNextZIndex() : 60;
   modal.classList.remove('hidden');
 
-  const container = document.getElementById('team-modal-content');
   if (container) {
     container.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
         <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400"></i>
-        <p class="text-xs font-semibold">Memuat profil lengkap ${teamName}...</p>
+        <p class="text-xs font-semibold">Memuat profil lengkap ${teamName || 'Tim'}...</p>
       </div>
     `;
   }
 
   try {
-    // Fetch data paralel: Info Tim, Jadwal/Hasil, Roster Pemain
     const [teamRes, scheduleRes, rosterRes] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}`),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}`).catch(() => null),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule`).catch(() => null),
       fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/roster`).catch(() => null)
     ]);
 
-    const teamData = teamRes.ok ? await teamRes.json() : null;
-    const scheduleData = scheduleRes.ok ? await scheduleRes.json() : null;
+    const teamData = (teamRes && teamRes.ok) ? await teamRes.json() : null;
+    const scheduleData = (scheduleRes && scheduleRes.ok) ? await scheduleRes.json() : null;
     const rosterData = (rosterRes && rosterRes.ok) ? await rosterRes.json() : null;
 
     currentTeamData = {
       id: teamId,
-      leagueId: leagueId,
+      leagueId: leagueId || 'all',
       info: teamData?.team || {},
       events: scheduleData?.events || [],
       roster: rosterData?.athletes || []
@@ -66,11 +68,13 @@ function closeTeamModal() {
 
 // 3. RENDER MAIN UI CONTAINER
 function renderTeamModalUI() {
-  const container = document.getElementById('team-modal-content');
+  const container = document.getElementById('team-modal-content') || 
+                    document.getElementById('team-data-container') || 
+                    document.getElementById('team-modal-body');
   if (!container || !currentTeamData) return;
 
-  const info = currentTeamData.info;
-  const teamColor = info.color ? `#${info.color}` : '#0f291e';
+  const info = currentTeamData.info || {};
+  const teamColor = info.color ? `#${info.color}` : '#180d30';
   const logoUrl = typeof getTeamLogo === 'function' ? getTeamLogo(info) : (info.logos?.[0]?.href || '');
   const country = info.standingSummary?.split('-')[0] || 'Klub';
   const managerName = info.coaches?.[0]?.firstName ? `${info.coaches[0].firstName} ${info.coaches[0].lastName}` : 'Manager';
@@ -79,13 +83,13 @@ function renderTeamModalUI() {
 
   container.innerHTML = `
     <!-- HEADER HERO BANNER -->
-    <div class="relative overflow-hidden rounded-3xl p-5 text-white shadow-2xl border border-white/10" style="background: linear-gradient(135deg, ${teamColor}dd 0%, #0c1a14 100%);">
+    <div class="relative overflow-hidden rounded-3xl p-5 text-white shadow-2xl border border-white/10" style="background: linear-gradient(135deg, ${teamColor}dd 0%, #0d061a 100%);">
       <div class="flex items-center justify-between relative z-10 mb-4">
         <button onclick="closeTeamModal()" class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition">
           <i class="fa-solid fa-arrow-left text-xs"></i>
         </button>
         <div class="flex items-center gap-2">
-          <button onclick="toggleTeamFavorite('${currentTeamData.id}')" class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-amber-400 transition">
+          <button onclick="if(typeof toggleTeamFavorite === 'function') toggleTeamFavorite('${currentTeamData.id}')" class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-amber-400 transition">
             <i class="fa-${isFav ? 'solid' : 'regular'} fa-star text-xs"></i>
           </button>
         </div>
@@ -97,7 +101,7 @@ function renderTeamModalUI() {
         </div>
         <div>
           <span class="text-[10px] font-black uppercase tracking-wider text-emerald-300 block">${country}</span>
-          <h2 class="text-xl sm:text-2xl font-black text-white leading-tight">${info.displayName || info.name}</h2>
+          <h2 class="text-xl sm:text-2xl font-black text-white leading-tight">${info.displayName || info.name || 'Tim'}</h2>
           <div class="mt-1 flex items-center gap-2">
             <span class="text-[10px] bg-white/15 px-2.5 py-0.5 rounded-full font-bold border border-white/10 text-slate-200">Manager: ${managerName}</span>
           </div>
@@ -118,6 +122,10 @@ function renderTeamModalUI() {
       ${getTeamTabHTML(currentTeamTab)}
     </div>
   `;
+
+  if (currentTeamTab === 'table') {
+    loadTeamTableData();
+  }
 }
 
 // 4. SWITCH TAB LOGIC
@@ -136,7 +144,12 @@ function switchTeamTab(tabName) {
   });
 
   const body = document.getElementById('team-tab-body');
-  if (body) body.innerHTML = getTeamTabHTML(tabName);
+  if (body) {
+    body.innerHTML = getTeamTabHTML(tabName);
+    if (tabName === 'table') {
+      loadTeamTableData();
+    }
+  }
 }
 
 // 5. GENERATE TAB CONTENT HTML
@@ -148,19 +161,17 @@ function getTeamTabHTML(tabName) {
   return '';
 }
 
-// --- OVERVIEW TAB (FOTMOB IMAGE EXACT MATCH) ---
+// --- OVERVIEW TAB ---
 function renderOverviewTab() {
-  const events = currentTeamData.events || [];
-  const teamId = String(currentTeamData.id);
+  const events = currentTeamData?.events || [];
+  const teamId = String(currentTeamData?.id || '');
 
-  // Filter 10 Laga Terakhir (Post State)
   const finishedEvents = events
     .filter(e => e.status?.type?.state === 'post')
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 10)
     .reverse();
 
-  // Carousel Match Cards (Near Upcoming & Recent)
   const nextMatch = events.find(e => e.status?.type?.state === 'pre');
   const lastMatch = events.filter(e => e.status?.type?.state === 'post').sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
@@ -174,7 +185,6 @@ function renderOverviewTab() {
     `;
   }
 
-  // Last 10 Matches Tracker Strip
   let last10Html = '';
   if (finishedEvents.length > 0) {
     const trackerItems = finishedEvents.map(m => {
@@ -226,17 +236,16 @@ function renderOverviewTab() {
     ${carouselHtml}
     ${last10Html}
     
-    <!-- MANAGER & CLUB INFO CARD -->
     <div class="bg-[#180d30] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
       <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-white/10">Informasi Tim</h3>
       <div class="grid grid-cols-2 gap-3 text-xs">
         <div class="bg-white/5 p-3 rounded-2xl border border-white/5">
           <span class="text-[9px] text-slate-400 block font-bold uppercase">Stadion Markas</span>
-          <span class="font-bold text-slate-200 truncate block mt-0.5">${currentTeamData.info.venue?.fullName || 'Stadion Utama'}</span>
+          <span class="font-bold text-slate-200 truncate block mt-0.5">${currentTeamData?.info?.venue?.fullName || 'Stadion Utama'}</span>
         </div>
         <div class="bg-white/5 p-3 rounded-2xl border border-white/5">
           <span class="text-[9px] text-slate-400 block font-bold uppercase">Julukan</span>
-          <span class="font-bold text-slate-200 truncate block mt-0.5">${currentTeamData.info.nickname || 'Klub'}</span>
+          <span class="font-bold text-slate-200 truncate block mt-0.5">${currentTeamData?.info?.nickname || 'Klub'}</span>
         </div>
       </div>
     </div>
@@ -256,7 +265,7 @@ function renderMiniMatchCard(evt, label) {
   const scoreText = isPost ? `${home?.score || 0} - ${away?.score || 0}` : new Date(evt.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
   return `
-    <div onclick="openMatchDetail('${currentTeamData.leagueId}', '${evt.id}', '${evt.leagueName || 'Detail'}')" class="bg-[#180d30] border border-white/10 p-3 rounded-2xl space-y-2 cursor-pointer hover:border-emerald-500/50 transition">
+    <div onclick="if(typeof openMatchDetail === 'function') openMatchDetail('${currentTeamData?.leagueId || 'all'}', '${evt.id}', '${evt.leagueName || 'Detail'}')" class="bg-[#180d30] border border-white/10 p-3 rounded-2xl space-y-2 cursor-pointer hover:border-emerald-500/50 transition">
       <div class="flex items-center justify-between text-[9px] font-bold text-slate-400">
         <span class="text-emerald-400">${label}</span>
         <span>${isPost ? 'FT' : 'VS'}</span>
@@ -272,7 +281,7 @@ function renderMiniMatchCard(evt, label) {
 
 // --- FIXTURES TAB ---
 function renderFixturesTab() {
-  const events = currentTeamData.events || [];
+  const events = currentTeamData?.events || [];
   if (events.length === 0) {
     return `<div class="text-center py-8 text-xs text-slate-400 bg-[#180d30] rounded-3xl border border-white/10">Belum ada jadwal pertandingan.</div>`;
   }
@@ -289,7 +298,7 @@ function renderFixturesTab() {
     const dateStr = new Date(evt.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 
     return `
-      <div onclick="openMatchDetail('${currentTeamData.leagueId}', '${evt.id}', '${evt.leagueName || 'Match'}')" class="flex items-center justify-between bg-[#180d30] p-3 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition cursor-pointer text-xs">
+      <div onclick="if(typeof openMatchDetail === 'function') openMatchDetail('${currentTeamData?.leagueId || 'all'}', '${evt.id}', '${evt.leagueName || 'Match'}')" class="flex items-center justify-between bg-[#180d30] p-3 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition cursor-pointer text-xs">
         <div class="flex items-center gap-2 w-5/12 truncate">
           <img src="${hLogo}" class="w-4 h-4 object-contain shrink-0" alt="">
           <span class="truncate font-semibold text-slate-200">${home?.team?.shortDisplayName || home?.team?.displayName}</span>
@@ -324,9 +333,30 @@ function renderTableTab() {
   `;
 }
 
+async function loadTeamTableData() {
+  const container = document.getElementById('team-modal-table-container');
+  if (!container || !currentTeamData) return;
+
+  try {
+    const leagueSlug = currentTeamData.leagueId && currentTeamData.leagueId !== 'all' ? currentTeamData.leagueId : 'ita.1';
+    const targetLeague = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES))
+      ? LEAGUES.find(l => l.id === leagueSlug) || { id: leagueSlug, name: 'Klasemen' }
+      : { id: leagueSlug, name: 'Klasemen' };
+
+    container.innerHTML = '';
+    if (typeof renderLeagueStandingsTable === 'function') {
+      await renderLeagueStandingsTable(targetLeague, container, [currentTeamData.id]);
+    } else {
+      container.innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Fungsi klasemen belum siap.</p>`;
+    }
+  } catch (e) {
+    container.innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Klasemen tidak tersedia.</p>`;
+  }
+}
+
 // --- SQUAD TAB ---
 function renderSquadTab() {
-  const roster = currentTeamData.roster || [];
+  const roster = currentTeamData?.roster || [];
   if (roster.length === 0) {
     return `<div class="text-center py-8 text-xs text-slate-400 bg-[#180d30] rounded-3xl border border-white/10">Data skuad pemain belum dirilis.</div>`;
   }
