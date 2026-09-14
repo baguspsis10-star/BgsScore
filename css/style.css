@@ -1,5 +1,5 @@
 /* ============================================================
-   BGS SCOREHUB - MODERN DARK PURPLE NEON THEME
+   BGS SCOREHUB - FULL DARK NEON + DOT PATTERN TEXTURE
    ============================================================ */
 
 * {
@@ -7,14 +7,17 @@
   touch-action: manipulation;
 }
 
+/* BACKGROUND UTAMA DENGAN POLA BINTIK MATRIKS & PENDARAN NEON */
 body {
-  background-color: #120924 !important;
-  color: #f1f5f9;
+  background-color: #0d061a !important;
+  color: #f1f5f9 !important;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   background-image: 
-    radial-gradient(circle at 50% -10%, #3b154c 0%, transparent 60%),
-    radial-gradient(circle at 100% 100%, #1e1035 0%, transparent 50%);
-  background-attachment: fixed;
+    radial-gradient(circle at 50% 0%, rgba(147, 51, 234, 0.22) 0%, transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.12) 0%, transparent 50%),
+    radial-gradient(rgba(255, 255, 255, 0.08) 1.2px, transparent 1.2px) !important;
+  background-size: 100% 100%, 100% 100%, 22px 22px !important;
+  background-attachment: fixed !important;
 }
 
 /* CUSTOM SCROLLBAR BAR */
@@ -26,17 +29,46 @@ body {
   scrollbar-width: none;
 }
 
-/* DARK PURPLE CONTAINER CARDS */
+/* HEADER UTAMA GELAP */
+header {
+  background-color: rgba(19, 9, 35, 0.9) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(16px) !important;
+}
+header h1, header span {
+  color: #ffffff !important;
+}
+
+/* OVERRIDE CONTAINER PENCARIAN & TOOLBAR (DULU PUTIH) */
+main div.bg-white,
+#top-all-matches-header button,
+#active-league-badge {
+  background-color: #180d30 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+/* INPUT PENCARIAN & TOMBOL HARI GELAP */
+#search-input {
+  background-color: #0f0720 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+#search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* KARTU PERTANDINGAN PURPLE GELAP */
 .card-upcoming,
 .card-live,
 .card-finished,
 .card-fav-upcoming,
 .card-fav-finished {
-  background: #1c1033 !important;
+  background: #180d30 !important;
   border: 1px solid rgba(255, 255, 255, 0.07) !important;
   border-radius: 1.25rem !important;
   transition: all 0.2s ease-in-out !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
 .card-upcoming:hover,
@@ -44,69 +76,106 @@ body {
 .card-finished:hover,
 .card-fav-upcoming:hover,
 .card-fav-finished:hover {
-  background: #251642 !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  background: #231344 !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* ACCENT BORDERS & NEON TINTS */
+/* AKSEN CARD STATE */
 .card-live {
   border-left: 4px solid #ef4444 !important;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, #1c1033 70%) !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, #180d30 70%) !important;
 }
-
 .card-finished {
   border-left: 4px solid #10b981 !important;
 }
-
 .card-upcoming {
   border-left: 4px solid #38bdf8 !important;
 }
-
 .card-fav-upcoming {
   border-left: 4px solid #f59e0b !important;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, #1c1033 70%) !important;
 }
-
 .card-fav-finished {
   border-left: 4px solid #a855f7 !important;
 }
 
-/* CAPSULE PILLS NAVIGATION */
+/* MODAL OVERLAY & POPUP CONTAINER GELAP */
+#detail-modal > div,
+#team-detail-modal > div,
+#league-modal > div,
+#settings-modal > div {
+  background-color: #120826 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+/* MODAL TOP HEADER BAR */
+#detail-modal .border-b,
+#team-detail-modal .border-b,
+#league-modal .border-b,
+#settings-modal .border-b,
+#team-modal-banner {
+  background-color: #180d30 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+#modal-league-name,
+#team-modal-title {
+  color: #ffffff !important;
+}
+
+/* MODAL TAB BAR CONTAINER (RINGKASAN, STATISTIK, DLL) */
+#detail-modal div[class*="bg-slate-200"],
+#team-detail-modal div[class*="bg-white"] {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* TOMBOL PILL TAB MODAL */
 .tab-pill-active {
   background-color: #ffffff !important;
   color: #0f172a !important;
   font-weight: 800 !important;
-  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.2) !important;
 }
-
 .tab-pill-inactive {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  color: rgba(255, 255, 255, 0.7) !important;
+  background-color: transparent !important;
+  color: rgba(255, 255, 255, 0.6) !important;
   font-weight: 600 !important;
 }
-
 .tab-pill-inactive:hover {
-  background-color: rgba(255, 255, 255, 0.15) !important;
   color: #ffffff !important;
+}
+
+/* BOTTOM NAVIGATION BAR GELAP */
+nav.fixed {
+  background-color: rgba(19, 9, 35, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+}
+.bnav-item {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+.bnav-item.text-emerald-400,
+.bnav-item.font-bold {
+  color: #34d399 !important;
 }
 
 /* TIMELINE EVENT CAPSULES */
 .timeline-capsule-home {
-  background: #281947;
+  background: #251347;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-left: 4px solid #ff4d6d;
   border-radius: 1rem;
 }
-
 .timeline-capsule-away {
-  background: #281947;
+  background: #251347;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-right: 4px solid #38bdf8;
   border-radius: 1rem;
 }
-
 .timeline-capsule-goal {
   background: linear-gradient(90deg, #1e3a37 0%, #134e4a 100%);
   border: 1px solid #2dd4bf;
@@ -114,13 +183,12 @@ body {
   border-radius: 9999px;
 }
 
-/* GOAL ANIMATION PULSE */
+/* ANIMASI GOL PULSE */
 @keyframes goalPulse {
   0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
   50% { transform: scale(1.05); box-shadow: 0 0 12px 4px rgba(16, 185, 129, 0.5); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
-
 .goal-active-pulse {
   animation: goalPulse 1.2s infinite ease-in-out;
   background-color: #10b981 !important;
@@ -129,57 +197,25 @@ body {
 
 /* RESPONSIVE GRID LAYOUTS */
 @media (min-width: 640px) {
-  #matches-container,
-  #live-active-grid,
-  #live-finished-grid,
-  #live-upcoming-grid,
-  #fav-active-grid,
-  #fav-finished-grid,
-  #fav-upcoming-grid,
-  #search-matches-grid,
-  #league-live-grid,
-  #league-upcoming-grid,
-  #league-finished-grid,
-  #team-upcoming-grid,
-  #team-finished-grid {
+  #matches-container, #live-active-grid, #live-finished-grid, #live-upcoming-grid,
+  #fav-active-grid, #fav-finished-grid, #fav-upcoming-grid, #search-matches-grid,
+  #league-live-grid, #league-upcoming-grid, #league-finished-grid, #team-upcoming-grid, #team-finished-grid {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 0.875rem !important;
   }
 }
-
 @media (min-width: 1024px) {
-  #matches-container,
-  #live-active-grid,
-  #live-finished-grid,
-  #live-upcoming-grid,
-  #fav-active-grid,
-  #fav-finished-grid,
-  #fav-upcoming-grid,
-  #search-matches-grid,
-  #league-live-grid,
-  #league-upcoming-grid,
-  #league-finished-grid,
-  #team-upcoming-grid,
-  #team-finished-grid {
+  #matches-container, #live-active-grid, #live-finished-grid, #live-upcoming-grid,
+  #fav-active-grid, #fav-finished-grid, #fav-upcoming-grid, #search-matches-grid,
+  #league-live-grid, #league-upcoming-grid, #league-finished-grid, #team-upcoming-grid, #team-finished-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
-
 @media (min-width: 1280px) {
-  #matches-container,
-  #live-active-grid,
-  #live-finished-grid,
-  #live-upcoming-grid,
-  #fav-active-grid,
-  #fav-finished-grid,
-  #fav-upcoming-grid,
-  #search-matches-grid,
-  #league-live-grid,
-  #league-upcoming-grid,
-  #league-finished-grid,
-  #team-upcoming-grid,
-  #team-finished-grid {
+  #matches-container, #live-active-grid, #live-finished-grid, #live-upcoming-grid,
+  #fav-active-grid, #fav-finished-grid, #fav-upcoming-grid, #search-matches-grid,
+  #league-live-grid, #league-upcoming-grid, #league-finished-grid, #team-upcoming-grid, #team-finished-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
