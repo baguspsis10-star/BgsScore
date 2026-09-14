@@ -1,16 +1,16 @@
-/* GLOBAL RESET & BASE STYLES */
+/* GLOBAL RESET & BASE LIGHT STYLES */
 * {
   box-sizing: border-box;
   touch-action: manipulation;
 }
 
 body {
-  background-color: #090d16 !important;
-  color: #f1f5f9;
+  background-color: #f8fafc !important;
+  color: #0f172a;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 60%),
-    radial-gradient(circle at 100% 100%, rgba(30, 58, 138, 0.08) 0%, transparent 50%);
+    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.05) 0%, transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
   background-attachment: fixed;
 }
 
@@ -23,16 +23,17 @@ body {
   scrollbar-width: none;
 }
 
-/* BASE MATCH CARD MODERN STYLES */
+/* BASE MATCH CARD MODERN LIGHT STYLES */
 .card-upcoming,
 .card-live,
 .card-finished,
 .card-fav-upcoming,
 .card-fav-finished {
-  background: #111827 !important;
-  border: 1px solid #1f2937 !important;
-  border-radius: 1rem !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 1.125rem !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
 }
 
 .card-upcoming:hover,
@@ -40,59 +41,61 @@ body {
 .card-finished:hover,
 .card-fav-upcoming:hover,
 .card-fav-finished:hover {
-  background: #162032 !important;
-  border-color: #374151 !important;
-  transform: translateY(-1px);
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.08) !important;
 }
 
-/* ACCENT BORDERS FOR SPECIFIC MATCH STATES */
+/* ACCENT BORDERS & TINTS FOR SPECIFIC MATCH STATES */
 .card-live {
-  border-left: 3px solid #ef4444 !important;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.06) 0%, #111827 60%) !important;
+  border-left: 4px solid #ef4444 !important;
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.8) 0%, #ffffff 60%) !important;
 }
 
 .card-finished {
-  border-left: 3px solid #10b981 !important;
+  border-left: 4px solid #10b981 !important;
 }
 
 .card-upcoming {
-  border-left: 3px solid #3b82f6 !important;
+  border-left: 4px solid #3b82f6 !important;
 }
 
 .card-fav-upcoming {
-  border-left: 3px solid #f59e0b !important;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, #111827 60%) !important;
+  border-left: 4px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(254, 252, 232, 0.8) 0%, #ffffff 60%) !important;
 }
 
 .card-fav-finished {
-  border-left: 3px solid #06b6d4 !important;
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, #111827 60%) !important;
+  border-left: 4px solid #06b6d4 !important;
+  background: linear-gradient(135deg, rgba(236, 254, 255, 0.8) 0%, #ffffff 60%) !important;
 }
 
-/* MODAL & HEADERS CONTAINER GLASSMORPHISM */
+/* MODAL & HEADERS CONTAINER LIGHT CARDS */
 .bg-stadium-card {
-  background: rgba(15, 23, 42, 0.75) !important;
-  border: 1px solid rgba(51, 65, 85, 0.7) !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
   border-radius: 1.25rem !important;
   backdrop-filter: blur(16px) !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.05) !important;
 }
 
 .bg-stadium-header {
-  background: linear-gradient(180deg, #182232 0%, #111827 100%) !important;
-  border: 1px solid #1f2937 !important;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+  border: 1px solid #334155 !important;
+  color: #ffffff !important;
 }
 
 /* GOAL ANIMATION PULSE */
 @keyframes goalPulse {
   0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
-  50% { transform: scale(1.05); box-shadow: 0 0 10px 4px rgba(16, 185, 129, 0.3); }
+  50% { transform: scale(1.05); box-shadow: 0 0 10px 4px rgba(16, 185, 129, 0.4); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
 .goal-active-pulse {
   animation: goalPulse 1.2s infinite ease-in-out;
-  background-color: #059669 !important;
+  background-color: #10b981 !important;
   color: #ffffff !important;
 }
 
@@ -113,7 +116,7 @@ body {
   #team-finished-grid {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 0.75rem !important;
+    gap: 0.875rem !important;
   }
 }
 
