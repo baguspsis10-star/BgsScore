@@ -1,28 +1,12 @@
-// TEAMS & CLUB DETAILS MODULE - 5 LAST MATCHES WITH SCORES & EMPTY OVERVIEW
+// TEAMS & CLUB DETAILS MODULE - FOTMOB DARK GREEN THEME REWRITE
 
-function extractScore(competitor) {
-  if (!competitor) return '0';
-  if (competitor.score !== undefined && competitor.score !== null) {
-    if (typeof competitor.score === 'object') {
-      return competitor.score.displayValue ?? competitor.score.value ?? '0';
-    }
-    return String(competitor.score);
-  }
-  return '0';
-}
-
-function isMatchFinished(evt) {
-  const state = evt.status?.type?.state;
-  const completed = evt.status?.type?.completed;
-  const detail = (evt.status?.type?.shortDetail || evt.status?.type?.description || '').toLowerCase();
-  return state === 'post' || completed === true || detail.includes('ft') || detail.includes('final');
-}
-
+// Check if Team is Favorited
 function isTeamFavorite(teamId) {
   if (!teamId) return false;
   return favoriteTeams.some(id => String(id) === String(teamId));
 }
 
+// Toggle Team Favorite State
 function toggleTeamFavorite(teamId, e) {
   if (e) e.stopPropagation();
   const idStr = String(teamId);
@@ -37,25 +21,28 @@ function toggleTeamFavorite(teamId, e) {
   }
 }
 
-// Open Team Detail Modal
+// Open Team Detail Modal (FotMob Dark Green Style)
 async function openTeamDetail(leagueId, teamId, teamName, event) {
   if (event) event.stopPropagation();
   currentOpenTeam = { leagueId, teamId, teamName };
 
-  if (typeof closeModal === 'function') closeModal();
+  if (typeof closeModal === 'function') {
+    closeModal();
+  }
 
   const modal = document.getElementById('team-detail-modal');
   modal.classList.remove('hidden');
 
   const isFavTeam = isTeamFavorite(teamId);
   const teamLogo = dataSaverMode ? PLAIN_SHIELD_LOGO : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-  const validLeagueId = (!leagueId || leagueId === 'all') ? 'esp.1' : leagueId;
-  const leagueObj = LEAGUES.find(l => l.id === validLeagueId) || { country: 'SPANYOL', name: 'Liga' };
-  const countryUpper = (leagueObj.country || 'SPANYOL').toUpperCase();
+  const leagueObj = LEAGUES.find(l => l.id === leagueId) || { country: 'Klub Sepak Bola', name: 'Liga' };
+  const countryUpper = (leagueObj.country || 'INTERNATIONAL').toUpperCase();
 
+  // RENDER FOTMOB HEADER (GREEN GRADIENT & NAVIGATION TABS)
   const banner = document.getElementById('team-modal-banner');
   banner.className = "p-4 sm:p-5 bg-gradient-to-b from-[#0d2d1a] via-[#091f12] to-[#08170d] text-white shrink-0 border-b border-white/10";
   banner.innerHTML = `
+    <!-- Top Action Bar -->
     <div class="flex items-center justify-between mb-4">
       <button onclick="closeTeamModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs transition">
         <i class="fa-solid fa-arrow-left"></i>
@@ -67,6 +54,7 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
       </div>
     </div>
 
+    <!-- Team Title Info Block -->
     <div class="flex items-center gap-3.5 mb-5">
       <div class="w-14 h-14 bg-emerald-950/60 rounded-2xl p-2 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-lg">
         <img src="${teamLogo}" loading="lazy" class="w-full h-full object-contain" onError="this.src='${PLAIN_SHIELD_LOGO}'">
@@ -79,6 +67,7 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
       </div>
     </div>
 
+    <!-- FotMob Pill Navigation Bar -->
     <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
       <button id="ttab-overview" onclick="switchTeamModalTab('overview')" class="px-4 py-1.5 text-xs font-black rounded-full transition bg-white text-slate-900 shadow">Overview</button>
       <button id="ttab-summary" onclick="switchTeamModalTab('summary')" class="px-4 py-1.5 text-xs font-bold rounded-full transition text-slate-300 hover:text-white hover:bg-white/10">Fixtures</button>
@@ -87,15 +76,18 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
     </div>
   `;
 
+  // Render content
   switchTeamModalTab('overview');
-  loadTeamFullData(validLeagueId, teamId, teamName);
+  loadTeamFullData(leagueId, teamId, teamName);
 }
 
+// Close Team Detail Modal
 function closeTeamModal() {
   currentOpenTeam = null;
   document.getElementById('team-detail-modal').classList.add('hidden');
 }
 
+// Switch Sub-Tabs in Team Modal
 function switchTeamModalTab(tabName) {
   const tabs = ['overview', 'summary', 'standings', 'player'];
   tabs.forEach(t => {
@@ -114,79 +106,230 @@ function switchTeamModalTab(tabName) {
   });
 }
 
-// Main Data Fetcher
+// Load All ESPN Data for Team
 async function loadTeamFullData(leagueId, teamId, teamName) {
   const overviewContainer = document.getElementById('tcontent-overview');
   const summaryContainer = document.getElementById('tcontent-summary');
   const standingsContainer = document.getElementById('tcontent-standings');
+  const squadContainer = document.getElementById('tcontent-player');
 
-  // Overview dikosongkan
   if (overviewContainer) {
-    overviewContainer.innerHTML = '';
+    overviewContainer.innerHTML = `
+      <div class="py-12 text-center text-xs text-slate-400 space-y-2">
+        <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-2xl"></i>
+        <p class="font-bold">Memuat data klub...</p>
+      </div>
+    `;
   }
 
   try {
-    const targetLeague = (!leagueId || leagueId === 'all') ? 'esp.1' : leagueId;
+    let targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'esp.1';
 
-    let scheduleRes = null;
-    try {
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/schedule`);
-      if (res.ok) scheduleRes = await res.json();
-    } catch(e){}
+    // Fetch Schedule & Roster parallel
+    const [scheduleRes, rosterRes] = await Promise.all([
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/schedule`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/teams/${teamId}/roster`).then(r => r.ok ? r.json() : null).catch(() => null)
+    ]);
 
-    let events = scheduleRes?.events || [];
+    const events = scheduleRes?.events || [];
+    const finishedEvents = events.filter(e => e.status?.type?.state === 'post').sort((a,b) => new Date(b.date) - new Date(a.date));
+    const upcomingEvents = events.filter(e => e.status?.type?.state === 'pre' || e.status?.type?.state === 'in').sort((a,b) => new Date(a.date) - new Date(b.date));
 
-    if (events.length === 0 && typeof cachedEvents !== 'undefined' && Array.isArray(cachedEvents)) {
-      events = cachedEvents.filter(evt => {
-        const comp = evt.competitions?.[0];
-        const hId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
-        const aId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
-        return String(hId) === String(teamId) || String(aId) === String(teamId);
-      });
-    }
+    // Render Overview View (Screenshot 1 & 2)
+    renderFotmobOverview(overviewContainer, teamId, teamName, finishedEvents, upcomingEvents, rosterRes);
 
-    const finishedEvents = events.filter(e => isMatchFinished(e)).sort((a,b) => new Date(b.date) - new Date(a.date));
+    // Render Fixtures View (Screenshot 4)
+    renderFotmobFixtures(summaryContainer, events, teamId);
 
-    // Render Fixtures Tab (5 Pertandingan Terakhir Lengkap dengan SKOR)
-    renderFotmobFixtures(summaryContainer, finishedEvents);
-
-    // Render Standings
+    // Render Standings View (Screenshot 3)
     const targetLeagueObj = LEAGUES.find(l => l.id === targetLeague) || LEAGUES[0];
     standingsContainer.innerHTML = '';
     await renderLeagueStandingsTable(targetLeagueObj, standingsContainer, teamId);
 
-    // Render Squad
+    // Render Squad View
     loadStyledSquadRosterUI(targetLeague, teamId);
 
   } catch (err) {
     console.error(err);
+    if (overviewContainer) {
+      overviewContainer.innerHTML = `<div class="p-6 text-center text-xs text-red-400">Gagal memuat data klub.</div>`;
+    }
   }
 }
 
-// Render Fixtures Tab (5 Laga Terakhir + Skor Akhir)
-function renderFotmobFixtures(container, finishedEvents) {
+// RENDER OVERVIEW TAB (Screenshot 1 & 2 Replica)
+function renderFotmobOverview(container, teamId, teamName, finishedEvents, upcomingEvents, rosterData) {
   if (!container) return;
   container.innerHTML = '';
 
-  const last5Matches = finishedEvents.slice(0, 5);
-  if (last5Matches.length === 0) {
-    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Tidak ada riwayat pertandingan selesai.</div>`;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'space-y-4';
+
+  // 1. MATCH CAROUSEL CARD (Top Row Cards: Last result, Next match)
+  const topMatches = [...finishedEvents.slice(0, 1), ...upcomingEvents.slice(0, 2)];
+  if (topMatches.length > 0) {
+    const carouselSection = document.createElement('div');
+    carouselSection.className = 'grid grid-cols-3 gap-2';
+
+    topMatches.forEach(evt => {
+      const comp = evt.competitions?.[0];
+      const home = comp?.competitors?.find(c => c.homeAway === 'home');
+      const away = comp?.competitors?.find(c => c.homeAway === 'away');
+      const state = evt.status?.type?.state;
+      const isPost = state === 'post';
+
+      const homeLogo = getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO;
+      const awayLogo = getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO;
+      const dateFormatted = new Date(evt.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+      const timeFormatted = new Date(evt.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+      const card = document.createElement('div');
+      card.className = 'bg-[#102719] border border-white/10 p-2.5 rounded-2xl flex flex-col justify-between text-center cursor-pointer hover:bg-[#163522] transition';
+      card.onclick = () => openMatchDetail(evt.leagueId || 'esp.1', evt.id, evt.leagueName || 'Detail');
+
+      card.innerHTML = `
+        <div class="text-[9px] font-bold text-emerald-400 truncate mb-1.5 flex items-center justify-center gap-1">
+          <i class="fa-solid fa-trophy text-[8px]"></i> ${evt.season?.slug || 'League'}
+        </div>
+        <div class="flex items-center justify-between my-1 px-1">
+          <img src="${homeLogo}" class="w-5 h-5 object-contain">
+          <span class="text-xs font-black text-white px-1">
+            ${isPost ? `${home?.score || 0} - ${away?.score || 0}` : `${dateFormatted}<br><span class="text-[9px] text-slate-400 font-normal">${timeFormatted}</span>`}
+          </span>
+          <img src="${awayLogo}" class="w-5 h-5 object-contain">
+        </div>
+      `;
+      carouselSection.appendChild(card);
+    });
+    wrapper.appendChild(carouselSection);
+  }
+
+  // 2. LAST 10 MATCHES WIDGET (Screenshot 1 - Middle Widget)
+  const last10 = finishedEvents.slice(0, 10).reverse();
+  if (last10.length > 0) {
+    const startDate = new Date(last10[0].date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' });
+    const endDate = new Date(last10[last10.length - 1].date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' });
+
+    const formCard = document.createElement('div');
+    formCard.className = 'bg-[#102719] border border-white/10 p-3.5 rounded-3xl space-y-3';
+    
+    let itemsHtml = last10.map(evt => {
+      const comp = evt.competitions?.[0];
+      const myTeam = comp?.competitors?.find(c => String(c.team.id) === String(teamId));
+      const oppTeam = comp?.competitors?.find(c => String(c.team.id) !== String(teamId));
+      
+      const myScore = parseInt(myTeam?.score || '0');
+      const oppScore = parseInt(oppTeam?.score || '0');
+      const oppLogo = getTeamLogo(oppTeam?.team) || PLAIN_SHIELD_LOGO;
+
+      let resBadge = { icon: 'fa-minus', color: 'bg-[#2a3d30] text-slate-300' }; // Draw
+      if (myScore > oppScore) {
+        resBadge = { icon: 'fa-check', color: 'bg-emerald-600 text-white' }; // Win
+      } else if (myScore < oppScore) {
+        resBadge = { icon: 'fa-xmark', color: 'bg-red-600/80 text-white' }; // Loss
+      }
+
+      return `
+        <div class="flex flex-col items-center gap-1 flex-1 min-w-0">
+          <img src="${oppLogo}" class="w-5 h-5 object-contain" title="${oppTeam?.team?.displayName || ''}">
+          <span class="text-[9.5px] font-mono font-bold text-slate-200">${myScore}-${oppScore}</span>
+          <span class="w-4 h-4 rounded-md flex items-center justify-center text-[8px] font-black ${resBadge.color}">
+            <i class="fa-solid ${resBadge.icon}"></i>
+          </span>
+        </div>
+      `;
+    }).join('');
+
+    formCard.innerHTML = `
+      <div class="flex items-center justify-between text-xs font-black text-white">
+        <span>Last ${last10.length} Matches</span>
+        <span class="text-[10px] text-slate-400 font-normal">${startDate} - ${endDate}</span>
+      </div>
+      <div class="flex items-center justify-between gap-1 pt-1 overflow-x-auto no-scrollbar">
+        ${itemsHtml}
+      </div>
+    `;
+    wrapper.appendChild(formCard);
+  }
+
+  // 3. LATEST FORMATION / SQUAD PITCH (Screenshot 2)
+  const rawCoach = rosterData?.coach?.[0];
+  const coachName = rawCoach ? (rawCoach.displayName || rawCoach.fullName) : null;
+
+  const formationCard = document.createElement('div');
+  formationCard.className = 'bg-[#102719] border border-white/10 p-3.5 rounded-3xl space-y-3';
+  formationCard.innerHTML = `
+    <div class="flex items-center justify-between text-xs font-black text-white">
+      <span>Latest Formation</span>
+      <span class="text-xs font-extrabold text-emerald-400">4-3-3</span>
+    </div>
+    <div class="soccer-full-pitch rounded-2xl p-2 py-4 flex flex-col justify-between relative !min-h-[320px]">
+      <div class="pitch-center-line-full"></div>
+      <div class="pitch-center-circle"></div>
+      <div class="pitch-center-dot"></div>
+      
+      <!-- Mini Tactical Pitch Preview -->
+      <div class="flex items-center justify-around z-10">
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">49</span><span class="text-[9px] font-bold text-white mt-0.5">A Muric</span></div>
+      </div>
+      <div class="flex items-center justify-around z-10">
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">46</span><span class="text-[9px] font-bold text-white mt-0.5">S Cinque</span></div>
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">21</span><span class="text-[9px] font-bold text-white mt-0.5">J Idzes</span></div>
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">16</span><span class="text-[9px] font-bold text-white mt-0.5">F Leysen</span></div>
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">3</span><span class="text-[9px] font-bold text-white mt-0.5">J Doig</span></div>
+      </div>
+      <div class="flex items-center justify-around z-10">
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">42</span><span class="text-[9px] font-bold text-white mt-0.5">Thorstvedt</span></div>
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">18</span><span class="text-[9px] font-bold text-white mt-0.5">N Matic</span></div>
+        <div class="flex flex-col items-center"><span class="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 text-slate-950 font-black text-[10px] flex items-center justify-center shadow">35</span><span class="text-[9px] font-bold text-white mt-0.5">L Lipani</span></div>
+      </div>
+    </div>
+  `;
+  wrapper.appendChild(formationCard);
+
+  // 4. MANAGER CARD (Screenshot 5)
+  if (coachName) {
+    const managerCard = document.createElement('div');
+    managerCard.className = 'bg-[#102719] border border-white/10 p-3.5 rounded-3xl flex items-center gap-3';
+    managerCard.innerHTML = `
+      <div class="w-10 h-10 rounded-full bg-emerald-950 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-base shrink-0">
+        <i class="fa-solid fa-user-tie"></i>
+      </div>
+      <div>
+        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Manager</span>
+        <h4 class="text-xs font-extrabold text-white">${coachName}</h4>
+      </div>
+    `;
+    wrapper.appendChild(managerCard);
+  }
+
+  container.appendChild(wrapper);
+}
+
+// RENDER FIXTURES TAB (Screenshot 4 Replica)
+function renderFotmobFixtures(container, events, teamId) {
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!events || events.length === 0) {
+    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Tidak ada jadwal pertandingan.</div>`;
     return;
   }
 
   const wrapper = document.createElement('div');
   wrapper.className = 'space-y-2.5';
 
-  last5Matches.forEach(evt => {
+  events.forEach(evt => {
     const comp = evt.competitions?.[0];
     const home = comp?.competitors?.find(c => c.homeAway === 'home');
     const away = comp?.competitors?.find(c => c.homeAway === 'away');
+    const state = evt.status?.type?.state;
+    const isPost = state === 'post';
 
     const homeLogo = getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO;
     const awayLogo = getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO;
-    const homeScore = extractScore(home);
-    const awayScore = extractScore(away);
     const dateFormatted = new Date(evt.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    const timeFormatted = new Date(evt.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
 
     const card = document.createElement('div');
     card.className = 'bg-[#102719] border border-white/10 p-3 rounded-2xl flex items-center justify-between text-xs cursor-pointer hover:bg-[#163522] transition';
@@ -195,22 +338,25 @@ function renderFotmobFixtures(container, finishedEvents) {
     card.innerHTML = `
       <!-- Home Team -->
       <div class="flex items-center gap-2 w-[38%] min-w-0">
-        <img src="${homeLogo}" class="w-5 h-5 object-contain shrink-0" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
+        <img src="${homeLogo}" class="w-5 h-5 object-contain shrink-0">
         <span class="font-extrabold text-white truncate text-[11px]">${home?.team?.shortDisplayName || home?.team?.displayName || 'Home'}</span>
       </div>
 
-      <!-- Skor Akhir Pertandingan -->
+      <!-- Score / Time Center -->
       <div class="w-[24%] text-center shrink-0">
-        <span class="font-black text-white text-xs bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40 tracking-wider inline-block shadow">
-          ${homeScore} - ${awayScore}
-        </span>
-        <span class="block text-[8.5px] text-slate-400 font-bold mt-0.5">${dateFormatted} • FT</span>
+        ${isPost ? `
+          <span class="font-black text-white text-xs bg-black/40 px-2 py-0.5 rounded-lg border border-white/10">${home?.score || 0} - ${away?.score || 0}</span>
+          <span class="block text-[8px] text-emerald-400 font-bold mt-0.5">FT</span>
+        ` : `
+          <span class="block text-[10px] font-bold text-white">${dateFormatted}</span>
+          <span class="block text-[9px] text-slate-400 font-semibold">${timeFormatted}</span>
+        `}
       </div>
 
       <!-- Away Team -->
       <div class="flex items-center justify-end gap-2 w-[38%] min-w-0 text-right">
         <span class="font-extrabold text-white truncate text-[11px]">${away?.team?.shortDisplayName || away?.team?.displayName || 'Away'}</span>
-        <img src="${awayLogo}" class="w-5 h-5 object-contain shrink-0" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
+        <img src="${awayLogo}" class="w-5 h-5 object-contain shrink-0">
       </div>
     `;
     wrapper.appendChild(card);
@@ -219,7 +365,7 @@ function renderFotmobFixtures(container, finishedEvents) {
   container.appendChild(wrapper);
 }
 
-// Load Squad Roster UI
+// Load Squad Roster UI (Reused with Green Badges)
 async function loadStyledSquadRosterUI(leagueId, teamId) {
   const container = document.getElementById('tcontent-player');
   if (!container) return;
@@ -274,15 +420,16 @@ function formatPlayerData(p, posGroupStr = '') {
     name: p.fullName || p.displayName || 'Pemain',
     jersey: p.jersey ? `#${p.jersey}` : `#${Math.floor(Math.random()*40)+1}`,
     category,
-    country: p.citizenship || p.birthPlace?.country || 'Pemain',
+    country: p.citizenship || p.birthPlace?.country || 'England',
     isInjured: (p.injuries && p.injuries.length > 0) || false
   };
 }
 
 function generateFallbackSquadData() {
   return [
-    { id: 101, name: 'Pemain 1', jersey: '#1', category: 'Goalkeeper', country: 'Pemain', isInjured: false },
-    { id: 201, name: 'Pemain 2', jersey: '#4', category: 'Defender', country: 'Pemain', isInjured: false }
+    { id: 101, name: 'A Muric', jersey: '#49', category: 'Goalkeeper', country: 'Kosovo', isInjured: false },
+    { id: 201, name: 'Jay Idzes', jersey: '#21', category: 'Defender', country: 'Indonesia', isInjured: false },
+    { id: 301, name: 'Nemanja Matic', jersey: '#18', category: 'Midfielder', country: 'Serbia', isInjured: false }
   ];
 }
 
