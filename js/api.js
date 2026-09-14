@@ -1,10 +1,10 @@
 // ==========================================
-// API & NETWORK DATA FETCHING MODULE (100% PURE ESPN API + WIKIPEDIA FALLBACK)
+// API & NETWORK DATA FETCHING MODULE (ESPN API + AVATAR CIRCLE FALLBACK)
 // ==========================================
 
 // Helper untuk fetch batch agar tidak terkena rate-limit / blokir ESPN
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
-  const BATCH_SIZE = 15; // Kirim 15 liga per gelombang
+  const BATCH_SIZE = 15;
   let allEvents = [];
 
   for (let i = 0; i < leaguesList.length; i += BATCH_SIZE) {
@@ -66,7 +66,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// 2. ESPN & Wikipedia Player Photo Loader
+// 2. ESPN Player Photo Loader (Wikipedia Dihapus Total)
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -98,34 +98,17 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
       await savePhotoToCache(cleanedName, espnUrl);
     };
     testImg.onerror = () => {
-      // Jika ESPN 404, otomatis ambil dari Wikipedia REST API
-      fetchWikipediaPhoto(img, cleanedName);
+      showPlayerCircleFallback(img, cleanedName);
     };
   } else {
-    fetchWikipediaPhoto(img, cleanedName);
+    showPlayerCircleFallback(img, cleanedName);
   }
 }
 
-// Helper untuk mengambil foto dari Wikipedia API jika ESPN 404
-async function fetchWikipediaPhoto(img, pName) {
-  try {
-    const wikiRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pName)}`);
-    if (wikiRes.ok) {
-      const wikiData = await wikiRes.json();
-      if (wikiData.thumbnail && wikiData.thumbnail.source) {
-        const wikiPhotoUrl = wikiData.thumbnail.source;
-        img.src = wikiPhotoUrl;
-        playerPhotoCache[pName] = wikiPhotoUrl;
-        await savePhotoToCache(pName, wikiPhotoUrl);
-        return;
-      }
-    }
-  } catch (e) {
-    console.warn(`Gagal mengambil foto Wikipedia untuk ${pName}:`, e);
-  }
-
-  // Fallback Terakhir: Avatar Inisial Berwarna dari UI-Avatars
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f766e&color=fff&bold=true&rounded=true`;
+// Fallback Lingkaran Avatar Bulat
+function showPlayerCircleFallback(img, pName) {
+  img.onerror = null;
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=22c55e&color=ffffff&bold=true&rounded=true&size=128`;
   img.src = avatarUrl;
 }
 
@@ -147,7 +130,7 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
-// 4. Fetch All Matches (Menu SEMUA - Mengambil SELURUH LIGA)
+// 4. Fetch All Matches
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
@@ -172,7 +155,7 @@ async function fetchAllMatches() {
   }
 }
 
-// 5. Fetch Live Matches (Menu LIVE - Mengambil SELURUH LIGA)
+// 5. Fetch Live Matches
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -213,7 +196,7 @@ async function fetchLiveMatchesStructured() {
     const finishedSec = document.createElement('div');
     finishedSec.className = 'space-y-2.5';
     finishedSec.innerHTML = `
-      <button onclick="toggleFinishedInLiveView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+      <button onclick="toggleFinishedInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-[#231344] transition shadow-lg">
         <span class="flex items-center gap-2">
           <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
         </span>
@@ -227,7 +210,7 @@ async function fetchLiveMatchesStructured() {
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5';
     liveSec.innerHTML = `
-      <div class="flex items-center justify-between pb-1 border-b border-slate-800 text-slate-300">
+      <div class="flex items-center justify-between pb-1 border-b border-white/10 text-slate-300">
         <span class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
           <span class="flex h-2 w-2 relative">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -245,7 +228,7 @@ async function fetchLiveMatchesStructured() {
     const upcomingSec = document.createElement('div');
     upcomingSec.className = 'space-y-2.5';
     upcomingSec.innerHTML = `
-      <button onclick="toggleUpcomingInLiveView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+      <button onclick="toggleUpcomingInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-[#231344] transition shadow-lg">
         <span class="flex items-center gap-2">
           <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
         </span>
@@ -269,9 +252,9 @@ async function fetchFavoritedMatchesStructured() {
 
   if (favoriteMatches.length === 0 && favoriteTeams.length === 0) {
     container.innerHTML = `
-      <div class="text-center py-12 px-4 text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl">
+      <div class="text-center py-12 px-4 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl">
         <i class="fa-solid fa-star text-3xl text-amber-500/40 mb-3 block"></i>
-        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">Belum Ada Favorit</h3>
+        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Belum Ada Favorit</h3>
         <p class="text-[11px] text-slate-400">Tekan ikon bintang <i class="fa-regular fa-star text-amber-400"></i> pada pertandingan atau klub untuk menampilkannya di sini.</p>
       </div>
     `;
@@ -309,8 +292,8 @@ async function fetchFavoritedMatchesStructured() {
 
     if (finishedEvents.length === 0 && liveEvents.length === 0 && upcomingEvents.length === 0) {
       container.innerHTML = `
-        <div class="text-center py-10 text-slate-500 bg-slate-900/40 border border-slate-800 rounded-2xl text-xs">
-          <i class="fa-solid fa-calendar-xmark text-2xl mb-2 block text-slate-600"></i>
+        <div class="text-center py-10 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl text-xs">
+          <i class="fa-solid fa-calendar-xmark text-2xl mb-2 block text-slate-500"></i>
           Tidak ada jadwal pertandingan untuk klub/pertandingan favorit Anda minggu ini.
         </div>
       `;
@@ -341,7 +324,7 @@ async function fetchFavoritedMatchesStructured() {
       const finishedSec = document.createElement('div');
       finishedSec.className = 'space-y-2.5 mb-4';
       finishedSec.innerHTML = `
-        <button onclick="toggleFinishedInFavView()" class="w-full bg-slate-900 border border-emerald-500/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-slate-800/80 transition shadow-lg shadow-emerald-950/20">
+        <button onclick="toggleFinishedInFavView()" class="w-full bg-[#180d30] border border-emerald-500/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-[#231344] transition shadow-lg">
           <span class="flex items-center gap-2">
             <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
           </span>
@@ -356,9 +339,9 @@ async function fetchFavoritedMatchesStructured() {
     if (upcomingEvents.length > 0) {
       showUpcomingInFav = true;
       const upcomingSec = document.createElement('div');
-      upcomingSec.className = 'space-y-2.5 pt-2 border-t border-slate-800/60';
+      upcomingSec.className = 'space-y-2.5 pt-2 border-t border-white/10';
       upcomingSec.innerHTML = `
-        <button onclick="toggleUpcomingInFavView()" class="w-full bg-slate-900 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-slate-800/80 transition shadow-lg">
+        <button onclick="toggleUpcomingInFavView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-[#231344] transition shadow-lg">
           <span class="flex items-center gap-2">
             <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (${upcomingEvents.length})
           </span>
@@ -423,7 +406,7 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
 
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
-      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-400"></i>
       <p class="text-xs">Memuat 5 laga terakhir & H2H...</p>
     </div>
   `;
@@ -446,12 +429,12 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
               const matchDate = formatLocalDate(m.date);
 
               return `
-                <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs">
-                  <span class="text-[9px] text-slate-500 w-1/3">${matchDate}</span>
+                <div class="bg-[#180d30] p-2.5 rounded-xl border border-white/10 flex items-center justify-between text-xs">
+                  <span class="text-[9px] text-slate-400 w-1/3">${matchDate}</span>
                   <div class="flex items-center justify-center gap-1.5 w-2/3">
-                    <span class="font-semibold text-slate-300 text-right truncate w-5/12">${hTeam?.team?.shortDisplayName || ''}</span>
-                    <span class="font-bold bg-slate-800 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score || '0'} - ${aTeam?.score || '0'}</span>
-                    <span class="font-semibold text-slate-300 text-left truncate w-5/12">${aTeam?.team?.shortDisplayName || ''}</span>
+                    <span class="font-semibold text-slate-200 text-right truncate w-5/12">${hTeam?.team?.shortDisplayName || ''}</span>
+                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score || '0'} - ${aTeam?.score || '0'}</span>
+                    <span class="font-semibold text-slate-200 text-left truncate w-5/12">${aTeam?.team?.shortDisplayName || ''}</span>
                   </div>
                 </div>
               `;
@@ -461,7 +444,7 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
       `;
     } else {
       h2hHtml = `
-        <div class="text-center py-4 text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800 text-xs">
+        <div class="text-center py-4 text-slate-400 bg-[#180d30] rounded-xl border border-white/10 text-xs">
           Data H2H langsung tidak tersedia.
         </div>
       `;

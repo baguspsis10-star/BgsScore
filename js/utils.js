@@ -146,11 +146,11 @@ async function getBase64FromUrl(url) {
   }
 }
 
-// Handle Image Load Errors for Player Photos
+// Handle Image Load Errors for Player Photos (Avatar Circle Fallback)
 function handlePlayerImgError(img, pName) {
   img.onerror = null;
   if (pName && !dataSaverMode) {
-    img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=0f172a&color=38bdf8&bold=true`;
+    img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=22c55e&color=ffffff&bold=true&rounded=true&size=128`;
   } else {
     img.src = PLAIN_PERSON_HEADSHOT;
   }
@@ -243,7 +243,7 @@ function renderDateStrip() {
 
     const btn = document.createElement('button');
     btn.className = `px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
-      isActive ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+      isActive ? 'bg-emerald-600 text-white shadow-lg' : 'bg-[#180d30] text-slate-300 hover:bg-[#231344]'
     }`;
     btn.innerText = label;
     btn.onclick = () => {
