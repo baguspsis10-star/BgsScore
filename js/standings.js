@@ -39,14 +39,13 @@ function renderCategorizedLeagueGrid(onSelectFunctionName) {
   }).join('');
 }
 
-// Extract Points Value from Entry Object
 function getPointsFromEntry(entry) {
   const stats = entry.stats || [];
   const ptStat = stats.find(s => s.name === 'points' || s.name === 'pts');
   return parseFloat(ptStat?.value ?? ptStat?.displayValue ?? 0);
 }
 
-// Fetch Standings Main Handler for Navigation
+// Fetch Standings Main Handler
 async function fetchStandingsForSelectedLeague() {
   const container = document.getElementById('standings-container');
   container.innerHTML = '';
@@ -80,12 +79,16 @@ async function fetchStandingsForSelectedLeague() {
       </span>
     </div>
 
-    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+    <!-- FITUR BARU: Sub-Tab Navigator dengan Tombol Leaders -->
+    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1">
       <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-list-ol mr-1"></i> League
       </button>
       <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-calendar-days mr-1"></i> Match
+      </button>
+      <button onclick="switchStandingsSubTab('leaders')" id="stab-leaders" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'leaders' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+        <i class="fa-solid fa-fire mr-1"></i> Leaders
       </button>
     </div>
   `;
@@ -97,20 +100,77 @@ async function fetchStandingsForSelectedLeague() {
 
   if (selectedStandingsTab === 'table') {
     await renderLeagueStandingsTable(targetLeague, subContainer);
-  } else {
+  } else if (selectedStandingsTab === 'matches') {
     await renderLeagueMatchesList(targetLeague, subContainer);
+  } else if (selectedStandingsTab === 'leaders') {
+    await fetchLeagueLeaders(targetLeague.id, subContainer);
   }
 
   container.classList.remove('hidden');
 }
 
-// Switch Standings Sub-Tab (Table / Matches)
+// FITUR BARU: Fetch Top Skor & Top Assist (League Leaders)
+async function fetchLeagueLeaders(leagueId, container) {
+  container.innerHTML = `
+    <div class="py-12 text-center text-xs text-slate-400 space-y-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-xl"></i>
+      <p class="font-bold">Memuat statistik Top Skor & Leaders...</p>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/leaders`);
+    const data = await res.json();
+    const categories = data.leaders || [];
+
+    if (categories.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40 text-xs">
+          Statistik pemain tersubur belum tersedia untuk liga ini.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = categories.map(cat => {
+      const topAthletes = cat.leaders?.[0]?.leaders || [];
+      return `
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 mb-3 shadow-xl">
+          <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-award"></i> ${cat.displayName || 'Statistik'}</span>
+            <span class="text-[9px] text-slate-400 font-normal">Top 5</span>
+          </h4>
+          <div class="divide-y divide-slate-800/50">
+            ${topAthletes.slice(0, 5).map((item, idx) => `
+              <div onclick="openPlayerBioModal('${leagueId}', '${item.athlete?.id}')" class="flex items-center justify-between py-2 text-xs hover:bg-slate-800/40 px-1 rounded-xl transition cursor-pointer">
+                <div class="flex items-center gap-2.5 truncate">
+                  <span class="font-bold w-4 text-center ${idx === 0 ? 'text-amber-400 font-black' : 'text-slate-400'}">${idx + 1}</span>
+                  <div class="w-7 h-7 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
+                    <img src="${item.athlete?.headshot?.href || PLAIN_PERSON_HEADSHOT}" class="w-full h-full object-cover" onerror="this.src='${PLAIN_PERSON_HEADSHOT}'">
+                  </div>
+                  <div class="truncate">
+                    <div class="font-bold text-white text-[11px] truncate">${item.athlete?.displayName || 'Pemain'}</div>
+                    <div class="text-[9px] text-slate-400 truncate">${item.team?.displayName || ''}</div>
+                  </div>
+                </div>
+                <span class="font-black text-emerald-400 text-xs bg-emerald-950/60 px-2.5 py-0.5 rounded-lg border border-emerald-500/30">${item.displayValue}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-center py-8 text-red-400 text-xs">Gagal memuat statistik liga.</div>`;
+  }
+}
+
+// Switch Standings Sub-Tab (Table / Matches / Leaders)
 function switchStandingsSubTab(tab) {
   selectedStandingsTab = tab;
   fetchStandingsForSelectedLeague();
 }
 
-// Select Specific Standings League
 function selectStandingsLeague(leagueId) {
   selectedStandingsLeague = leagueId;
   selectedStandingsTab = 'table';
