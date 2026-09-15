@@ -2,6 +2,34 @@
 // API & NETWORK DATA FETCHING MODULE (ESPN API)
 // ==========================================
 
+// Helper Konversi Unit (Feet/Inches -> CM, Lbs -> KG)
+function formatHeightCm(heightStr) {
+  if (!heightStr || heightStr === '-') return '-';
+  const str = String(heightStr).trim();
+  if (str.toLowerCase().includes('cm')) return str;
+  if (str.includes("'")) {
+    const parts = str.split("'");
+    const feet = parseFloat(parts[0]) || 0;
+    const inches = parseFloat(parts[1]?.replace('"', '')) || 0;
+    return `${Math.round((feet * 30.48) + (inches * 2.54))} cm`;
+  }
+  const num = parseFloat(str);
+  if (isNaN(num)) return str;
+  return num < 100 ? `${Math.round(num * 2.54)} cm` : `${Math.round(num)} cm`;
+}
+
+function formatWeightKg(weightStr) {
+  if (!weightStr || weightStr === '-') return '-';
+  const str = String(weightStr).trim();
+  if (str.toLowerCase().includes('kg')) return str;
+  const num = parseFloat(str);
+  if (isNaN(num)) return str;
+  return (str.toLowerCase().includes('lb') || num > 120) 
+    ? `${Math.round(num * 0.453592)} kg` 
+    : `${Math.round(num)} kg`;
+}
+
+// Helper untuk fetch batch agar tidak terkena rate-limit / blokir ESPN
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   const BATCH_SIZE = 15;
   let allEvents = [];
@@ -33,6 +61,7 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   return allEvents;
 }
 
+// 1. ESPN League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -64,6 +93,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
+// 2. ESPN Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -102,13 +132,14 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   }
 }
 
+// Fallback Lingkaran Avatar Bulat
 function showPlayerCircleFallback(img, pName) {
   img.onerror = null;
   const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=22c55e&color=ffffff&bold=true&rounded=true&size=128`;
   img.src = avatarUrl;
 }
 
-// Modal Profil & Biodata Pemain Lengkap (Height CM, Weight KG, Stats & Status Cedera)
+// FITUR BARU: Modal Profil & Biodata Pemain Lengkap (Height CM & Weight KG + Stats & Cedera)
 async function openPlayerBioModal(leagueId, playerId) {
   if (!playerId || playerId === 'null' || playerId === 'undefined') return;
 
@@ -245,6 +276,7 @@ async function openPlayerBioModal(leagueId, playerId) {
   }
 }
 
+// 3. Fetch Detail / Summary Pertandingan (ESPN API)
 async function fetchMatchSummary(leagueId, eventId) {
   if (!leagueId || !eventId) return null;
   try {
@@ -256,6 +288,7 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
+// 4. Fetch All Matches
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
@@ -280,6 +313,7 @@ async function fetchAllMatches() {
   }
 }
 
+// 5. Fetch Live Matches
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -369,6 +403,7 @@ async function fetchLiveMatchesStructured() {
   }
 }
 
+// 6. Fetch Favorited Matches
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -482,6 +517,7 @@ async function fetchFavoritedMatchesStructured() {
   }
 }
 
+// 7. Fetch 5 Pertandingan Terakhir Tim
 async function fetchTeamRecentMatches(leagueId, teamId) {
   try {
     const currentYear = new Date().getFullYear();
@@ -521,6 +557,7 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
   }
 }
 
+// 8. Fetch dan Render Bagian Form & Head to Head (H2H)
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');
   if (!container) return;
