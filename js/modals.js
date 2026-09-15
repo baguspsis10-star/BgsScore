@@ -102,9 +102,7 @@ function sendPushNotification(title, body) {
         body: body,
         icon: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png'
       });
-    } catch (e) {
-      console.error("Gagal mengirim push notification:", e);
-    }
+    } catch (e) {}
   }
 }
 
@@ -136,7 +134,7 @@ function playWhistlePattern(pattern) {
 
       startTime += dur + 0.15;
     });
-  } catch(e) { console.error(e); }
+  } catch(e) {}
 }
 
 function playEventSound(type) {
@@ -184,9 +182,7 @@ function playEventSound(type) {
     } else if (type === 'red') {
       playWhistlePattern([0.2, 0.4]);
     }
-  } catch (e) {
-    console.error("Audio error:", e);
-  }
+  } catch (e) {}
 }
 
 function openLeagueModal() {
@@ -306,7 +302,6 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     loading.classList.add('hidden');
     container.classList.remove('hidden');
   } catch (err) {
-    console.error("Detail Fetch Error:", err);
     if (!isSilent) {
       document.getElementById('modal-data-container').innerHTML = `
         <div class="text-center py-12 text-slate-400 space-y-2">
@@ -407,16 +402,47 @@ function parseClockMinute(clockStr) {
   return parseInt(str) || 0;
 }
 
-function getBaseMinute(clockStr) {
-  if (!clockStr) return 0;
-  const str = String(clockStr).replace(/['\s]/g, '');
-  if (str.includes('+')) {
-    return parseInt(str.split('+')[0]) || 0;
-  }
-  return parseInt(str) || 0;
+// FITUR BARU: Render Odds & Win Probability Widget
+function renderOddsAndProbabilityWidget(data) {
+  const pickcenter = data.pickcenter?.[0] || {};
+  const winProb = data.winprobability || [];
+  
+  const homeProb = winProb.length > 0 ? (winProb[winProb.length - 1].homeWinPercentage * 100).toFixed(1) : null;
+  const awayProb = homeProb ? (100 - parseFloat(homeProb)).toFixed(1) : null;
+
+  if (!homeProb && !pickcenter.provider) return '';
+
+  return `
+    <div class="bg-[#180d30] border border-white/10 rounded-2xl p-3.5 my-3 space-y-2.5 shadow-md">
+      <div class="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400">
+        <span class="flex items-center gap-1.5"><i class="fa-solid fa-chart-pie text-emerald-400"></i> Odds & Win Probability</span>
+        ${pickcenter.provider ? `<span class="text-emerald-400 font-extrabold">${pickcenter.provider.name}</span>` : ''}
+      </div>
+
+      ${homeProb ? `
+        <div class="space-y-1">
+          <div class="flex justify-between text-[10px] font-bold text-white">
+            <span>Home Win: ${homeProb}%</span>
+            <span>Away Win: ${awayProb}%</span>
+          </div>
+          <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden flex">
+            <div class="bg-emerald-500 h-full" style="width: ${homeProb}%"></div>
+            <div class="bg-blue-500 h-full" style="width: ${awayProb}%"></div>
+          </div>
+        </div>
+      ` : ''}
+
+      ${pickcenter.details ? `
+        <div class="flex justify-between items-center text-xs bg-[#0f0720] p-2 rounded-xl border border-white/5">
+          <span class="text-slate-400 text-[10px] font-bold">Pasaran Handicap / Spreads:</span>
+          <span class="font-extrabold text-amber-300 font-mono text-[11px]">${pickcenter.details}</span>
+        </div>
+      ` : ''}
+    </div>
+  `;
 }
 
-// Render Complete Match Detail Data (DARK PURPLE NEON LOOK)
+// Render Complete Match Detail Data
 function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;
@@ -450,7 +476,6 @@ function renderModalCompleteData(data, leagueId) {
     if (weatherObj.condition) weather += `, ${weatherObj.condition}`;
   }
 
-  // MODERN PURPLE STADIUM INFO BADGES
   const matchInfoBadgeHtml = `
     <div class="mt-4 pt-4 border-t border-white/10 grid grid-cols-3 gap-2.5">
       <div class="bg-white/5 p-3 rounded-2xl border border-white/10 text-center flex flex-col items-center justify-center">
@@ -553,11 +578,9 @@ function renderModalCompleteData(data, leagueId) {
     ? formattedTime 
     : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : statusDetail);
 
-  // SCORE HEADER CARD (DARK PURPLE GRADIENT)
   document.getElementById('modal-score-header').innerHTML = `
     <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#2e134b] via-[#1d0d36] to-[#150a28] p-5 shadow-2xl text-white border border-purple-900/40">
       <div class="flex items-center justify-between relative z-10">
-        <!-- Home Team -->
         <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
           <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex items-center justify-center group-hover:scale-105 transition">
             <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
@@ -568,7 +591,6 @@ function renderModalCompleteData(data, leagueId) {
           </span>
         </div>
 
-        <!-- Score Center Badge -->
         <div class="text-center w-[24%] flex flex-col items-center justify-center">
           <div class="text-2xl sm:text-3xl font-black tracking-widest text-white flex items-center justify-center gap-2">
             <span>${state === 'pre' ? 'VS' : (home.score || '0')}</span>
@@ -579,7 +601,6 @@ function renderModalCompleteData(data, leagueId) {
           </div>
         </div>
 
-        <!-- Away Team -->
         <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
           <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex items-center justify-center group-hover:scale-105 transition">
             <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
@@ -595,10 +616,13 @@ function renderModalCompleteData(data, leagueId) {
     </div>
   `;
 
-  // STATS BLOCK (RED & BLUE NEON ACCENT)
+  // Insert Odds & Probability Widget inside match summary
+  const oddsWidgetHtml = renderOddsAndProbabilityWidget(data);
+
   let statsBlockHtml = '';
   if (state === 'pre') {
     statsBlockHtml = `
+      ${oddsWidgetHtml}
       <div class="bg-[#180d30] border border-white/10 rounded-3xl p-6 text-center shadow-sm">
         <i class="fa-solid fa-chart-line text-3xl text-slate-500 mb-2 block"></i>
         <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Statistik Belum Tersedia</h4>
@@ -645,6 +669,7 @@ function renderModalCompleteData(data, leagueId) {
     };
 
     statsBlockHtml = `
+      ${oddsWidgetHtml}
       <div class="bg-[#180d30] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
         <h3 class="text-center text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-white/10">Overview</h3>
         <div class="space-y-3 pt-1">
@@ -661,7 +686,7 @@ function renderModalCompleteData(data, leagueId) {
   }
   document.getElementById('mcontent-stats').innerHTML = statsBlockHtml;
 
-  // TIMELINE BLOCK (CAPSULE SIDE LAYOUT & HOME/AWAY GOAL POSITION FIX)
+  // TIMELINE BLOCK
   let eventsTimelineHtml = '';
   if (rawEvents && rawEvents.length > 0) {
     const validEvents = rawEvents.filter(item => {
@@ -803,6 +828,41 @@ function renderModalCompleteData(data, leagueId) {
 
   document.getElementById('mcontent-summary').innerHTML = eventsTimelineHtml;
 
+  // FITUR BARU: RENDER LIVE COMMENTARY TAB CONTENT
+  const commentaryList = data.commentary || [];
+  let commentaryHtml = '';
+
+  if (commentaryList.length > 0) {
+    commentaryHtml = `
+      <div class="bg-[#180d30] p-4 rounded-3xl border border-white/10 space-y-3 shadow-xl">
+        <h4 class="text-xs font-bold text-white uppercase tracking-wider pb-2 border-b border-white/10 flex items-center gap-2">
+          <i class="fa-solid fa-comment-dots text-emerald-400"></i> Live Commentary
+        </h4>
+        <div class="space-y-2.5 max-h-[450px] overflow-y-auto no-scrollbar pr-1">
+          ${commentaryList.map(item => `
+            <div class="flex items-start gap-2.5 text-xs pb-2.5 border-b border-white/5 last:border-0">
+              <span class="font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] shrink-0">
+                ${item.time?.displayValue || "0'"}
+              </span>
+              <p class="text-slate-300 leading-relaxed text-[11px]">${item.text || ''}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  } else {
+    commentaryHtml = `<div class="text-center py-10 text-slate-400 bg-[#180d30] rounded-3xl border border-white/10 text-xs">Teks komentar live tidak tersedia untuk pertandingan ini.</div>`;
+  }
+
+  let commentaryContainer = document.getElementById('mcontent-commentary');
+  if (!commentaryContainer) {
+    commentaryContainer = document.createElement('div');
+    commentaryContainer.id = 'mcontent-commentary';
+    commentaryContainer.className = 'space-y-3 hidden';
+    document.getElementById('modal-data-container').appendChild(commentaryContainer);
+  }
+  commentaryContainer.innerHTML = commentaryHtml;
+
   // ROSTERS / LINEUP PITCH
   const rosters = data.rosters || [];
   let lineupHtml = '';
@@ -858,9 +918,9 @@ function renderModalCompleteData(data, leagueId) {
             const badgeHtml = getPlayerBadgeHtml(pId);
 
             return `
-              <div class="flex flex-col items-center group relative cursor-pointer flex-1 min-w-0 max-w-[70px] sm:max-w-[85px]">
+              <div onclick="openPlayerBioModal('${leagueId}', '${pId}')" class="flex flex-col items-center group relative cursor-pointer flex-1 min-w-0 max-w-[70px] sm:max-w-[85px]">
                 <div class="relative shrink-0">
-                  <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 ${borderColor} bg-[#0f0720] overflow-hidden shadow-md flex items-center justify-center">
+                  <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 ${borderColor} bg-[#0f0720] overflow-hidden shadow-md flex items-center justify-center hover:scale-105 transition">
                     <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
                   </div>
                   <span class="absolute -top-1 -right-1 bg-[#0d061a] text-white font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full shadow z-10">#${jersey}</span>
@@ -887,7 +947,7 @@ function renderModalCompleteData(data, leagueId) {
         const badgeHtml = getPlayerBadgeHtml(pId);
 
         return `
-          <div class="flex items-center gap-2 py-1.5 px-0.5 min-w-0 flex-1">
+          <div onclick="openPlayerBioModal('${leagueId}', '${pId}')" class="flex items-center gap-2 py-1.5 px-0.5 min-w-0 flex-1 cursor-pointer hover:bg-white/5 rounded-xl transition">
             <div class="relative shrink-0">
               <div class="w-8 h-8 rounded-full bg-[#0f0720] overflow-hidden border border-white/10 flex items-center justify-center">
                 <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
@@ -974,7 +1034,7 @@ function renderModalCompleteData(data, leagueId) {
 
 // SWITCH MODAL PILL TABS
 function switchModalTab(tabName) {
-  const tabs = ['summary', 'stats', 'lineup', 'standings', 'h2h'];
+  const tabs = ['summary', 'stats', 'lineup', 'standings', 'h2h', 'commentary'];
 
   tabs.forEach(t => {
     const btn = document.getElementById(`mtab-${t}`);
