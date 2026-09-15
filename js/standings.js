@@ -109,7 +109,7 @@ async function fetchStandingsForSelectedLeague() {
   container.classList.remove('hidden');
 }
 
-// Fetch Top Skor & Top Assist (League Leaders) - MULTI-ENDPOINT FIXED
+// Fetch Top Skor & Top Assist (League Leaders) - AVATAR FALLBACK FIXED
 async function fetchLeagueLeaders(leagueId, container) {
   container.innerHTML = `
     <div class="py-12 text-center text-xs text-slate-400 space-y-2">
@@ -170,14 +170,13 @@ async function fetchLeagueLeaders(leagueId, container) {
             const pId = athlete.id || athlete.athleteId;
             const pName = athlete.displayName || athlete.fullName || athlete.name || 'Pemain';
             const value = item.displayValue || item.value || item.statValue || '0';
-            const headshot = athlete.headshot?.href || athlete.headshot || (pId ? `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png` : PLAIN_PERSON_HEADSHOT);
 
             return `
               <div onclick="openPlayerBioModal('${leagueId}', '${pId}')" class="flex items-center justify-between py-2 text-xs hover:bg-slate-800/40 px-1 rounded-xl transition cursor-pointer">
                 <div class="flex items-center gap-2.5 truncate">
                   <span class="font-bold w-4 text-center ${idx === 0 ? 'text-amber-400 font-black' : 'text-slate-400'}">${idx + 1}</span>
                   <div class="w-7 h-7 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
-                    <img src="${headshot}" class="w-full h-full object-cover" onerror="this.src='${PLAIN_PERSON_HEADSHOT}'">
+                    <img src="${PLAIN_PERSON_HEADSHOT}" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pName.replace(/'/g, "\\'")}')">
                   </div>
                   <div class="truncate">
                     <div class="font-bold text-white text-[11px] truncate">${pName}</div>
