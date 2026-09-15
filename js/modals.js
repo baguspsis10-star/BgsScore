@@ -1,4 +1,6 @@
+// ============================================================
 // MODALS & DIALOG CONTROLLER MODULE (ENHANCED DARK PURPLE NEON THEME)
+// ============================================================
 
 let globalModalZIndex = 50;
 
@@ -402,7 +404,7 @@ function parseClockMinute(clockStr) {
   return parseInt(str) || 0;
 }
 
-// FITUR BARU: Render Odds & Win Probability Widget
+// FITUR UBAH: Render Live Odds Desimal 1X2 & Win Probability Widget
 function renderOddsAndProbabilityWidget(data) {
   const pickcenter = data.pickcenter?.[0] || {};
   const winProb = data.winprobability || [];
@@ -410,32 +412,69 @@ function renderOddsAndProbabilityWidget(data) {
   const homeProb = winProb.length > 0 ? (winProb[winProb.length - 1].homeWinPercentage * 100).toFixed(1) : null;
   const awayProb = homeProb ? (100 - parseFloat(homeProb)).toFixed(1) : null;
 
-  if (!homeProb && !pickcenter.provider) return '';
+  // Ambil odds Moneyline / Value dari API ESPN
+  const homeOddsRaw = pickcenter.homeTeamOdds?.moneyLine ?? pickcenter.homeTeamOdds?.value;
+  const awayOddsRaw = pickcenter.awayTeamOdds?.moneyLine ?? pickcenter.awayTeamOdds?.value;
+  const drawOddsRaw = pickcenter.drawOdds?.moneyLine ?? pickcenter.drawOdds?.value;
+
+  const homeDec = convertAmericanToDecimal(homeOddsRaw);
+  const awayDec = convertAmericanToDecimal(awayOddsRaw);
+  const drawDec = convertAmericanToDecimal(drawOddsRaw);
+
+  const providerName = pickcenter.provider?.name || 'Live Odds';
+  const spreadDetails = pickcenter.details || pickcenter.overUnder ? `Handicap: ${pickcenter.details || '-'} | O/U: ${pickcenter.overUnder || '-'}` : null;
+
+  if (!homeProb && homeDec === '-' && !spreadDetails) return '';
 
   return `
     <div class="bg-[#180d30] border border-white/10 rounded-2xl p-3.5 my-3 space-y-2.5 shadow-md">
       <div class="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400">
-        <span class="flex items-center gap-1.5"><i class="fa-solid fa-chart-pie text-emerald-400"></i> Odds & Win Probability</span>
-        ${pickcenter.provider ? `<span class="text-emerald-400 font-extrabold">${pickcenter.provider.name}</span>` : ''}
+        <span class="flex items-center gap-1.5 text-emerald-400">
+          <span class="flex h-2 w-2 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          Live Odds Desimal & Probabilitas
+        </span>
+        <span class="text-slate-300 font-extrabold bg-white/10 px-2 py-0.5 rounded border border-white/10">${providerName}</span>
       </div>
 
-      ${homeProb ? `
-        <div class="space-y-1">
-          <div class="flex justify-between text-[10px] font-bold text-white">
-            <span>Home Win: ${homeProb}%</span>
-            <span>Away Win: ${awayProb}%</span>
+      <!-- GRID ODDS DESIMAL 1X2 -->
+      ${(homeDec !== '-' || drawDec !== '-' || awayDec !== '-') ? `
+        <div class="grid grid-cols-3 gap-2 text-center my-2">
+          <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
+            <span class="text-[9px] text-slate-400 block font-bold uppercase">1 (Home)</span>
+            <span class="font-extrabold text-emerald-400 font-mono text-xs mt-0.5 block">${homeDec}</span>
           </div>
-          <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden flex">
-            <div class="bg-emerald-500 h-full" style="width: ${homeProb}%"></div>
-            <div class="bg-blue-500 h-full" style="width: ${awayProb}%"></div>
+          <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
+            <span class="text-[9px] text-slate-400 block font-bold uppercase">X (Seri)</span>
+            <span class="font-extrabold text-amber-300 font-mono text-xs mt-0.5 block">${drawDec}</span>
+          </div>
+          <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
+            <span class="text-[9px] text-slate-400 block font-bold uppercase">2 (Away)</span>
+            <span class="font-extrabold text-blue-400 font-mono text-xs mt-0.5 block">${awayDec}</span>
           </div>
         </div>
       ` : ''}
 
-      ${pickcenter.details ? `
+      <!-- WIN PROBABILITY BAR -->
+      ${homeProb ? `
+        <div class="space-y-1 pt-1">
+          <div class="flex justify-between text-[10px] font-bold text-white">
+            <span>Peluang Menang Home: ${homeProb}%</span>
+            <span>Away: ${awayProb}%</span>
+          </div>
+          <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden flex">
+            <div class="bg-emerald-500 h-full transition-all duration-500" style="width: ${homeProb}%"></div>
+            <div class="bg-blue-500 h-full transition-all duration-500" style="width: ${awayProb}%"></div>
+          </div>
+        </div>
+      ` : ''}
+
+      ${spreadDetails ? `
         <div class="flex justify-between items-center text-xs bg-[#0f0720] p-2 rounded-xl border border-white/5">
-          <span class="text-slate-400 text-[10px] font-bold">Pasaran Handicap / Spreads:</span>
-          <span class="font-extrabold text-amber-300 font-mono text-[11px]">${pickcenter.details}</span>
+          <span class="text-slate-400 text-[10px] font-bold">Pasaran Spreads & Over/Under:</span>
+          <span class="font-extrabold text-amber-300 font-mono text-[11px]">${spreadDetails}</span>
         </div>
       ` : ''}
     </div>
@@ -616,7 +655,7 @@ function renderModalCompleteData(data, leagueId) {
     </div>
   `;
 
-  // Insert Odds & Probability Widget inside match summary
+  // Insert Live Odds & Probability Widget
   const oddsWidgetHtml = renderOddsAndProbabilityWidget(data);
 
   let statsBlockHtml = '';
@@ -828,7 +867,7 @@ function renderModalCompleteData(data, leagueId) {
 
   document.getElementById('mcontent-summary').innerHTML = eventsTimelineHtml;
 
-  // FITUR BARU: RENDER LIVE COMMENTARY TAB CONTENT
+  // RENDER LIVE COMMENTARY TAB CONTENT
   const commentaryList = data.commentary || [];
   let commentaryHtml = '';
 
