@@ -1,8 +1,7 @@
-// ============================================================
-// MODALS & DIALOG CONTROLLER MODULE (ENHANCED DARK PURPLE NEON THEME)
-// ============================================================
+// MODALS & DIALOG CONTROLLER MODULE (DARK PURPLE NEON THEME + AMBIENCE & ODDS)
 
 let globalModalZIndex = 50;
+let stadiumAudioNode = null;
 
 function getNextZIndex() {
   globalModalZIndex += 2;
@@ -105,6 +104,44 @@ function sendPushNotification(title, body) {
         icon: 'https://a.espncdn.com/i/leaguelogos/soccer/500/4.png'
       });
     } catch (e) {}
+  }
+}
+
+function startStadiumAmbience() {
+  if (!soundSettings.master) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const bufferSize = ctx.sampleRate * 2.0;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    stadiumAudioNode = ctx.createBufferSource();
+    stadiumAudioNode.buffer = buffer;
+    stadiumAudioNode.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(400, ctx.currentTime);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.02, ctx.currentTime); 
+
+    stadiumAudioNode.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    stadiumAudioNode.start();
+  } catch (e) {}
+}
+
+function stopStadiumAmbience() {
+  if (stadiumAudioNode) {
+    try { stadiumAudioNode.stop(); } catch(e) {}
+    stadiumAudioNode = null;
   }
 }
 
@@ -291,6 +328,12 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
 
     renderModalCompleteData(data, realLeagueSlug);
 
+    if (header?.status?.type?.state === 'in') {
+      startStadiumAmbience();
+    } else {
+      stopStadiumAmbience();
+    }
+
     if (!isSilent) {
       if (realLeagueSlug && home?.team?.id && away?.team?.id) {
         fetchModalStandings(realLeagueSlug, home.team.id, away.team.id);
@@ -404,65 +447,102 @@ function parseClockMinute(clockStr) {
   return parseInt(str) || 0;
 }
 
-// FITUR UBAH: Render Live Odds Desimal 1X2 & Win Probability Widget
+// Render Match Momentum Wave
+function renderMatchMomentum(rawEvents, homeName, awayName, homeId) {
+  const intervals = Array(9).fill(0).map(() => ({ home: 50, away: 50 }));
+
+  if (rawEvents && rawEvents.length > 0) {
+    rawEvents.forEach(evt => {
+      const min = parseClockMinute(evt.clock?.displayValue || evt.time);
+      const idx = Math.min(8, Math.floor(min / 10));
+      const isHome = evt.team?.id ? String(evt.team.id) === String(homeId) : true;
+
+      if (isHome) intervals[idx].home += 12;
+      else intervals[idx].away += 12;
+    });
+  }
+
+  return `
+    <div class="bg-[#180d30] border border-white/10 rounded-2xl p-3.5 my-3 space-y-2 shadow-md">
+      <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+        <span class="text-blue-400">${homeName}</span>
+        <span>Match Momentum</span>
+        <span class="text-emerald-400">${awayName}</span>
+      </div>
+      <div class="h-14 flex items-center gap-1 justify-between pt-1">
+        ${intervals.map((item, i) => {
+          const hHeight = Math.min(100, item.home);
+          return `
+            <div class="flex-1 flex flex-col items-center h-full justify-center gap-0.5">
+              <div class="w-full bg-blue-500/80 rounded-t-sm transition-all" style="height: ${hHeight / 2}%"></div>
+              <div class="w-full bg-emerald-500/80 rounded-b-sm transition-all" style="height: ${(100 - hHeight) / 2}%"></div>
+              <span class="text-[7.5px] text-slate-500 font-mono mt-0.5">${i * 10}'</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// Render Odds Desimal & Live Odds Widget
 function renderOddsAndProbabilityWidget(data) {
   const pickcenter = data.pickcenter?.[0] || {};
   const winProb = data.winprobability || [];
-  
-  const homeProb = winProb.length > 0 ? (winProb[winProb.length - 1].homeWinPercentage * 100).toFixed(1) : null;
+  const state = data.header?.competitions?.[0]?.status?.type?.state;
+  const isLive = state === 'in';
+
+  const homeDecimal = convertToDecimalOdds(pickcenter.homeTeamOdds?.moneyLine);
+  const awayDecimal = convertToDecimalOdds(pickcenter.awayTeamOdds?.moneyLine);
+  const drawDecimal = convertToDecimalOdds(pickcenter.drawOdds?.moneyLine);
+
+  const lastProb = winProb.length > 0 ? winProb[winProb.length - 1] : null;
+  const homeProb = lastProb ? (lastProb.homeWinPercentage * 100).toFixed(1) : null;
   const awayProb = homeProb ? (100 - parseFloat(homeProb)).toFixed(1) : null;
 
-  // Ambil odds Moneyline / Value dari API ESPN
-  const homeOddsRaw = pickcenter.homeTeamOdds?.moneyLine ?? pickcenter.homeTeamOdds?.value;
-  const awayOddsRaw = pickcenter.awayTeamOdds?.moneyLine ?? pickcenter.awayTeamOdds?.value;
-  const drawOddsRaw = pickcenter.drawOdds?.moneyLine ?? pickcenter.drawOdds?.value;
+  const liveHomeOdds = homeProb && parseFloat(homeProb) > 0 ? (100 / parseFloat(homeProb)).toFixed(2) : null;
+  const liveAwayOdds = awayProb && parseFloat(awayProb) > 0 ? (100 / parseFloat(awayProb)).toFixed(2) : null;
 
-  const homeDec = convertAmericanToDecimal(homeOddsRaw);
-  const awayDec = convertAmericanToDecimal(awayOddsRaw);
-  const drawDec = convertAmericanToDecimal(drawOddsRaw);
-
-  const providerName = pickcenter.provider?.name || 'Live Odds';
-  const spreadDetails = pickcenter.details || pickcenter.overUnder ? `Handicap: ${pickcenter.details || '-'} | O/U: ${pickcenter.overUnder || '-'}` : null;
-
-  if (!homeProb && homeDec === '-' && !spreadDetails) return '';
+  if (!homeProb && !pickcenter.provider && !homeDecimal) return '';
 
   return `
-    <div class="bg-[#180d30] border border-white/10 rounded-2xl p-3.5 my-3 space-y-2.5 shadow-md">
+    <div class="bg-[#180d30] border border-white/10 rounded-2xl p-3.5 my-3 space-y-3 shadow-md">
       <div class="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400">
-        <span class="flex items-center gap-1.5 text-emerald-400">
-          <span class="flex h-2 w-2 relative">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          Live Odds Desimal & Probabilitas
+        <span class="flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-line text-emerald-400"></i> 
+          ${isLive ? '<span class="text-red-400 font-black animate-pulse">● LIVE ODDS & PROBABILITY</span>' : 'ODDS DESIMAL & PASARAN'}
         </span>
-        <span class="text-slate-300 font-extrabold bg-white/10 px-2 py-0.5 rounded border border-white/10">${providerName}</span>
+        ${pickcenter.provider ? `<span class="text-emerald-400 font-extrabold">${pickcenter.provider.name}</span>` : ''}
       </div>
 
-      <!-- GRID ODDS DESIMAL 1X2 -->
-      ${(homeDec !== '-' || drawDec !== '-' || awayDec !== '-') ? `
-        <div class="grid grid-cols-3 gap-2 text-center my-2">
+      ${(homeDecimal || liveHomeOdds) ? `
+        <div class="grid grid-cols-3 gap-2 text-center">
           <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
-            <span class="text-[9px] text-slate-400 block font-bold uppercase">1 (Home)</span>
-            <span class="font-extrabold text-emerald-400 font-mono text-xs mt-0.5 block">${homeDec}</span>
+            <span class="text-[9px] text-slate-400 uppercase font-bold block">1 (Home)</span>
+            <span class="font-mono font-black text-emerald-400 text-xs mt-0.5 block">
+              ${isLive ? (liveHomeOdds || '-') : (homeDecimal || '-')}
+            </span>
           </div>
           <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
-            <span class="text-[9px] text-slate-400 block font-bold uppercase">X (Seri)</span>
-            <span class="font-extrabold text-amber-300 font-mono text-xs mt-0.5 block">${drawDec}</span>
+            <span class="text-[9px] text-slate-400 uppercase font-bold block">X (Draw)</span>
+            <span class="font-mono font-black text-amber-300 text-xs mt-0.5 block">
+              ${drawDecimal || '-'}
+            </span>
           </div>
           <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
-            <span class="text-[9px] text-slate-400 block font-bold uppercase">2 (Away)</span>
-            <span class="font-extrabold text-blue-400 font-mono text-xs mt-0.5 block">${awayDec}</span>
+            <span class="text-[9px] text-slate-400 uppercase font-bold block">2 (Away)</span>
+            <span class="font-mono font-black text-blue-400 text-xs mt-0.5 block">
+              ${isLive ? (liveAwayOdds || '-') : (awayDecimal || '-')}
+            </span>
           </div>
         </div>
       ` : ''}
 
-      <!-- WIN PROBABILITY BAR -->
       ${homeProb ? `
         <div class="space-y-1 pt-1">
           <div class="flex justify-between text-[10px] font-bold text-white">
-            <span>Peluang Menang Home: ${homeProb}%</span>
-            <span>Away: ${awayProb}%</span>
+            <span>Home Win: ${homeProb}%</span>
+            <span>Away Win: ${awayProb}%</span>
           </div>
           <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden flex">
             <div class="bg-emerald-500 h-full transition-all duration-500" style="width: ${homeProb}%"></div>
@@ -471,17 +551,16 @@ function renderOddsAndProbabilityWidget(data) {
         </div>
       ` : ''}
 
-      ${spreadDetails ? `
+      ${pickcenter.details ? `
         <div class="flex justify-between items-center text-xs bg-[#0f0720] p-2 rounded-xl border border-white/5">
-          <span class="text-slate-400 text-[10px] font-bold">Pasaran Spreads & Over/Under:</span>
-          <span class="font-extrabold text-amber-300 font-mono text-[11px]">${spreadDetails}</span>
+          <span class="text-slate-400 text-[10px] font-bold">Handicap / Spreads:</span>
+          <span class="font-extrabold text-amber-300 font-mono text-[11px]">${pickcenter.details}</span>
         </div>
       ` : ''}
     </div>
   `;
 }
 
-// Render Complete Match Detail Data
 function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;
@@ -655,8 +734,8 @@ function renderModalCompleteData(data, leagueId) {
     </div>
   `;
 
-  // Insert Live Odds & Probability Widget
   const oddsWidgetHtml = renderOddsAndProbabilityWidget(data);
+  const momentumHtml = renderMatchMomentum(rawEvents, home.team.displayName, away.team.displayName, home.team.id);
 
   let statsBlockHtml = '';
   if (state === 'pre') {
@@ -709,6 +788,7 @@ function renderModalCompleteData(data, leagueId) {
 
     statsBlockHtml = `
       ${oddsWidgetHtml}
+      ${momentumHtml}
       <div class="bg-[#180d30] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
         <h3 class="text-center text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-white/10">Overview</h3>
         <div class="space-y-3 pt-1">
@@ -865,9 +945,9 @@ function renderModalCompleteData(data, leagueId) {
     `;
   }
 
-  document.getElementById('mcontent-summary').innerHTML = eventsTimelineHtml;
+  document.getElementById('modal-summary-content').innerHTML = eventsTimelineHtml;
 
-  // RENDER LIVE COMMENTARY TAB CONTENT
+  // LIVE COMMENTARY TAB CONTENT
   const commentaryList = data.commentary || [];
   let commentaryHtml = '';
 
@@ -902,7 +982,7 @@ function renderModalCompleteData(data, leagueId) {
   }
   commentaryContainer.innerHTML = commentaryHtml;
 
-  // ROSTERS / LINEUP PITCH
+  // ROSTERS / LINEUP PITCH WITH PLAYER RATINGS
   const rosters = data.rosters || [];
   let lineupHtml = '';
 
@@ -956,6 +1036,9 @@ function renderModalCompleteData(data, leagueId) {
             const jersey = p.jersey || '?';
             const badgeHtml = getPlayerBadgeHtml(pId);
 
+            const rating = calculatePlayerRating(playerEventsMap[String(pId)]);
+            const ratingColor = rating >= 8.0 ? 'bg-emerald-500 text-slate-950' : (rating >= 6.5 ? 'bg-blue-600 text-white' : 'bg-amber-500 text-slate-950');
+
             return `
               <div onclick="openPlayerBioModal('${leagueId}', '${pId}')" class="flex flex-col items-center group relative cursor-pointer flex-1 min-w-0 max-w-[70px] sm:max-w-[85px]">
                 <div class="relative shrink-0">
@@ -963,6 +1046,7 @@ function renderModalCompleteData(data, leagueId) {
                     <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
                   </div>
                   <span class="absolute -top-1 -right-1 bg-[#0d061a] text-white font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full shadow z-10">#${jersey}</span>
+                  <span class="absolute -top-1 -left-1 text-[7.5px] font-black px-1 rounded shadow z-10 ${ratingColor}">${rating}</span>
                   ${badgeHtml}
                 </div>
                 <span class="text-[8.5px] sm:text-[9.5px] font-bold text-white bg-[#0f0720]/95 px-1.5 py-0.5 rounded shadow-sm w-full text-center mt-1 border border-white/10 leading-tight break-words" title="${pFullName}">${pMultiLine}</span>
@@ -1071,7 +1155,6 @@ function renderModalCompleteData(data, leagueId) {
   document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
 }
 
-// SWITCH MODAL PILL TABS
 function switchModalTab(tabName) {
   const tabs = ['summary', 'stats', 'lineup', 'standings', 'h2h', 'commentary'];
 
@@ -1092,6 +1175,7 @@ function switchModalTab(tabName) {
 }
 
 function closeModal() {
+  stopStadiumAmbience();
   currentOpenModal = null;
   document.getElementById('detail-modal').classList.add('hidden');
   checkResetZIndex();

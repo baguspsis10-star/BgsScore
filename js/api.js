@@ -2,36 +2,8 @@
 // API & NETWORK DATA FETCHING MODULE (ESPN API)
 // ==========================================
 
-// Helper Konversi Unit (Feet/Inches -> CM, Lbs -> KG)
-function formatHeightCm(heightStr) {
-  if (!heightStr || heightStr === '-') return '-';
-  const str = String(heightStr).trim();
-  if (str.toLowerCase().includes('cm')) return str;
-  if (str.includes("'")) {
-    const parts = str.split("'");
-    const feet = parseFloat(parts[0]) || 0;
-    const inches = parseFloat(parts[1]?.replace('"', '')) || 0;
-    return `${Math.round((feet * 30.48) + (inches * 2.54))} cm`;
-  }
-  const num = parseFloat(str);
-  if (isNaN(num)) return str;
-  return num < 100 ? `${Math.round(num * 2.54)} cm` : `${Math.round(num)} cm`;
-}
-
-function formatWeightKg(weightStr) {
-  if (!weightStr || weightStr === '-') return '-';
-  const str = String(weightStr).trim();
-  if (str.toLowerCase().includes('kg')) return str;
-  const num = parseFloat(str);
-  if (isNaN(num)) return str;
-  return (str.toLowerCase().includes('lb') || num > 120) 
-    ? `${Math.round(num * 0.453592)} kg` 
-    : `${Math.round(num)} kg`;
-}
-
-// Helper fetch batch anti rate-limit ESPN API
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
-  const BATCH_SIZE = 12;
+  const BATCH_SIZE = 15;
   let allEvents = [];
 
   for (let i = 0; i < leaguesList.length; i += BATCH_SIZE) {
@@ -61,7 +33,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   return allEvents;
 }
 
-// 1. ESPN League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -93,7 +64,6 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// 2. ESPN Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -132,14 +102,13 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   }
 }
 
-// Fallback Lingkaran Avatar Bulat
 function showPlayerCircleFallback(img, pName) {
   img.onerror = null;
   const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=22c55e&color=ffffff&bold=true&rounded=true&size=128`;
   img.src = avatarUrl;
 }
 
-// Modal Profil & Biodata Pemain
+// Modal Profil & Biodata Pemain Lengkap (Height CM, Weight KG, Stats & Status Cedera)
 async function openPlayerBioModal(leagueId, playerId) {
   if (!playerId || playerId === 'null' || playerId === 'undefined') return;
 
@@ -276,7 +245,6 @@ async function openPlayerBioModal(leagueId, playerId) {
   }
 }
 
-// 3. Fetch Detail / Summary Pertandingan
 async function fetchMatchSummary(leagueId, eventId) {
   if (!leagueId || !eventId) return null;
   try {
@@ -288,10 +256,8 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
-// 4. Fetch All Matches (Semua Pertandingan - Tanggal Dipastikan Berubah Instan)
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
-  if (!container) return;
 
   try {
     const targetDate = selectedDateFilter || getFormattedDate(new Date());
@@ -301,21 +267,19 @@ async function fetchAllMatches() {
       : LEAGUES.filter(l => l.id === selectedLeague);
 
     let allEvents = await fetchBatchLeagues(targets, () => targetDate);
-    allEvents = sortEventsByFavoriteAndDate(allEvents || []);
-    
+
+    allEvents = sortEventsByFavoriteAndDate(allEvents);
     cachedEvents = allEvents;
+
     allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
-    
     renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
   } catch (err) {
     console.error("Gagal mengambil data pertandingan ESPN:", err);
-    renderMatchesCards('matches-container', [], selectedLeague === 'all');
   } finally {
-    container.classList.remove('hidden');
+    if (container) container.classList.remove('hidden');
   }
 }
 
-// 5. Fetch Live Matches (Penanganan Layar Kosong Diperbaiki)
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -325,12 +289,13 @@ async function fetchLiveMatchesStructured() {
     const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
     const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
-    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr) || [];
+    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
 
     const eventMap = new Map();
     allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
 
     let allEvents = Array.from(eventMap.values());
+    
     cachedEvents = allEvents;
     allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
@@ -352,32 +317,19 @@ async function fetchLiveMatchesStructured() {
 
     container.innerHTML = '';
 
-    if (finishedEvents.length === 0 && liveEvents.length === 0 && upcomingEvents.length === 0) {
-      container.innerHTML = `
-        <div class="text-center py-12 px-4 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl text-xs">
-          <i class="fa-solid fa-tower-broadcast text-3xl text-slate-500 mb-2 block"></i>
-          <p class="font-bold text-slate-200">Tidak Ada Pertandingan Live Saat Ini</p>
-          <p class="text-[10px] text-slate-400 mt-1">Belum ada laga yang sedang berlangsung atau dijadwalkan dalam waktu dekat.</p>
-        </div>
-      `;
-      return;
-    }
-
-    if (finishedEvents.length > 0) {
-      const finishedSec = document.createElement('div');
-      finishedSec.className = 'space-y-2.5';
-      finishedSec.innerHTML = `
-        <button onclick="toggleFinishedInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-[#231344] transition shadow-lg">
-          <span class="flex items-center gap-2">
-            <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
-          </span>
-          <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
-        </button>
-        <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
-      `;
-      container.appendChild(finishedSec);
-      renderMatchesCards('live-finished-grid', finishedEvents, true);
-    }
+    const finishedSec = document.createElement('div');
+    finishedSec.className = 'space-y-2.5';
+    finishedSec.innerHTML = `
+      <button onclick="toggleFinishedInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-[#231344] transition shadow-lg">
+        <span class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
+        </span>
+        <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
+      </button>
+      <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
+    `;
+    container.appendChild(finishedSec);
+    renderMatchesCards('live-finished-grid', finishedEvents, true);
 
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5';
@@ -397,30 +349,26 @@ async function fetchLiveMatchesStructured() {
     container.appendChild(liveSec);
     renderMatchesCards('live-active-grid', liveEvents, true);
 
-    if (upcomingEvents.length > 0) {
-      const upcomingSec = document.createElement('div');
-      upcomingSec.className = 'space-y-2.5';
-      upcomingSec.innerHTML = `
-        <button onclick="toggleUpcomingInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-[#231344] transition shadow-lg">
-          <span class="flex items-center gap-2">
-            <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
-          </span>
-          <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
-        </button>
-        <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
-      `;
-      container.appendChild(upcomingSec);
-      renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
-    }
+    const upcomingSec = document.createElement('div');
+    upcomingSec.className = 'space-y-2.5';
+    upcomingSec.innerHTML = `
+      <button onclick="toggleUpcomingInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-[#231344] transition shadow-lg">
+        <span class="flex items-center gap-2">
+          <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
+        </span>
+        <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
+      </button>
+      <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
+    `;
+    container.appendChild(upcomingSec);
+    renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
   } catch (err) {
     console.error("Gagal memuat laga live:", err);
-    container.innerHTML = `<div class="text-center py-10 text-red-400 text-xs">Gagal memuat data pertandingan live.</div>`;
   } finally {
     container.classList.remove('hidden');
   }
 }
 
-// 6. Fetch Favorited Matches (Penanganan Layar Kosong Diperbaiki)
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -443,7 +391,7 @@ async function fetchFavoritedMatchesStructured() {
     const next7Days = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
     const dateRangeStr = `${getFormattedDate(past2Days)}-${getFormattedDate(next7Days)}`;
 
-    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr) || [];
+    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
 
     const eventMap = new Map();
     allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
@@ -529,13 +477,11 @@ async function fetchFavoritedMatchesStructured() {
     }
   } catch (err) {
     console.error("Gagal memuat favorit:", err);
-    container.innerHTML = `<div class="text-center py-10 text-red-400 text-xs">Gagal memuat data favorit.</div>`;
   } finally {
     container.classList.remove('hidden');
   }
 }
 
-// 7. Fetch 5 Pertandingan Terakhir Tim
 async function fetchTeamRecentMatches(leagueId, teamId) {
   try {
     const currentYear = new Date().getFullYear();
@@ -575,7 +521,6 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
   }
 }
 
-// 8. Fetch dan Render Bagian Form & Head to Head (H2H)
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');
   if (!container) return;
