@@ -29,9 +29,9 @@ function formatWeightKg(weightStr) {
     : `${Math.round(num)} kg`;
 }
 
-// Helper untuk fetch batch agar tidak terkena rate-limit / blokir ESPN
+// Helper fetch batch anti rate-limit ESPN API
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
-  const BATCH_SIZE = 15;
+  const BATCH_SIZE = 12;
   let allEvents = [];
 
   for (let i = 0; i < leaguesList.length; i += BATCH_SIZE) {
@@ -139,7 +139,7 @@ function showPlayerCircleFallback(img, pName) {
   img.src = avatarUrl;
 }
 
-// FITUR BARU: Modal Profil & Biodata Pemain Lengkap (Height CM & Weight KG + Stats & Cedera)
+// Modal Profil & Biodata Pemain
 async function openPlayerBioModal(leagueId, playerId) {
   if (!playerId || playerId === 'null' || playerId === 'undefined') return;
 
@@ -276,7 +276,7 @@ async function openPlayerBioModal(leagueId, playerId) {
   }
 }
 
-// 3. Fetch Detail / Summary Pertandingan (ESPN API)
+// 3. Fetch Detail / Summary Pertandingan
 async function fetchMatchSummary(leagueId, eventId) {
   if (!leagueId || !eventId) return null;
   try {
@@ -288,34 +288,37 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
-// 4. Fetch All Matches
+// 4. Fetch All Matches (Semua Pertandingan - Safe Cache Protection)
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
+  if (!container) return;
 
   try {
     const targetDate = selectedDateFilter || getFormattedDate(new Date());
 
-    // Batasi fetch ke liga utama saja saat mode 'all' agar API ESPN tidak me-rate limit / memblokir request
-    const POPULAR_LEAGUE_IDS = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions', 'uefa.europa', 'idn.1', 'usa.1', 'ksa.1'];
-
     const targets = selectedLeague === 'all' 
-      ? LEAGUES.filter(l => POPULAR_LEAGUE_IDS.includes(l.id)) 
+      ? LEAGUES 
       : LEAGUES.filter(l => l.id === selectedLeague);
 
     let allEvents = await fetchBatchLeagues(targets, () => targetDate);
 
-    allEvents = sortEventsByFavoriteAndDate(allEvents);
-
-    if (allEvents.length > 0) {
+    if (allEvents && allEvents.length > 0) {
+      allEvents = sortEventsByFavoriteAndDate(allEvents);
       cachedEvents = allEvents;
+      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+      renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
+    } else if (cachedEvents && cachedEvents.length > 0 && selectedLeague === 'all') {
+      renderMatchesCards('matches-container', cachedEvents, true);
+    } else {
+      renderMatchesCards('matches-container', [], selectedLeague === 'all');
     }
-
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
-    renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
   } catch (err) {
     console.error("Gagal mengambil data pertandingan ESPN:", err);
+    if (cachedEvents && cachedEvents.length > 0) {
+      renderMatchesCards('matches-container', cachedEvents, true);
+    }
   } finally {
-    if (container) container.classList.remove('hidden');
+    container.classList.remove('hidden');
   }
 }
 
@@ -331,79 +334,78 @@ async function fetchLiveMatchesStructured() {
 
     const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
 
-    const eventMap = new Map();
-    allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
+    if (allEventsRaw && allEventsRaw.length > 0) {
+      const eventMap = new Map();
+      allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
 
-    let allEvents = Array.from(eventMap.values());
-    
-    if (allEvents.length > 0) {
+      let allEvents = Array.from(eventMap.values());
       cachedEvents = allEvents;
-    }
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
-    const now = new Date();
-    const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-    const next12h = new Date(now.getTime() + (12 * 60 * 60 * 1000));
+      const now = new Date();
+      const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+      const next12h = new Date(now.getTime() + (12 * 60 * 60 * 1000));
 
-    const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
-      const d = new Date(e.date);
-      return e.status?.type?.state === 'post' && d >= past24h;
-    }));
+      const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+        const d = new Date(e.date);
+        return e.status?.type?.state === 'post' && d >= past24h;
+      }));
 
-    const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status?.type?.state === 'in'));
+      const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status?.type?.state === 'in'));
 
-    const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
-      const d = new Date(e.date);
-      return e.status?.type?.state === 'pre' && d > now && d <= next12h;
-    }));
+      const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+        const d = new Date(e.date);
+        return e.status?.type?.state === 'pre' && d > now && d <= next12h;
+      }));
 
-    container.innerHTML = '';
+      container.innerHTML = '';
 
-    const finishedSec = document.createElement('div');
-    finishedSec.className = 'space-y-2.5';
-    finishedSec.innerHTML = `
-      <button onclick="toggleFinishedInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-[#231344] transition shadow-lg">
-        <span class="flex items-center gap-2">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
-        </span>
-        <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
-      </button>
-      <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
-    `;
-    container.appendChild(finishedSec);
-    renderMatchesCards('live-finished-grid', finishedEvents, true);
-
-    const liveSec = document.createElement('div');
-    liveSec.className = 'space-y-2.5';
-    liveSec.innerHTML = `
-      <div class="flex items-center justify-between pb-1 border-b border-white/10 text-slate-300">
-        <span class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-          <span class="flex h-2 w-2 relative">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+      const finishedSec = document.createElement('div');
+      finishedSec.className = 'space-y-2.5';
+      finishedSec.innerHTML = `
+        <button onclick="toggleFinishedInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-[#231344] transition shadow-lg">
+          <span class="flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
           </span>
-          Pertandingan Sedang Live
-        </span>
-        <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">${liveEvents.length}</span>
-      </div>
-      <div id="live-active-grid" class="space-y-2.5"></div>
-    `;
-    container.appendChild(liveSec);
-    renderMatchesCards('live-active-grid', liveEvents, true);
+          <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
+        </button>
+        <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
+      `;
+      container.appendChild(finishedSec);
+      renderMatchesCards('live-finished-grid', finishedEvents, true);
 
-    const upcomingSec = document.createElement('div');
-    upcomingSec.className = 'space-y-2.5';
-    upcomingSec.innerHTML = `
-      <button onclick="toggleUpcomingInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-[#231344] transition shadow-lg">
-        <span class="flex items-center gap-2">
-          <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
-        </span>
-        <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
-      </button>
-      <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
-    `;
-    container.appendChild(upcomingSec);
-    renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
+      const liveSec = document.createElement('div');
+      liveSec.className = 'space-y-2.5';
+      liveSec.innerHTML = `
+        <div class="flex items-center justify-between pb-1 border-b border-white/10 text-slate-300">
+          <span class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span class="flex h-2 w-2 relative">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            Pertandingan Sedang Live
+          </span>
+          <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">${liveEvents.length}</span>
+        </div>
+        <div id="live-active-grid" class="space-y-2.5"></div>
+      `;
+      container.appendChild(liveSec);
+      renderMatchesCards('live-active-grid', liveEvents, true);
+
+      const upcomingSec = document.createElement('div');
+      upcomingSec.className = 'space-y-2.5';
+      upcomingSec.innerHTML = `
+        <button onclick="toggleUpcomingInLiveView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-[#231344] transition shadow-lg">
+          <span class="flex items-center gap-2">
+            <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
+          </span>
+          <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
+        </button>
+        <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
+      `;
+      container.appendChild(upcomingSec);
+      renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
+    }
   } catch (err) {
     console.error("Gagal memuat laga live:", err);
   } finally {
@@ -436,89 +438,91 @@ async function fetchFavoritedMatchesStructured() {
 
     const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
 
-    const eventMap = new Map();
-    allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
+    if (allEventsRaw && allEventsRaw.length > 0) {
+      const eventMap = new Map();
+      allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
 
-    const favEvents = Array.from(eventMap.values()).filter(evt => {
-      const comp = evt.competitions?.[0];
-      const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
-      const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
+      const favEvents = Array.from(eventMap.values()).filter(evt => {
+        const comp = evt.competitions?.[0];
+        const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
+        const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
 
-      return isFavorite(evt.id) || isTeamFavorite(homeId) || isTeamFavorite(awayId);
-    });
+        return isFavorite(evt.id) || isTeamFavorite(homeId) || isTeamFavorite(awayId);
+      });
 
-    if (favEvents.length > 0) {
-      cachedEvents = favEvents;
-    }
-    favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+      if (favEvents.length > 0) {
+        cachedEvents = favEvents;
+      }
+      favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
-    const finishedEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'post'));
-    const liveEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'in'));
-    const upcomingEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'pre'));
+      const finishedEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'post'));
+      const liveEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'in'));
+      const upcomingEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'pre'));
 
-    container.innerHTML = '';
+      container.innerHTML = '';
 
-    if (finishedEvents.length === 0 && liveEvents.length === 0 && upcomingEvents.length === 0) {
-      container.innerHTML = `
-        <div class="text-center py-10 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl text-xs">
-          <i class="fa-solid fa-calendar-xmark text-2xl mb-2 block text-slate-500"></i>
-          Tidak ada jadwal pertandingan untuk klub/pertandingan favorit Anda minggu ini.
-        </div>
-      `;
-      return;
-    }
+      if (finishedEvents.length === 0 && liveEvents.length === 0 && upcomingEvents.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl text-xs">
+            <i class="fa-solid fa-calendar-xmark text-2xl mb-2 block text-slate-500"></i>
+            Tidak ada jadwal pertandingan untuk klub/pertandingan favorit Anda minggu ini.
+          </div>
+        `;
+        return;
+      }
 
-    if (liveEvents.length > 0) {
-      const liveSec = document.createElement('div');
-      liveSec.className = 'space-y-2.5 mb-4';
-      liveSec.innerHTML = `
-        <div class="flex items-center justify-between pb-1.5 border-b border-red-500/30 text-slate-300">
-          <span class="text-xs font-black text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-            <span class="flex h-2 w-2 relative">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+      if (liveEvents.length > 0) {
+        const liveSec = document.createElement('div');
+        liveSec.className = 'space-y-2.5 mb-4';
+        liveSec.innerHTML = `
+          <div class="flex items-center justify-between pb-1.5 border-b border-red-500/30 text-slate-300">
+            <span class="text-xs font-black text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span class="flex h-2 w-2 relative">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+              Pertandingan Live (${liveEvents.length})
             </span>
-            Pertandingan Live (${liveEvents.length})
-          </span>
-        </div>
-        <div id="fav-active-grid" class="space-y-2.5"></div>
-      `;
-      container.appendChild(liveSec);
-      renderMatchesCards('fav-active-grid', liveEvents, true);
-    }
+          </div>
+          <div id="fav-active-grid" class="space-y-2.5"></div>
+        `;
+        container.appendChild(liveSec);
+        renderMatchesCards('fav-active-grid', liveEvents, true);
+      }
 
-    if (finishedEvents.length > 0) {
-      showFinishedInFav = false;
-      const finishedSec = document.createElement('div');
-      finishedSec.className = 'space-y-2.5 mb-4';
-      finishedSec.innerHTML = `
-        <button onclick="toggleFinishedInFavView()" class="w-full bg-[#180d30] border border-emerald-500/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-[#231344] transition shadow-lg">
-          <span class="flex items-center gap-2">
-            <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
-          </span>
-          <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-down text-[10px]"></i>
-        </button>
-        <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
-      `;
-      container.appendChild(finishedSec);
-      renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
-    }
+      if (finishedEvents.length > 0) {
+        showFinishedInFav = false;
+        const finishedSec = document.createElement('div');
+        finishedSec.className = 'space-y-2.5 mb-4';
+        finishedSec.innerHTML = `
+          <button onclick="toggleFinishedInFavView()" class="w-full bg-[#180d30] border border-emerald-500/80 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-bold hover:bg-[#231344] transition shadow-lg">
+            <span class="flex items-center gap-2">
+              <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (${finishedEvents.length})
+            </span>
+            <i id="fav-finished-toggle-icon" class="fa-solid fa-chevron-down text-[10px]"></i>
+          </button>
+          <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
+        `;
+        container.appendChild(finishedSec);
+        renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
+      }
 
-    if (upcomingEvents.length > 0) {
-      showUpcomingInFav = true;
-      const upcomingSec = document.createElement('div');
-      upcomingSec.className = 'space-y-2.5 pt-2 border-t border-white/10';
-      upcomingSec.innerHTML = `
-        <button onclick="toggleUpcomingInFavView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-[#231344] transition shadow-lg">
-          <span class="flex items-center gap-2">
-            <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (${upcomingEvents.length})
-          </span>
-          <i id="fav-upcoming-toggle-icon" class="fa-solid fa-chevron-up text-[10px]"></i>
-        </button>
-        <div id="fav-upcoming-grid" class="space-y-2.5"></div>
-      `;
-      container.appendChild(upcomingSec);
-      renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
+      if (upcomingEvents.length > 0) {
+        showUpcomingInFav = true;
+        const upcomingSec = document.createElement('div');
+        upcomingSec.className = 'space-y-2.5 pt-2 border-t border-white/10';
+        upcomingSec.innerHTML = `
+          <button onclick="toggleUpcomingInFavView()" class="w-full bg-[#180d30] border border-white/10 p-3 rounded-xl flex items-center justify-between text-xs text-blue-400 font-bold hover:bg-[#231344] transition shadow-lg">
+            <span class="flex items-center gap-2">
+              <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (${upcomingEvents.length})
+            </span>
+            <i id="fav-upcoming-toggle-icon" class="fa-solid fa-chevron-up text-[10px]"></i>
+          </button>
+          <div id="fav-upcoming-grid" class="space-y-2.5"></div>
+        `;
+        container.appendChild(upcomingSec);
+        renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
+      }
     }
   } catch (err) {
     console.error("Gagal memuat favorit:", err);
