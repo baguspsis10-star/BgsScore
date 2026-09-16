@@ -1,7 +1,8 @@
 // ==========================================
-// API & NETWORK DATA FETCHING MODULE (ESPN API)
+// API & NETWORK DATA FETCHING MODULE (ESPN API + AVATAR CIRCLE FALLBACK)
 // ==========================================
 
+// Helper untuk fetch batch agar tidak terkena rate-limit / blokir ESPN
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   const BATCH_SIZE = 15;
   let allEvents = [];
@@ -33,6 +34,7 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   return allEvents;
 }
 
+// 1. ESPN League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
@@ -64,6 +66,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
+// 2. ESPN Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -102,13 +105,14 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   }
 }
 
+// Fallback Lingkaran Avatar Bulat
 function showPlayerCircleFallback(img, pName) {
   img.onerror = null;
   const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=22c55e&color=ffffff&bold=true&rounded=true&size=128`;
   img.src = avatarUrl;
 }
 
-// Modal Profil & Biodata Pemain Lengkap (Height CM, Weight KG, Stats & Status Cedera)
+// FITUR BARU: Modal Profil & Biodata Pemain
 async function openPlayerBioModal(leagueId, playerId) {
   if (!playerId || playerId === 'null' || playerId === 'undefined') return;
 
@@ -125,9 +129,9 @@ async function openPlayerBioModal(leagueId, playerId) {
       <button onclick="document.getElementById('player-bio-modal').classList.add('hidden')" class="absolute top-4 right-4 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs">
         <i class="fa-solid fa-xmark"></i>
       </button>
-      <div class="flex flex-col items-center justify-center py-8 gap-2">
+      <div class="flex flex-col items-center justify-center py-6 gap-2">
         <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-2xl"></i>
-        <p class="text-xs font-semibold text-slate-300">Memuat profil & statistik pemain...</p>
+        <p class="text-xs font-semibold text-slate-300">Memuat profil pemain...</p>
       </div>
     </div>
   `;
@@ -135,43 +139,16 @@ async function openPlayerBioModal(leagueId, playerId) {
 
   try {
     const targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'eng.1';
-    
-    const [bioRes, statsRes] = await Promise.all([
-      fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${targetLeague}/athletes/${playerId}`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`https://site.web.api.espn.com/apis/common/v3/sports/soccer/athletes/${playerId}`).then(r => r.ok ? r.json() : null).catch(() => null)
-    ]);
+    const res = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${targetLeague}/athletes/${playerId}`);
+    const player = await res.json();
 
-    const player = bioRes || {};
-    const webAthlete = statsRes?.athlete || {};
-
-    const name = player.displayName || player.fullName || webAthlete.displayName || 'Pemain';
-    const jersey = player.jersey ? `#${player.jersey}` : (webAthlete.jersey ? `#${webAthlete.jersey}` : '-');
-    const position = player.position?.displayName || player.position?.name || webAthlete.position?.name || 'Pemain';
-    
-    const height = formatHeightCm(player.displayHeight || webAthlete.displayHeight);
-    const weight = formatWeightKg(player.displayWeight || webAthlete.displayWeight);
-
-    const age = player.age ? `${player.age} Thn` : (webAthlete.age ? `${webAthlete.age} Thn` : '-');
-    const citizenship = player.citizenship || player.birthPlace?.country || webAthlete.citizenship || 'Internasional';
-    const teamName = webAthlete.team?.displayName || 'Klub';
-    const teamLogo = webAthlete.team?.logos?.[0]?.href || '';
-
-    const statsCategories = statsRes?.statistics?.splits?.[0]?.stats || [];
-    const getStat = (nameKey) => {
-      const found = statsCategories.find(s => s.name?.toLowerCase() === nameKey.toLowerCase() || s.abbreviation?.toLowerCase() === nameKey.toLowerCase());
-      return found ? (found.displayValue || found.value || '0') : '0';
-    };
-
-    const appearances = getStat('appearances') || getStat('gamesPlayed') || '0';
-    const goals = getStat('goals') || '0';
-    const assists = getStat('assists') || '0';
-    const yellowCards = getStat('yellowCards') || '0';
-    const redCards = getStat('redCards') || '0';
-
-    const injuries = player.injuries || webAthlete.injuries || [];
-    const isInjured = injuries.length > 0;
-    const injuryText = isInjured ? (injuries[0].status || injuries[0].type || 'Cedera') : null;
-
+    const name = player.displayName || player.fullName || 'Pemain';
+    const jersey = player.jersey ? `#${player.jersey}` : '-';
+    const position = player.position?.displayName || player.position?.name || 'Pemain';
+    const height = player.displayHeight || '-';
+    const weight = player.displayWeight || '-';
+    const age = player.age ? `${player.age} Tahun` : '-';
+    const citizenship = player.citizenship || player.birthPlace?.country || 'Internasional';
     const headshot = `https://a.espncdn.com/i/headshots/soccer/players/full/${playerId}.png`;
 
     bioModal.innerHTML = `
@@ -181,56 +158,28 @@ async function openPlayerBioModal(leagueId, playerId) {
         </button>
         
         <div class="flex items-center gap-3.5 border-b border-white/10 pb-4">
-          <div class="w-16 h-16 rounded-2xl bg-[#0f0720] border border-emerald-500/30 overflow-hidden shrink-0 flex items-center justify-center relative shadow-md">
+          <div class="w-16 h-16 rounded-2xl bg-[#0f0720] border border-emerald-500/30 overflow-hidden shrink-0 flex items-center justify-center">
             <img src="${headshot}" class="w-full h-full object-cover" onerror="this.src='${PLAIN_PERSON_HEADSHOT}'">
-            ${teamLogo ? `<img src="${teamLogo}" class="w-5 h-5 object-contain absolute bottom-0.5 right-0.5 bg-black/60 p-0.5 rounded-full border border-white/20">` : ''}
           </div>
           <div class="min-w-0">
-            <div class="flex items-center gap-1.5">
-              <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">${position} ${jersey}</span>
-              ${isInjured ? `<span class="text-[8px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.2 rounded font-bold">${injuryText}</span>` : ''}
-            </div>
-            <h3 class="text-base font-black truncate leading-tight mt-0.5">${name}</h3>
-            <span class="text-[10px] text-slate-400 block mt-0.5 truncate">${teamName} • ${citizenship}</span>
+            <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">${position} ${jersey}</span>
+            <h3 class="text-base font-black truncate leading-tight">${name}</h3>
+            <span class="text-[10px] text-slate-400 block mt-0.5">${citizenship}</span>
           </div>
         </div>
 
         <div class="grid grid-cols-3 gap-2 text-center text-xs">
-          <div class="bg-[#0f0720] p-2 rounded-2xl border border-white/5">
+          <div class="bg-[#0f0720] p-2.5 rounded-2xl border border-white/5">
             <span class="text-[9px] text-slate-400 block uppercase font-bold">Umur</span>
             <span class="font-bold text-white mt-0.5 block">${age}</span>
           </div>
-          <div class="bg-[#0f0720] p-2 rounded-2xl border border-white/5">
+          <div class="bg-[#0f0720] p-2.5 rounded-2xl border border-white/5">
             <span class="text-[9px] text-slate-400 block uppercase font-bold">Tinggi</span>
-            <span class="font-bold text-white mt-0.5 block font-mono">${height}</span>
+            <span class="font-bold text-white mt-0.5 block">${height}</span>
           </div>
-          <div class="bg-[#0f0720] p-2 rounded-2xl border border-white/5">
+          <div class="bg-[#0f0720] p-2.5 rounded-2xl border border-white/5">
             <span class="text-[9px] text-slate-400 block uppercase font-bold">Berat</span>
-            <span class="font-bold text-white mt-0.5 block font-mono">${weight}</span>
-          </div>
-        </div>
-
-        <div class="space-y-2 pt-1">
-          <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-            <i class="fa-solid fa-chart-simple"></i> Statistik Musim Ini
-          </h4>
-          <div class="grid grid-cols-4 gap-1.5 text-center">
-            <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
-              <span class="text-[8.5px] text-slate-400 uppercase block font-bold">Main</span>
-              <span class="font-black text-white text-xs mt-0.5 block">${appearances}</span>
-            </div>
-            <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
-              <span class="text-[8.5px] text-emerald-400 uppercase block font-bold">Gol</span>
-              <span class="font-black text-emerald-400 text-xs mt-0.5 block">${goals}</span>
-            </div>
-            <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
-              <span class="text-[8.5px] text-blue-400 uppercase block font-bold">Assist</span>
-              <span class="font-black text-blue-400 text-xs mt-0.5 block">${assists}</span>
-            </div>
-            <div class="bg-[#0f0720] p-2 rounded-xl border border-white/5">
-              <span class="text-[8.5px] text-amber-400 uppercase block font-bold">Kartu</span>
-              <span class="font-black text-amber-400 text-xs mt-0.5 block">${yellowCards}/${redCards}</span>
-            </div>
+            <span class="font-bold text-white mt-0.5 block">${weight}</span>
           </div>
         </div>
       </div>
@@ -245,6 +194,7 @@ async function openPlayerBioModal(leagueId, playerId) {
   }
 }
 
+// 3. Fetch Detail / Summary Pertandingan (ESPN API)
 async function fetchMatchSummary(leagueId, eventId) {
   if (!leagueId || !eventId) return null;
   try {
@@ -256,6 +206,7 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
+// 4. Fetch All Matches
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
@@ -280,6 +231,7 @@ async function fetchAllMatches() {
   }
 }
 
+// 5. Fetch Live Matches
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -369,6 +321,7 @@ async function fetchLiveMatchesStructured() {
   }
 }
 
+// 6. Fetch Favorited Matches
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -482,6 +435,7 @@ async function fetchFavoritedMatchesStructured() {
   }
 }
 
+// 7. Fetch 5 Pertandingan Terakhir Tim
 async function fetchTeamRecentMatches(leagueId, teamId) {
   try {
     const currentYear = new Date().getFullYear();
@@ -521,6 +475,7 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
   }
 }
 
+// 8. Fetch dan Render Bagian Form & Head to Head (H2H)
 async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayName, h2hEvents) {
   const container = document.getElementById('mcontent-h2h');
   if (!container) return;

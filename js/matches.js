@@ -1,268 +1,498 @@
-// MATCHES & MATCH CARDS MODULE - REFRESHED LIGHT MODERN CARDS
+// STANDINGS & LEAGUE TABLES MODULE (LIVE VIRTUAL STANDINGS & KNOCKOUT BRACKET)
 
-// Check if Match is Favorited
-function isFavorite(eventId) {
-  return favoriteMatches.some(id => String(id) === String(eventId));
+function renderCategorizedLeagueGrid(onSelectFunctionName) {
+  const categories = [
+    'Eropa',
+    'Asia',
+    'Amerika',
+    'Piala/kompetisi',
+    'Internasional'
+  ];
+
+  return categories.map(cat => {
+    const catLeagues = LEAGUES.filter(l => l.category === cat);
+    if (catLeagues.length === 0) return '';
+
+    return `
+      <details class="mb-2.5 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group">
+        <summary class="p-2.5 font-bold text-xs text-emerald-400 uppercase tracking-wider flex items-center justify-between cursor-pointer select-none bg-slate-900/90 hover:bg-slate-800 transition">
+          <span class="flex items-center gap-2">
+            <i class="fa-solid fa-layer-group text-[10px]"></i> ${cat} <span class="text-[10px] text-slate-400 font-normal">(${catLeagues.length})</span>
+          </span>
+          <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="p-2 flex flex-col gap-1.5 bg-slate-950/50 border-t border-slate-800/80">
+          ${catLeagues.map(l => `
+            <button onclick="${onSelectFunctionName}('${l.id}')" class="p-2 bg-slate-900 hover:bg-slate-800/90 border border-slate-800 hover:border-emerald-500/50 rounded-xl flex items-center gap-2.5 text-left transition group/btn shadow-sm w-full">
+              <img src="${generateUnlicensedLeagueBadge(l.id, l.name, l.country)}" loading="lazy" class="w-5 h-5 object-contain shrink-0 group-hover/btn:scale-105 transition-transform" alt="">
+              <div class="flex-1 min-w-0 pr-1">
+                <div class="text-xs font-bold text-white leading-snug whitespace-normal break-words">${l.flag ? l.flag + ' ' : ''}${l.name}</div>
+                <div class="text-[9px] text-slate-400 leading-tight mt-0.5">${l.country}</div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-[9px] text-slate-600 group-hover/btn:text-emerald-400 transition shrink-0"></i>
+            </button>
+          `).join('')}
+        </div>
+      </details>
+    `;
+  }).join('');
 }
 
-// Toggle Favorite State for a Match
-function toggleFavorite(eventId, e) {
-  if (e) e.stopPropagation();
-  const idStr = String(eventId);
-  if (isFavorite(idStr)) {
-    favoriteMatches = favoriteMatches.filter(id => String(id) !== idStr);
-  } else {
-    favoriteMatches.push(idStr);
-  }
-  localStorage.setItem('bgs_favorites', JSON.stringify(favoriteMatches));
-  loadData(true);
+function getPointsFromEntry(entry) {
+  const stats = entry.stats || [];
+  const ptStat = stats.find(s => s.name === 'points' || s.name === 'pts');
+  return parseFloat(ptStat?.value ?? ptStat?.displayValue ?? 0);
 }
 
-// Sort Events Prioritizing Favorite Teams, Favorite Matches, and Date
-function sortEventsByFavoriteAndDate(events) {
-  return events.sort((a, b) => {
-    const compA = a.competitions?.[0];
-    const compB = b.competitions?.[0];
+// Live Virtual Standings Calculator
+function calculateVirtualStandings(entries, liveEvents) {
+  const updatedEntries = JSON.parse(JSON.stringify(entries));
 
-    const aHasFavTeam = compA?.competitors?.some(c => isTeamFavorite(c.team?.id)) ? 1 : 0;
-    const bHasFavTeam = compB?.competitors?.some(c => isTeamFavorite(c.team?.id)) ? 1 : 0;
+  liveEvents.forEach(evt => {
+    const comp = evt.competitions?.[0];
+    const home = comp?.competitors?.find(c => c.homeAway === 'home');
+    const away = comp?.competitors?.find(c => c.homeAway === 'away');
 
-    if (bHasFavTeam !== aHasFavTeam) return bHasFavTeam - aHasFavTeam;
+    const hTeam = updatedEntries.find(e => String(e.team?.id) === String(home?.team?.id));
+    const aTeam = updatedEntries.find(e => String(e.team?.id) === String(away?.team?.id));
 
-    const aFavMatch = isFavorite(a.id) ? 1 : 0;
-    const bFavMatch = isFavorite(b.id) ? 1 : 0;
-    if (bFavMatch !== aFavMatch) return bFavMatch - aFavMatch;
+    if (hTeam && aTeam) {
+      const hScore = parseInt(home.score || '0');
+      const aScore = parseInt(away.score || '0');
 
-    return new Date(a.date) - new Date(b.date);
-  });
-}
+      let hPts = hScore > aScore ? 3 : (hScore === aScore ? 1 : 0);
+      let aPts = aScore > hScore ? 3 : (hScore === aScore ? 1 : 0);
 
-// Monitor Live Favorite Events to Trigger Sounds and Push Notifications
-function monitorLiveFavoriteEvents(event) {
-  const eventId = String(event.id);
-  const comp = event.competitions?.[0];
-  if (!comp) return;
-
-  const home = comp.competitors?.find(c => c.homeAway === 'home');
-  const away = comp.competitors?.find(c => c.homeAway === 'away');
-
-  const isFavTeamMatch = isTeamFavorite(home?.team?.id) || isTeamFavorite(away?.team?.id);
-  const isFavMatch = isFavorite(eventId);
-
-  if (!isFavTeamMatch && !isFavMatch) return;
-
-  const matchName = `${home?.team?.shortDisplayName || 'Home'} vs ${away?.team?.shortDisplayName || 'Away'}`;
-  const homeScore = parseInt(home?.score || '0');
-  const awayScore = parseInt(away?.score || '0');
-  const totalScore = homeScore + awayScore;
-
-  const state = event.status?.type?.state; 
-  const period = event.status?.period || 0;
-  const detailStr = (event.status?.type?.shortDetail || event.status?.type?.description || '').toLowerCase();
-
-  const hasLineup = Boolean(comp.rostersAvailable || (event.rosters && event.rosters.length >= 2));
-
-  let corners = 0, yellows = 0, reds = 0;
-  [home, away].forEach(team => {
-    if (team?.statistics) {
-      team.statistics.forEach(s => {
-        const name = (s.name || s.label || '').toLowerCase();
-        if (name.includes('corner')) corners += parseInt(s.displayValue || s.value || 0);
-        if (name.includes('yellowcard')) yellows += parseInt(s.displayValue || s.value || 0);
-        if (name.includes('redcard')) reds += parseInt(s.displayValue || s.value || 0);
-      });
+      hTeam.virtualPts = (getPointsFromEntry(hTeam) || 0) + hPts;
+      aTeam.virtualPts = (getPointsFromEntry(aTeam) || 0) + aPts;
+      hTeam.isLiveUpdated = true;
+      aTeam.isLiveUpdated = true;
     }
   });
 
-  const prev = matchStateCache[eventId];
-
-  if (prev) {
-    if (totalScore > prev.totalScore) {
-      recentGoalCache[eventId] = Date.now();
-      if (soundSettings.goal) {
-        playEventSound('goal');
-        sendPushNotification(`⚽ GOL! (${matchName})`, `Skor saat ini: ${homeScore} - ${awayScore}`);
-      }
-    }
-
-    if (!prev.hasLineup && hasLineup) {
-      if (soundSettings.lineup) {
-        sendPushNotification(`📋 Lineup Dirilis!`, `Susunan pemain untuk ${matchName} sudah dirilis.`);
-      }
-    }
-
-    if (prev.state === 'pre' && state === 'in' && period === 1) {
-      if (soundSettings.kickoff1) {
-        playEventSound('kickoff1');
-        sendPushNotification(`🏁 Kick-off Babak 1`, `Pertandingan ${matchName} telah dimulai!`);
-      }
-    }
-
-    if (prev.period === 1 && (detailStr.includes('ht') || detailStr.includes('half')) && !prev.isHT) {
-      if (soundSettings.halftime) {
-        playEventSound('halftime');
-        sendPushNotification(`⏸ Babak 1 Selesai (HT)`, `Skor babak pertama ${matchName}: ${homeScore} - ${awayScore}`);
-      }
-    }
-
-    if (prev.isHT && state === 'in' && period === 2) {
-      if (soundSettings.kickoff2) {
-        playEventSound('kickoff2');
-        sendPushNotification(`▶ Kick-off Babak 2`, `Babak kedua ${matchName} telah dimulai!`);
-      }
-    }
-
-    if (prev.state === 'in' && state === 'post') {
-      if (soundSettings.fulltime) {
-        playEventSound('fulltime');
-        sendPushNotification(`🔚 Pertandingan Selesai (FT)`, `Hasil akhir ${matchName}: ${homeScore} - ${awayScore}`);
-      }
-    }
-
-    if (corners > prev.corners) {
-      if (soundSettings.corner) {
-        playEventSound('corner');
-        sendPushNotification(`🚩 Tendangan Sudut (Corner)`, `Terjadi corner pada laga ${matchName}`);
-      }
-    }
-
-    if (yellows > prev.yellows) {
-      if (soundSettings.yellow) {
-        playEventSound('yellow');
-        sendPushNotification(`🟨 Kartu Kuning`, `Kartu kuning diberikan pada laga ${matchName}`);
-      }
-    }
-
-    if (reds > prev.reds) {
-      if (soundSettings.red) {
-        playEventSound('red');
-        sendPushNotification(`🟥 Kartu Merah`, `Kartu merah dikeluarkan pada laga ${matchName}`);
-      }
-    }
-  }
-
-  matchStateCache[eventId] = { 
-    state, period, isHT: detailStr.includes('ht') || detailStr.includes('half'), homeScore, awayScore, totalScore, corners, yellows, reds, hasLineup 
-  };
+  return updatedEntries.sort((a, b) => (b.virtualPts || getPointsFromEntry(b)) - (a.virtualPts || getPointsFromEntry(a)));
 }
 
-// Render Match Cards dengan Visual Dynamic Warna Spesifik Tema Gelap
-function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, customVariant = null) {
-  const container = document.getElementById(targetContainerId);
-  if (!container) return;
+async function fetchStandingsForSelectedLeague() {
+  const container = document.getElementById('standings-container');
   container.innerHTML = '';
 
-  if (events.length === 0) {
+  if (!selectedStandingsLeague) {
     container.innerHTML = `
-      <div class="text-center py-8 text-slate-400 border border-white/10 rounded-2xl bg-[#180d30] text-xs shadow-sm">
-        Tidak ada pertandingan.
+      <div class="space-y-3">
+        <div class="p-3 bg-slate-900/80 border border-slate-800 rounded-xl text-center">
+          <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-center gap-2">
+            <i class="fa-solid fa-trophy"></i> Pilih Liga / League
+          </h3>
+        </div>
+        ${renderCategorizedLeagueGrid('selectStandingsLeague')}
+      </div>
+    `;
+    container.classList.remove('hidden');
+    return;
+  }
+
+  const targetLeague = LEAGUES.find(l => l.id === selectedStandingsLeague) || LEAGUES[0];
+
+  const backHeader = document.createElement('div');
+  backHeader.className = 'space-y-3';
+  backHeader.innerHTML = `
+    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+      <button onclick="selectStandingsLeague(null)" class="text-xs font-bold text-emerald-400 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-arrow-left text-[10px]"></i> Pilih Liga Lain
+      </button>
+      <span class="text-xs font-bold text-white flex items-center gap-1.5">
+        <img src="${generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country)}" class="w-4 h-4 object-contain"> ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name}
+      </span>
+    </div>
+
+    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1">
+      <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+        <i class="fa-solid fa-list-ol mr-1"></i> League
+      </button>
+      <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+        <i class="fa-solid fa-calendar-days mr-1"></i> Match
+      </button>
+      <button onclick="switchStandingsSubTab('leaders')" id="stab-leaders" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'leaders' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+        <i class="fa-solid fa-fire mr-1"></i> Leaders
+      </button>
+      <button onclick="switchStandingsSubTab('bracket')" id="stab-bracket" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'bracket' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+        <i class="fa-solid fa-sitemap mr-1"></i> Bracket
+      </button>
+    </div>
+  `;
+  container.appendChild(backHeader);
+
+  const subContainer = document.createElement('div');
+  subContainer.id = 'standings-sub-content';
+  container.appendChild(subContainer);
+
+  if (selectedStandingsTab === 'table') {
+    await renderLeagueStandingsTable(targetLeague, subContainer);
+  } else if (selectedStandingsTab === 'matches') {
+    await renderLeagueMatchesList(targetLeague, subContainer);
+  } else if (selectedStandingsTab === 'leaders') {
+    await fetchLeagueLeaders(targetLeague.id, subContainer);
+  } else if (selectedStandingsTab === 'bracket') {
+    await fetchTournamentBracket(targetLeague.id, subContainer);
+  }
+
+  container.classList.remove('hidden');
+}
+
+// Fetch Tournament Bracket Visualizer
+async function fetchTournamentBracket(leagueId, container) {
+  container.innerHTML = `
+    <div class="py-12 text-center text-xs text-slate-400 space-y-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-xl"></i>
+      <p class="font-bold">Memuat bagan fase gugur...</p>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/scoreboard`);
+    const data = await res.json();
+    const events = data.events || [];
+
+    if (events.length === 0) {
+      container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Bagan fase gugur belum tersedia.</div>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
+        <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-sitemap"></i> Knockout Bracket Visualizer</span>
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          ${events.slice(0, 4).map(e => {
+            const h = e.competitions[0].competitors[0];
+            const a = e.competitions[0].competitors[1];
+            return `
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between text-slate-200">
+                  <div class="flex items-center gap-2 truncate">
+                    <img src="${getTeamLogo(h?.team)}" class="w-4 h-4 object-contain">
+                    <span class="truncate font-bold">${h?.team?.shortDisplayName || 'Home'}</span>
+                  </div>
+                  <span class="font-mono text-emerald-400 font-black">${h?.score || '0'}</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-200 pt-1 border-t border-slate-800/50">
+                  <div class="flex items-center gap-2 truncate">
+                    <img src="${getTeamLogo(a?.team)}" class="w-4 h-4 object-contain">
+                    <span class="truncate font-bold">${a?.team?.shortDisplayName || 'Away'}</span>
+                  </div>
+                  <span class="font-mono text-emerald-400 font-black">${a?.score || '0'}</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    container.innerHTML = `<div class="text-center py-8 text-red-400 text-xs">Gagal memuat bagan turnamen.</div>`;
+  }
+}
+
+async function fetchLeagueLeaders(leagueId, container) {
+  container.innerHTML = `
+    <div class="py-12 text-center text-xs text-slate-400 space-y-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-xl"></i>
+      <p class="font-bold">Memuat statistik Top Skor & Leaders...</p>
+    </div>
+  `;
+
+  let data = null;
+  const candidateUrls = [
+    `https://site.web.api.espn.com/apis/v2/sports/soccer/${leagueId}/statistics`,
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/leaders`,
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/statistics`
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && (json.leaders || json.stats || json.categories)) {
+          data = json;
+          break;
+        }
+      }
+    } catch (e) {}
+  }
+
+  const categories = data?.stats || data?.leaders || data?.categories || [];
+
+  if (!data || categories.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-10 px-4 text-slate-400 bg-slate-900 border border-slate-800 rounded-2xl text-xs space-y-2">
+        <i class="fa-solid fa-chart-line text-2xl text-amber-400/60 block"></i>
+        <p class="font-bold text-slate-200">Statistik Leaders Belum Tersedia</p>
+        <p class="text-[11px] text-slate-400">Data statistik pemain untuk liga ini belum dirilis oleh server ESPN saat ini.</p>
       </div>
     `;
     return;
   }
 
-  const sortedEvents = sortEventsByFavoriteAndDate([...events]);
+  container.innerHTML = categories.map(cat => {
+    let topAthletes = cat.leaders?.[0]?.leaders || cat.leaders || cat.athletes || cat.ranks || [];
+    if (!Array.isArray(topAthletes) && cat.leaders) topAthletes = cat.leaders;
 
-  sortedEvents.forEach(event => {
-    const comp = event.competitions[0];
-    const home = comp.competitors.find(c => c.homeAway === 'home');
-    const away = comp.competitors.find(c => c.homeAway === 'away');
-    
-    // Fallback Image Handler
-    const homeLogo = getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO;
-    const awayLogo = getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO;
+    if (topAthletes.length === 0) return '';
 
-    const homeFav = isTeamFavorite(home?.team?.id);
-    const awayFav = isTeamFavorite(away?.team?.id);
-    const hasFavTeam = homeFav || awayFav;
+    return `
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 mb-3 shadow-xl">
+        <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-award"></i> ${cat.displayName || cat.name || cat.header || 'Statistik Pemain'}</span>
+          <span class="text-[9px] text-slate-400 font-normal">Top 5</span>
+        </h4>
+        <div class="divide-y divide-slate-800/50">
+          ${topAthletes.slice(0, 5).map((item, idx) => {
+            const athlete = item.athlete || item.player || item;
+            const team = item.team || athlete.team || {};
+            const pId = athlete.id || athlete.athleteId;
+            const pName = athlete.displayName || athlete.fullName || athlete.name || 'Pemain';
+            const value = item.displayValue || item.value || item.statValue || '0';
+            const headshot = athlete.headshot?.href || athlete.headshot || (pId ? `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png` : PLAIN_PERSON_HEADSHOT);
 
-    const state = event.status.type.state; 
-    const isPre = state === 'pre';
-    const isLive = state === 'in';
-    const liveMinuteText = event.status?.type?.shortDetail || 'LIVE';
-    
-    const formattedTime = formatLocalDate(event.date);
-    const favorited = isFavorite(event.id);
-
-    const eventIdStr = String(event.id);
-    const hasRecentGoal = recentGoalCache[eventIdStr] && ((Date.now() - recentGoalCache[eventIdStr]) < 30000);
-
-    // KONTROL SKOR / VS BADGE
-    let scoreDisplay = isPre 
-      ? `<span class="text-[11px] font-black tracking-widest text-emerald-300 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500/40">VS</span>`
-      : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white bg-[#0f0720] px-2.5 py-1 rounded-lg border border-white/10'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
-
-    let cardStyleClass = 'card-upcoming';
-
-    if (customVariant === 'finished-fav') {
-      cardStyleClass = 'card-fav-finished';
-    } else if (customVariant === 'upcoming-fav' || ((hasFavTeam || favorited) && isPre)) {
-      cardStyleClass = 'card-fav-upcoming';
-    } else if (isLive) {
-      cardStyleClass = 'card-live';
-    } else if (isPre) {
-      cardStyleClass = 'card-upcoming';
-    } else {
-      cardStyleClass = 'card-finished';
-    }
-
-    const card = document.createElement('div');
-    card.className = `p-3.5 rounded-2xl transition-all duration-150 cursor-pointer relative ${cardStyleClass}`;
-    
-    card.onclick = (e) => {
-      e.stopPropagation();
-      openMatchDetail(event.leagueId || 'idn.1', event.id, event.leagueName || 'Detail');
-    };
-
-    card.innerHTML = `
-      <!-- TOP BADGE BAR -->
-      <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2.5 gap-2">
-        <div class="flex items-center gap-1.5 flex-1 min-w-0">
-          ${hasFavTeam ? '<span class="text-[8.5px] bg-amber-950/80 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-black tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid fa-star text-[7px] text-amber-400"></i>FAVORIT</span>' : ''}
-          ${showLeagueBadge ? `<span class="text-[9.5px] bg-[#0f0720] border border-white/10 text-slate-300 px-2 py-0.5 rounded-md truncate max-w-[150px] font-bold">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>` : ''}
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button onclick="toggleFavorite('${event.id}', event)" class="p-1 hover:scale-125 transition text-xs" title="Favorit">
-            <i class="${favorited ? 'fa-solid fa-star text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)]' : 'fa-regular fa-star text-slate-400 hover:text-amber-400'}"></i>
-          </button>
-          <span class="text-[9.5px] bg-[#0f0720] hover:bg-white/10 border border-white/10 px-2.5 py-0.5 rounded-lg text-slate-300 font-bold flex items-center gap-1 transition">Detail <i class="fa-solid fa-chevron-right text-[7px] text-slate-400"></i></span>
-        </div>
-      </div>
-
-      <!-- MAIN TEAMS & SCORE BLOCK -->
-      <div class="flex items-center justify-between gap-1.5 pt-0.5">
-        <!-- HOME TEAM -->
-        <div class="flex items-center gap-2.5 w-[36%] min-w-0">
-          <div class="w-9 h-9 sm:w-10 sm:h-10 p-1 bg-[#0f0720] border border-white/10 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-            <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
-          </div>
-          <span class="font-extrabold text-xs truncate leading-tight text-white flex items-center gap-1">
-            <span class="truncate">${home?.team?.shortDisplayName || ''}</span>
-            ${homeFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
-          </span>
-        </div>
-
-        <!-- SCORE / VS & STATUS -->
-        <div class="w-[28%] shrink-0 flex flex-col items-center justify-center text-center">
-          ${scoreDisplay}
-          <span class="mt-2 text-[9.5px] font-semibold text-slate-400 flex items-center justify-center gap-1 whitespace-nowrap">
-            <i class="fa-regular fa-clock text-[9px] text-emerald-400 shrink-0"></i>
-            <span class="${isLive ? 'text-red-400 font-extrabold animate-pulse' : 'text-slate-300'}">${isLive ? liveMinuteText : formattedTime}</span>
-          </span>
-        </div>
-
-        <!-- AWAY TEAM -->
-        <div class="flex items-center justify-end gap-2.5 w-[36%] min-w-0 text-right">
-          <span class="font-extrabold text-xs truncate leading-tight text-white flex items-center justify-end gap-1">
-            ${awayFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
-            <span class="truncate">${away?.team?.shortDisplayName || ''}</span>
-          </span>
-          <div class="w-9 h-9 sm:w-10 sm:h-10 p-1 bg-[#0f0720] border border-white/10 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-            <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
-          </div>
+            return `
+              <div onclick="openPlayerBioModal('${leagueId}', '${pId}')" class="flex items-center justify-between py-2 text-xs hover:bg-slate-800/40 px-1 rounded-xl transition cursor-pointer">
+                <div class="flex items-center gap-2.5 truncate">
+                  <span class="font-bold w-4 text-center ${idx === 0 ? 'text-amber-400 font-black' : 'text-slate-400'}">${idx + 1}</span>
+                  <div class="w-7 h-7 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
+                    <img src="${headshot}" class="w-full h-full object-cover" onerror="this.src='${PLAIN_PERSON_HEADSHOT}'">
+                  </div>
+                  <div class="truncate">
+                    <div class="font-bold text-white text-[11px] truncate">${pName}</div>
+                    <div class="text-[9px] text-slate-400 truncate">${team.displayName || team.name || ''}</div>
+                  </div>
+                </div>
+                <span class="font-black text-emerald-400 text-xs bg-emerald-950/60 px-2.5 py-0.5 rounded-lg border border-emerald-500/30">${value}</span>
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
-    container.appendChild(card);
-  });
+  }).join('');
+}
+
+function switchStandingsSubTab(tab) {
+  selectedStandingsTab = tab;
+  fetchStandingsForSelectedLeague();
+}
+
+function selectStandingsLeague(leagueId) {
+  selectedStandingsLeague = leagueId;
+  selectedStandingsTab = 'table';
+  loadData(false);
+}
+
+async function renderLeagueStandingsTable(targetLeague, container, highlightTeamId = null) {
+  const highlightIds = Array.isArray(highlightTeamId) 
+    ? highlightTeamId.map(id => String(id)) 
+    : (highlightTeamId ? [String(highlightTeamId)] : []);
+
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${targetLeague.id}/standings`);
+    const data = await res.json();
+    
+    let groups = [];
+    if (data?.children && data.children.length > 0) {
+      groups = data.children.map(child => ({
+        name: child.name || child.displayName || 'Grup',
+        entries: child.standings?.entries || []
+      }));
+    } else if (data?.standings?.entries) {
+      groups = [{
+        name: targetLeague.name,
+        entries: data.standings.entries
+      }];
+    }
+
+    if (groups.length === 0 || groups.every(g => g.entries.length === 0)) {
+      container.innerHTML = `
+        <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40">
+          Tabel Klasemen untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name} tidak tersedia saat ini.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+
+    const liveEvents = (typeof cachedEvents !== 'undefined') ? cachedEvents.filter(e => e.status?.type?.state === 'in') : [];
+
+    groups.forEach(group => {
+      let entries = [...group.entries];
+      if (liveEvents.length > 0) {
+        entries = calculateVirtualStandings(entries, liveEvents);
+      } else {
+        entries.sort((a, b) => getPointsFromEntry(b) - getPointsFromEntry(a));
+      }
+
+      const card = document.createElement('div');
+      card.className = 'bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl mb-4';
+
+      let tableRows = entries.map((entry, idx) => {
+        const stats = entry.stats || [];
+        const getStat = (names) => {
+          for (let name of names) {
+            const s = stats.find(st => st.name === name || st.abbreviation?.toLowerCase() === name.toLowerCase());
+            if (s) return s.displayValue ?? s.value ?? '0';
+          }
+          return '0';
+        };
+
+        const m = getStat(['gamesPlayed', 'gp', 'm']);
+        const w = getStat(['wins', 'w']);
+        const d = getStat(['ties', 'draws', 'd']);
+        const l = getStat(['losses', 'l']);
+        const gf = getStat(['pointsFor', 'goalsFor', 'gf', 'f']);
+        const ga = getStat(['pointsAgainst', 'goalsAgainst', 'ga', 'a']);
+        const gd = getStat(['pointDifferential', 'goalDifference', 'gd', 'diff']);
+        const pts = entry.virtualPts !== undefined ? entry.virtualPts : getStat(['points', 'pts']);
+
+        const rawLogo = entry.team?.logos?.[0]?.href || getTeamLogo(entry.team);
+        const teamLogo = dataSaverMode ? PLAIN_SHIELD_LOGO : rawLogo;
+        const teamId = String(entry.team?.id);
+        
+        const isHome = highlightIds[0] && String(highlightIds[0]) === teamId;
+        const isAway = highlightIds[1] && String(highlightIds[1]) === teamId;
+        const isHighlighted = isHome || isAway;
+        const isFav = isTeamFavorite(teamId);
+
+        return `
+          <tr class="border-b border-slate-800/50 hover:bg-slate-800/40 transition text-xs ${isHighlighted ? 'bg-emerald-950/80 font-bold border-l-4 border-emerald-500 text-emerald-300' : ''}">
+            <td class="p-2 text-center font-bold ${idx < 2 ? 'text-emerald-400' : 'text-slate-400'}">${idx + 1}</td>
+            <td class="p-2 flex items-center gap-2 font-semibold cursor-pointer min-w-[130px]" onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')">
+              <img src="${teamLogo}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="">
+              <span class="truncate text-slate-200 hover:text-emerald-400 transition">${entry.team?.displayName || 'Klub'}</span>
+              ${isFav ? '<i class="fa-solid fa-star text-amber-400 text-[9px]"></i>' : ''}
+              ${entry.isLiveUpdated ? '<span class="text-[8px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 rounded font-bold animate-pulse">LIVE</span>' : ''}
+            </td>
+            <td class="p-2 text-center text-slate-300">${m}</td>
+            <td class="p-2 text-center text-emerald-400 font-medium">${w}</td>
+            <td class="p-2 text-center text-amber-400 font-medium">${d}</td>
+            <td class="p-2 text-center text-red-400 font-medium">${l}</td>
+            <td class="p-2 text-center text-slate-400 font-mono text-[11px]">${gf}:${ga}</td>
+            <td class="p-2 text-center font-medium ${parseInt(gd) > 0 ? 'text-emerald-400' : (parseInt(gd) < 0 ? 'text-red-400' : 'text-slate-400')}">${parseInt(gd) > 0 ? '+' + gd : gd}</td>
+            <td class="p-2 text-center font-black text-white bg-slate-950/50">${pts}</td>
+          </tr>
+        `;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="p-3 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <img src="${generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country)}" loading="lazy" class="w-4 h-4 object-contain" alt="">
+            <h3 class="font-bold text-xs tracking-wide uppercase">${group.name}</h3>
+          </div>
+          ${liveEvents.length > 0 ? '<span class="text-[9.5px] text-emerald-400 font-bold flex items-center gap-1"><i class="fa-solid fa-bolt animate-pulse"></i> Live Virtual Table</span>' : ''}
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="text-[10px] text-slate-400 uppercase bg-slate-950/60 border-b border-slate-800">
+                <th class="p-2 text-center w-7">#</th>
+                <th class="p-2">Klub</th>
+                <th class="p-2 text-center" title="Main">M</th>
+                <th class="p-2 text-center text-emerald-400" title="Menang">M</th>
+                <th class="p-2 text-center text-amber-400" title="Seri">S</th>
+                <th class="p-2 text-center text-red-400" title="Kalah">K</th>
+                <th class="p-2 text-center" title="Gol Masuk:Kemasukan">GM:GK</th>
+                <th class="p-2 text-center" title="Selisih Gol">SG</th>
+                <th class="p-2 text-center font-bold text-emerald-400" title="Poin">PTS</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+  } catch (err) {
+    container.innerHTML = `<p class="text-center text-slate-400 text-xs py-8">Tabel Klasemen tidak tersedia untuk kategori ini.</p>`;
+  }
+}
+
+async function renderLeagueMatchesList(targetLeague, container) {
+  container.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+      <p class="text-xs">Memuat pertandingan ${targetLeague.name}...</p>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/scoreboard`);
+    const data = await res.json();
+    const events = (data.events || []).map(evt => ({ 
+      ...evt, 
+      leagueName: targetLeague.name, 
+      leagueId: targetLeague.id, 
+      leagueLogo: targetLeague.logo,
+      leagueFlag: targetLeague.flag 
+    }));
+
+    if (events.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40 text-xs">
+          Tidak ada jadwal pertandingan untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name}.
+        </div>
+      `;
+      return;
+    }
+
+    const finished = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'post'));
+    const live = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'in'));
+    const upcoming = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'pre'));
+
+    container.innerHTML = '';
+
+    if (live.length > 0) {
+      const liveBox = document.createElement('div');
+      liveBox.className = 'space-y-2';
+      liveBox.innerHTML = `
+        <div class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> Live Sekarang (${live.length})
+        </div>
+        <div id="league-live-grid" class="space-y-2"></div>
+      `;
+      container.appendChild(liveBox);
+      renderMatchesCards('league-live-grid', live, false);
+    }
+
+    if (upcoming.length > 0) {
+      const upcomingBox = document.createElement('div');
+      upcomingBox.className = 'space-y-2';
+      upcomingBox.innerHTML = `
+        <div class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-regular fa-clock"></i> Pertandingan Mendatang (${upcoming.length})
+        </div>
+        <div id="league-upcoming-grid" class="space-y-2"></div>
+      `;
+      container.appendChild(upcomingBox);
+      renderMatchesCards('league-upcoming-grid', upcoming, false);
+    }
+
+    if (finished.length > 0) {
+      const finishedBox = document.createElement('div');
+      finishedBox.className = 'space-y-2';
+      finishedBox.innerHTML = `
+        <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-circle-check"></i> Pertandingan Selesai (${finished.length})
+        </div>
+        <div id="league-finished-grid" class="space-y-2"></div>
+      `;
+      container.appendChild(finishedBox);
+      renderMatchesCards('league-finished-grid', finished, false);
+    }
+
+  } catch (err) {
+    container.innerHTML = `<p class="text-center text-red-400 text-xs py-8">Gagal memuat pertandingan.</p>`;
+  }
 }

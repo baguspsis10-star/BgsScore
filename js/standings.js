@@ -1,5 +1,6 @@
-// STANDINGS & LEAGUE TABLES MODULE (LIVE VIRTUAL STANDINGS & KNOCKOUT BRACKET)
+// STANDINGS & LEAGUE TABLES MODULE
 
+// Render Collapsible Categorized League Accordion Grid
 function renderCategorizedLeagueGrid(onSelectFunctionName) {
   const categories = [
     'Eropa',
@@ -44,35 +45,7 @@ function getPointsFromEntry(entry) {
   return parseFloat(ptStat?.value ?? ptStat?.displayValue ?? 0);
 }
 
-// Live Virtual Standings Calculator
-function calculateVirtualStandings(entries, liveEvents) {
-  const updatedEntries = JSON.parse(JSON.stringify(entries));
-
-  liveEvents.forEach(evt => {
-    const comp = evt.competitions?.[0];
-    const home = comp?.competitors?.find(c => c.homeAway === 'home');
-    const away = comp?.competitors?.find(c => c.homeAway === 'away');
-
-    const hTeam = updatedEntries.find(e => String(e.team?.id) === String(home?.team?.id));
-    const aTeam = updatedEntries.find(e => String(e.team?.id) === String(away?.team?.id));
-
-    if (hTeam && aTeam) {
-      const hScore = parseInt(home.score || '0');
-      const aScore = parseInt(away.score || '0');
-
-      let hPts = hScore > aScore ? 3 : (hScore === aScore ? 1 : 0);
-      let aPts = aScore > hScore ? 3 : (hScore === aScore ? 1 : 0);
-
-      hTeam.virtualPts = (getPointsFromEntry(hTeam) || 0) + hPts;
-      aTeam.virtualPts = (getPointsFromEntry(aTeam) || 0) + aPts;
-      hTeam.isLiveUpdated = true;
-      aTeam.isLiveUpdated = true;
-    }
-  });
-
-  return updatedEntries.sort((a, b) => (b.virtualPts || getPointsFromEntry(b)) - (a.virtualPts || getPointsFromEntry(a)));
-}
-
+// Fetch Standings Main Handler
 async function fetchStandingsForSelectedLeague() {
   const container = document.getElementById('standings-container');
   container.innerHTML = '';
@@ -106,6 +79,7 @@ async function fetchStandingsForSelectedLeague() {
       </span>
     </div>
 
+    <!-- Sub-Tab Navigator -->
     <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1">
       <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-list-ol mr-1"></i> League
@@ -115,9 +89,6 @@ async function fetchStandingsForSelectedLeague() {
       </button>
       <button onclick="switchStandingsSubTab('leaders')" id="stab-leaders" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'leaders' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-fire mr-1"></i> Leaders
-      </button>
-      <button onclick="switchStandingsSubTab('bracket')" id="stab-bracket" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'bracket' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
-        <i class="fa-solid fa-sitemap mr-1"></i> Bracket
       </button>
     </div>
   `;
@@ -133,68 +104,12 @@ async function fetchStandingsForSelectedLeague() {
     await renderLeagueMatchesList(targetLeague, subContainer);
   } else if (selectedStandingsTab === 'leaders') {
     await fetchLeagueLeaders(targetLeague.id, subContainer);
-  } else if (selectedStandingsTab === 'bracket') {
-    await fetchTournamentBracket(targetLeague.id, subContainer);
   }
 
   container.classList.remove('hidden');
 }
 
-// Fetch Tournament Bracket Visualizer
-async function fetchTournamentBracket(leagueId, container) {
-  container.innerHTML = `
-    <div class="py-12 text-center text-xs text-slate-400 space-y-2">
-      <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-xl"></i>
-      <p class="font-bold">Memuat bagan fase gugur...</p>
-    </div>
-  `;
-
-  try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/scoreboard`);
-    const data = await res.json();
-    const events = data.events || [];
-
-    if (events.length === 0) {
-      container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Bagan fase gugur belum tersedia.</div>`;
-      return;
-    }
-
-    container.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
-        <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-sitemap"></i> Knockout Bracket Visualizer</span>
-        </h4>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          ${events.slice(0, 4).map(e => {
-            const h = e.competitions[0].competitors[0];
-            const a = e.competitions[0].competitors[1];
-            return `
-              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-                <div class="flex items-center justify-between text-slate-200">
-                  <div class="flex items-center gap-2 truncate">
-                    <img src="${getTeamLogo(h?.team)}" class="w-4 h-4 object-contain">
-                    <span class="truncate font-bold">${h?.team?.shortDisplayName || 'Home'}</span>
-                  </div>
-                  <span class="font-mono text-emerald-400 font-black">${h?.score || '0'}</span>
-                </div>
-                <div class="flex items-center justify-between text-slate-200 pt-1 border-t border-slate-800/50">
-                  <div class="flex items-center gap-2 truncate">
-                    <img src="${getTeamLogo(a?.team)}" class="w-4 h-4 object-contain">
-                    <span class="truncate font-bold">${a?.team?.shortDisplayName || 'Away'}</span>
-                  </div>
-                  <span class="font-mono text-emerald-400 font-black">${a?.score || '0'}</span>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400 text-xs">Gagal memuat bagan turnamen.</div>`;
-  }
-}
-
+// Fetch Top Skor & Top Assist (League Leaders) - MULTI-ENDPOINT FIXED
 async function fetchLeagueLeaders(leagueId, container) {
   container.innerHTML = `
     <div class="py-12 text-center text-xs text-slate-400 space-y-2">
@@ -279,6 +194,7 @@ async function fetchLeagueLeaders(leagueId, container) {
   }).join('');
 }
 
+// Switch Standings Sub-Tab (Table / Matches / Leaders)
 function switchStandingsSubTab(tab) {
   selectedStandingsTab = tab;
   fetchStandingsForSelectedLeague();
@@ -290,6 +206,7 @@ function selectStandingsLeague(leagueId) {
   loadData(false);
 }
 
+// Render Standings Table Component
 async function renderLeagueStandingsTable(targetLeague, container, highlightTeamId = null) {
   const highlightIds = Array.isArray(highlightTeamId) 
     ? highlightTeamId.map(id => String(id)) 
@@ -323,15 +240,9 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 
     container.innerHTML = '';
 
-    const liveEvents = (typeof cachedEvents !== 'undefined') ? cachedEvents.filter(e => e.status?.type?.state === 'in') : [];
-
     groups.forEach(group => {
-      let entries = [...group.entries];
-      if (liveEvents.length > 0) {
-        entries = calculateVirtualStandings(entries, liveEvents);
-      } else {
-        entries.sort((a, b) => getPointsFromEntry(b) - getPointsFromEntry(a));
-      }
+      const entries = [...group.entries];
+      entries.sort((a, b) => getPointsFromEntry(b) - getPointsFromEntry(a));
 
       const card = document.createElement('div');
       card.className = 'bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl mb-4';
@@ -353,7 +264,7 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
         const gf = getStat(['pointsFor', 'goalsFor', 'gf', 'f']);
         const ga = getStat(['pointsAgainst', 'goalsAgainst', 'ga', 'a']);
         const gd = getStat(['pointDifferential', 'goalDifference', 'gd', 'diff']);
-        const pts = entry.virtualPts !== undefined ? entry.virtualPts : getStat(['points', 'pts']);
+        const pts = getStat(['points', 'pts']);
 
         const rawLogo = entry.team?.logos?.[0]?.href || getTeamLogo(entry.team);
         const teamLogo = dataSaverMode ? PLAIN_SHIELD_LOGO : rawLogo;
@@ -371,7 +282,6 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
               <img src="${teamLogo}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="">
               <span class="truncate text-slate-200 hover:text-emerald-400 transition">${entry.team?.displayName || 'Klub'}</span>
               ${isFav ? '<i class="fa-solid fa-star text-amber-400 text-[9px]"></i>' : ''}
-              ${entry.isLiveUpdated ? '<span class="text-[8px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 rounded font-bold animate-pulse">LIVE</span>' : ''}
             </td>
             <td class="p-2 text-center text-slate-300">${m}</td>
             <td class="p-2 text-center text-emerald-400 font-medium">${w}</td>
@@ -385,12 +295,9 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
       }).join('');
 
       card.innerHTML = `
-        <div class="p-3 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <img src="${generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country)}" loading="lazy" class="w-4 h-4 object-contain" alt="">
-            <h3 class="font-bold text-xs tracking-wide uppercase">${group.name}</h3>
-          </div>
-          ${liveEvents.length > 0 ? '<span class="text-[9.5px] text-emerald-400 font-bold flex items-center gap-1"><i class="fa-solid fa-bolt animate-pulse"></i> Live Virtual Table</span>' : ''}
+        <div class="p-3 border-b border-slate-800 bg-slate-950/40 flex items-center gap-2">
+          <img src="${generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country)}" loading="lazy" class="w-4 h-4 object-contain" alt="">
+          <h3 class="font-bold text-xs tracking-wide uppercase">${group.name}</h3>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
@@ -419,6 +326,7 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
   }
 }
 
+// Render Matches List in Standings View
 async function renderLeagueMatchesList(targetLeague, container) {
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
