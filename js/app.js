@@ -1,12 +1,11 @@
 // APP INITIALIZATION & CORE CONTROLLER MODULE
 
-// Main Data Loading Handler (Dengan Proteksi Restorasi Cache Instan)
+// Main Data Loading Handler
 async function loadData(isSilent = false) {
   const refreshIcon = document.getElementById('refresh-icon');
   if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
-  // Hanya tampilkan loading spinner jika cache benar-benar belum terisi
-  if (!isSilent && (!cachedEvents || cachedEvents.length === 0)) {
+  if (!isSilent) {
     document.getElementById('loading').classList.remove('hidden');
   }
 
@@ -17,10 +16,6 @@ async function loadData(isSilent = false) {
     document.getElementById('matches-container').classList.remove('hidden');
     if (document.getElementById('date-strip-container')) {
       document.getElementById('date-strip-container').classList.remove('hidden');
-    }
-    // Jika cache sudah ada, langsung render lebih dulu (Zero Blank Delay)
-    if (cachedEvents && cachedEvents.length > 0 && selectedLeague === 'all') {
-      renderMatchesCards('matches-container', cachedEvents, true);
     }
     await fetchAllMatches();
   } else if (activeNav === 'live') {
@@ -80,7 +75,7 @@ function bottomNavSwitch(navType) {
   const topHeader = document.getElementById('top-all-matches-header');
   const dateStrip = document.getElementById('date-strip-container');
 
-  // Sembunyikan semua kontainer dulu agar pergantian tab bersih
+  // Sembunyikan seluruh container agar perpindahan menu bersih
   document.getElementById('matches-container').classList.add('hidden');
   document.getElementById('live-container').classList.add('hidden');
   if (document.getElementById('fav-container')) document.getElementById('fav-container').classList.add('hidden');
@@ -276,7 +271,7 @@ function updateActiveLeagueBadge() {
   }
 }
 
-// Event Listener Tombol Kembali HP/Browser (Pencegahan Modal Crash & Data Blank)
+// Event Listener Tombol Kembali (Navigasi HP/Browser)
 window.addEventListener('popstate', () => {
   if (typeof closeModal === 'function' && currentOpenModal) {
     closeModal();
