@@ -295,14 +295,20 @@ async function fetchAllMatches() {
   try {
     const targetDate = selectedDateFilter || getFormattedDate(new Date());
 
+    // Batasi fetch ke liga utama saja saat mode 'all' agar API ESPN tidak me-rate limit / memblokir request
+    const POPULAR_LEAGUE_IDS = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions', 'uefa.europa', 'idn.1', 'usa.1', 'ksa.1'];
+
     const targets = selectedLeague === 'all' 
-      ? LEAGUES 
+      ? LEAGUES.filter(l => POPULAR_LEAGUE_IDS.includes(l.id)) 
       : LEAGUES.filter(l => l.id === selectedLeague);
 
     let allEvents = await fetchBatchLeagues(targets, () => targetDate);
 
     allEvents = sortEventsByFavoriteAndDate(allEvents);
-    cachedEvents = allEvents;
+
+    if (allEvents.length > 0) {
+      cachedEvents = allEvents;
+    }
 
     allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
     renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
@@ -330,7 +336,9 @@ async function fetchLiveMatchesStructured() {
 
     let allEvents = Array.from(eventMap.values());
     
-    cachedEvents = allEvents;
+    if (allEvents.length > 0) {
+      cachedEvents = allEvents;
+    }
     allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
     const now = new Date();
@@ -439,7 +447,9 @@ async function fetchFavoritedMatchesStructured() {
       return isFavorite(evt.id) || isTeamFavorite(homeId) || isTeamFavorite(awayId);
     });
 
-    cachedEvents = favEvents;
+    if (favEvents.length > 0) {
+      cachedEvents = favEvents;
+    }
     favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
     const finishedEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'post'));
