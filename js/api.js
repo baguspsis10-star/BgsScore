@@ -139,7 +139,7 @@ function showPlayerCircleFallback(img, pName) {
   img.src = avatarUrl;
 }
 
-// Modal Profil & Biodata Pemain Lengkap (Height CM & Weight KG + Stats & Cedera)
+// FITUR BARU: Modal Profil & Biodata Pemain Lengkap (Height CM & Weight KG + Stats & Cedera)
 async function openPlayerBioModal(leagueId, playerId) {
   if (!playerId || playerId === 'null' || playerId === 'undefined') return;
 
@@ -308,12 +308,12 @@ async function fetchAllMatches() {
     renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
   } catch (err) {
     console.error("Gagal mengambil data pertandingan ESPN:", err);
-  } font-medium {
+  } finally {
     if (container) container.classList.remove('hidden');
   }
 }
 
-// 5. Fetch Live Matches (FIXED RATE-LIMIT & DATE FORMAT)
+// 5. Fetch Live Matches
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -321,23 +321,12 @@ async function fetchLiveMatchesStructured() {
   try {
     const today = new Date();
     const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
+    const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
-    const dateToday = getFormattedDate(today);
-    const dateYesterday = getFormattedDate(yesterday);
-
-    // Ambil liga-liga utama agar request efisien dan tidak terkena blokir rate-limit ESPN
-    const liveTargetLeagues = LEAGUES.filter(l => 
-      ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'ned.1', 'por.1', 'idn.1', 'ksa.1', 'uefa.champions', 'uefa.europa', 'fifa.friendly', 'club.friendly'].includes(l.id)
-    );
-
-    // Fetch terpisah per tanggal tunggal agar API merespons dengan stabil
-    const [rawYesterday, rawToday] = await Promise.all([
-      fetchBatchLeagues(liveTargetLeagues, () => dateYesterday),
-      fetchBatchLeagues(liveTargetLeagues, () => dateToday)
-    ]);
+    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
 
     const eventMap = new Map();
-    [...rawYesterday, ...rawToday].forEach(evt => eventMap.set(evt.id, evt));
+    allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
 
     let allEvents = Array.from(eventMap.values());
     
