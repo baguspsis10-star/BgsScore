@@ -39,13 +39,14 @@ function renderCategorizedLeagueGrid(onSelectFunctionName) {
   }).join('');
 }
 
+// Extract Points Value from Entry Object
 function getPointsFromEntry(entry) {
   const stats = entry.stats || [];
   const ptStat = stats.find(s => s.name === 'points' || s.name === 'pts');
   return parseFloat(ptStat?.value ?? ptStat?.displayValue ?? 0);
 }
 
-// Fetch Standings Main Handler
+// Fetch Standings Main Handler for Navigation
 async function fetchStandingsForSelectedLeague() {
   const container = document.getElementById('standings-container');
   container.innerHTML = '';
@@ -79,16 +80,12 @@ async function fetchStandingsForSelectedLeague() {
       </span>
     </div>
 
-    <!-- Sub-Tab Navigator -->
-    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1">
+    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
       <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-list-ol mr-1"></i> League
       </button>
       <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-calendar-days mr-1"></i> Match
-      </button>
-      <button onclick="switchStandingsSubTab('leaders')" id="stab-leaders" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'leaders' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
-        <i class="fa-solid fa-fire mr-1"></i> Leaders
       </button>
     </div>
   `;
@@ -100,106 +97,20 @@ async function fetchStandingsForSelectedLeague() {
 
   if (selectedStandingsTab === 'table') {
     await renderLeagueStandingsTable(targetLeague, subContainer);
-  } else if (selectedStandingsTab === 'matches') {
+  } else {
     await renderLeagueMatchesList(targetLeague, subContainer);
-  } else if (selectedStandingsTab === 'leaders') {
-    await fetchLeagueLeaders(targetLeague.id, subContainer);
   }
 
   container.classList.remove('hidden');
 }
 
-// Fetch Top Skor & Top Assist (League Leaders) - MULTI-ENDPOINT FIXED
-async function fetchLeagueLeaders(leagueId, container) {
-  container.innerHTML = `
-    <div class="py-12 text-center text-xs text-slate-400 space-y-2">
-      <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-xl"></i>
-      <p class="font-bold">Memuat statistik Top Skor & Leaders...</p>
-    </div>
-  `;
-
-  let data = null;
-  const candidateUrls = [
-    `https://site.web.api.espn.com/apis/v2/sports/soccer/${leagueId}/statistics`,
-    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/leaders`,
-    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/statistics`
-  ];
-
-  for (const url of candidateUrls) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        if (json && (json.leaders || json.stats || json.categories)) {
-          data = json;
-          break;
-        }
-      }
-    } catch (e) {}
-  }
-
-  const categories = data?.stats || data?.leaders || data?.categories || [];
-
-  if (!data || categories.length === 0) {
-    container.innerHTML = `
-      <div class="text-center py-10 px-4 text-slate-400 bg-slate-900 border border-slate-800 rounded-2xl text-xs space-y-2">
-        <i class="fa-solid fa-chart-line text-2xl text-amber-400/60 block"></i>
-        <p class="font-bold text-slate-200">Statistik Leaders Belum Tersedia</p>
-        <p class="text-[11px] text-slate-400">Data statistik pemain untuk liga ini belum dirilis oleh server ESPN saat ini.</p>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = categories.map(cat => {
-    let topAthletes = cat.leaders?.[0]?.leaders || cat.leaders || cat.athletes || cat.ranks || [];
-    if (!Array.isArray(topAthletes) && cat.leaders) topAthletes = cat.leaders;
-
-    if (topAthletes.length === 0) return '';
-
-    return `
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 mb-3 shadow-xl">
-        <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-award"></i> ${cat.displayName || cat.name || cat.header || 'Statistik Pemain'}</span>
-          <span class="text-[9px] text-slate-400 font-normal">Top 5</span>
-        </h4>
-        <div class="divide-y divide-slate-800/50">
-          ${topAthletes.slice(0, 5).map((item, idx) => {
-            const athlete = item.athlete || item.player || item;
-            const team = item.team || athlete.team || {};
-            const pId = athlete.id || athlete.athleteId;
-            const pName = athlete.displayName || athlete.fullName || athlete.name || 'Pemain';
-            const value = item.displayValue || item.value || item.statValue || '0';
-            const headshot = athlete.headshot?.href || athlete.headshot || (pId ? `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png` : PLAIN_PERSON_HEADSHOT);
-
-            return `
-              <div onclick="openPlayerBioModal('${leagueId}', '${pId}')" class="flex items-center justify-between py-2 text-xs hover:bg-slate-800/40 px-1 rounded-xl transition cursor-pointer">
-                <div class="flex items-center gap-2.5 truncate">
-                  <span class="font-bold w-4 text-center ${idx === 0 ? 'text-amber-400 font-black' : 'text-slate-400'}">${idx + 1}</span>
-                  <div class="w-7 h-7 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
-                    <img src="${headshot}" class="w-full h-full object-cover" onerror="this.src='${PLAIN_PERSON_HEADSHOT}'">
-                  </div>
-                  <div class="truncate">
-                    <div class="font-bold text-white text-[11px] truncate">${pName}</div>
-                    <div class="text-[9px] text-slate-400 truncate">${team.displayName || team.name || ''}</div>
-                  </div>
-                </div>
-                <span class="font-black text-emerald-400 text-xs bg-emerald-950/60 px-2.5 py-0.5 rounded-lg border border-emerald-500/30">${value}</span>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// Switch Standings Sub-Tab (Table / Matches / Leaders)
+// Switch Standings Sub-Tab (Table / Matches)
 function switchStandingsSubTab(tab) {
   selectedStandingsTab = tab;
   fetchStandingsForSelectedLeague();
 }
 
+// Select Specific Standings League
 function selectStandingsLeague(leagueId) {
   selectedStandingsLeague = leagueId;
   selectedStandingsTab = 'table';

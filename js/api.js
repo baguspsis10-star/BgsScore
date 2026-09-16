@@ -66,7 +66,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// 2. ESPN Player Photo Loader
+// 2. ESPN Player Photo Loader (Wikipedia Dihapus Total)
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -112,96 +112,20 @@ function showPlayerCircleFallback(img, pName) {
   img.src = avatarUrl;
 }
 
-// FITUR BARU: Modal Profil & Biodata Pemain
-async function openPlayerBioModal(leagueId, playerId) {
-  if (!playerId || playerId === 'null' || playerId === 'undefined') return;
-
-  let bioModal = document.getElementById('player-bio-modal');
-  if (!bioModal) {
-    bioModal = document.createElement('div');
-    bioModal.id = 'player-bio-modal';
-    bioModal.className = 'fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 transition-all';
-    document.body.appendChild(bioModal);
-  }
-
-  bioModal.innerHTML = `
-    <div class="bg-[#180d30] border border-white/10 w-full max-w-xs sm:max-w-sm rounded-3xl p-5 shadow-2xl relative text-white space-y-4">
-      <button onclick="document.getElementById('player-bio-modal').classList.add('hidden')" class="absolute top-4 right-4 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-      <div class="flex flex-col items-center justify-center py-6 gap-2">
-        <i class="fa-solid fa-circle-notch fa-spin text-emerald-400 text-2xl"></i>
-        <p class="text-xs font-semibold text-slate-300">Memuat profil pemain...</p>
-      </div>
-    </div>
-  `;
-  bioModal.classList.remove('hidden');
-
-  try {
-    const targetLeague = (leagueId && leagueId !== 'all') ? leagueId : 'eng.1';
-    const res = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${targetLeague}/athletes/${playerId}`);
-    const player = await res.json();
-
-    const name = player.displayName || player.fullName || 'Pemain';
-    const jersey = player.jersey ? `#${player.jersey}` : '-';
-    const position = player.position?.displayName || player.position?.name || 'Pemain';
-    const height = player.displayHeight || '-';
-    const weight = player.displayWeight || '-';
-    const age = player.age ? `${player.age} Tahun` : '-';
-    const citizenship = player.citizenship || player.birthPlace?.country || 'Internasional';
-    const headshot = `https://a.espncdn.com/i/headshots/soccer/players/full/${playerId}.png`;
-
-    bioModal.innerHTML = `
-      <div class="bg-[#180d30] border border-white/10 w-full max-w-xs sm:max-w-sm rounded-3xl p-5 shadow-2xl relative text-white space-y-4">
-        <button onclick="document.getElementById('player-bio-modal').classList.add('hidden')" class="absolute top-4 right-4 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-        
-        <div class="flex items-center gap-3.5 border-b border-white/10 pb-4">
-          <div class="w-16 h-16 rounded-2xl bg-[#0f0720] border border-emerald-500/30 overflow-hidden shrink-0 flex items-center justify-center">
-            <img src="${headshot}" class="w-full h-full object-cover" onerror="this.src='${PLAIN_PERSON_HEADSHOT}'">
-          </div>
-          <div class="min-w-0">
-            <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">${position} ${jersey}</span>
-            <h3 class="text-base font-black truncate leading-tight">${name}</h3>
-            <span class="text-[10px] text-slate-400 block mt-0.5">${citizenship}</span>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-3 gap-2 text-center text-xs">
-          <div class="bg-[#0f0720] p-2.5 rounded-2xl border border-white/5">
-            <span class="text-[9px] text-slate-400 block uppercase font-bold">Umur</span>
-            <span class="font-bold text-white mt-0.5 block">${age}</span>
-          </div>
-          <div class="bg-[#0f0720] p-2.5 rounded-2xl border border-white/5">
-            <span class="text-[9px] text-slate-400 block uppercase font-bold">Tinggi</span>
-            <span class="font-bold text-white mt-0.5 block">${height}</span>
-          </div>
-          <div class="bg-[#0f0720] p-2.5 rounded-2xl border border-white/5">
-            <span class="text-[9px] text-slate-400 block uppercase font-bold">Berat</span>
-            <span class="font-bold text-white mt-0.5 block">${weight}</span>
-          </div>
-        </div>
-      </div>
-    `;
-  } catch (err) {
-    bioModal.innerHTML = `
-      <div class="bg-[#180d30] border border-white/10 w-full max-w-xs rounded-3xl p-5 text-center text-xs text-red-400 space-y-3">
-        <p>Gagal memuat profil pemain.</p>
-        <button onclick="document.getElementById('player-bio-modal').classList.add('hidden')" class="px-4 py-1.5 bg-white/10 text-white rounded-xl">Tutup</button>
-      </div>
-    `;
-  }
-}
-
 // 3. Fetch Detail / Summary Pertandingan (ESPN API)
 async function fetchMatchSummary(leagueId, eventId) {
-  if (!leagueId || !eventId) return null;
+  if (!leagueId || !eventId) {
+    console.error("League ID atau Event ID tidak valid:", { leagueId, eventId });
+    return null;
+  }
+
   try {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/summary?event=${eventId}`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    
     return await res.json();
   } catch (err) {
+    console.error("Gagal mengambil summary dari ESPN API:", err);
     return null;
   }
 }

@@ -7,27 +7,24 @@ async function loadData(isSilent = false) {
 
   if (!isSilent) {
     document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('matches-container').classList.add('hidden');
+    document.getElementById('live-container').classList.add('hidden');
+    if (document.getElementById('fav-container')) document.getElementById('fav-container').classList.add('hidden');
+    document.getElementById('standings-container').classList.add('hidden');
+    if (document.getElementById('news-container')) document.getElementById('news-container').classList.add('hidden');
+    document.getElementById('search-results-container').classList.add('hidden');
   }
 
   updateActiveLeagueBadge();
   updateDataSaverUI();
 
   if (activeNav === 'all') {
-    document.getElementById('matches-container').classList.remove('hidden');
-    if (document.getElementById('date-strip-container')) {
-      document.getElementById('date-strip-container').classList.remove('hidden');
-    }
     await fetchAllMatches();
   } else if (activeNav === 'live') {
-    document.getElementById('live-container').classList.remove('hidden');
     await fetchLiveMatchesStructured();
   } else if (activeNav === 'fav') {
-    if (document.getElementById('fav-container')) {
-      document.getElementById('fav-container').classList.remove('hidden');
-    }
     await fetchFavoritedMatchesStructured();
   } else if (activeNav === 'league') {
-    document.getElementById('standings-container').classList.remove('hidden');
     await fetchStandingsForSelectedLeague();
   } else if (activeNav === 'news') {
     const newsCont = document.getElementById('news-container');
@@ -75,14 +72,6 @@ function bottomNavSwitch(navType) {
   const topHeader = document.getElementById('top-all-matches-header');
   const dateStrip = document.getElementById('date-strip-container');
 
-  // Sembunyikan seluruh container agar perpindahan menu bersih
-  document.getElementById('matches-container').classList.add('hidden');
-  document.getElementById('live-container').classList.add('hidden');
-  if (document.getElementById('fav-container')) document.getElementById('fav-container').classList.add('hidden');
-  document.getElementById('standings-container').classList.add('hidden');
-  if (document.getElementById('news-container')) document.getElementById('news-container').classList.add('hidden');
-  document.getElementById('search-results-container').classList.add('hidden');
-
   if (navType === 'all') {
     if (topHeader) topHeader.classList.remove('hidden');
     if (dateStrip) dateStrip.classList.remove('hidden');
@@ -103,6 +92,8 @@ function bottomNavSwitch(navType) {
     if (topHeader) topHeader.classList.add('hidden');
     if (dateStrip) dateStrip.classList.add('hidden');
     document.getElementById('active-badge-container').classList.add('hidden');
+    const newsCont = document.getElementById('news-container');
+    if (newsCont) newsCont.classList.remove('hidden');
   }
 
   loadData(false);
@@ -123,7 +114,7 @@ function handleSearch(query) {
       if (dateStrip) dateStrip.classList.remove('hidden');
     }
     if (activeNav === 'live') document.getElementById('live-container').classList.remove('hidden');
-    if (activeNav === 'fav' && document.getElementById('fav-container')) document.getElementById('fav-container').classList.remove('hidden');
+    if (activeNav === 'fav') document.getElementById('fav-container').classList.remove('hidden');
     if (activeNav === 'league') document.getElementById('standings-container').classList.remove('hidden');
     if (activeNav === 'news' && document.getElementById('news-container')) document.getElementById('news-container').classList.remove('hidden');
     return;
@@ -260,7 +251,6 @@ function changeLeague(leagueId) {
 // Update Active League Badge UI
 function updateActiveLeagueBadge() {
   const badge = document.getElementById('active-league-badge');
-  if (!badge) return;
   if (selectedLeague === 'all') {
     badge.innerHTML = `<i class="fa-solid fa-globe text-emerald-400"></i> Semua Liga`;
   } else {
@@ -270,16 +260,6 @@ function updateActiveLeagueBadge() {
     }
   }
 }
-
-// Event Listener Tombol Kembali (Navigasi HP/Browser)
-window.addEventListener('popstate', () => {
-  if (typeof closeModal === 'function' && currentOpenModal) {
-    closeModal();
-  }
-  if (typeof closeTeamModal === 'function' && currentOpenTeam) {
-    closeTeamModal();
-  }
-});
 
 // Initialize App & Auto Refresh Loop
 document.addEventListener('DOMContentLoaded', () => {
@@ -291,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeNav === 'live' || activeNav === 'fav' || (activeNav === 'all' && selectedDateFilter === getFormattedDate(new Date()))) {
       loadData(true);
     }
-  }, 15000);
+  }, 10000);
 });
 
 // Service Worker Engine Registration

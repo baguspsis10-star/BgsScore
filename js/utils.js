@@ -1,16 +1,4 @@
-// ============================================================
 // UTILITY & HELPER FUNCTIONS MODULE
-// ============================================================
-
-// Helper Konversi American Odds (Moneyline) ke Odds Desimal (contoh: +150 -> 2.50, -200 -> 1.50)
-function convertAmericanToDecimal(americanOdds) {
-  if (americanOdds === undefined || americanOdds === null || americanOdds === '') return '-';
-  const val = parseFloat(americanOdds);
-  if (isNaN(val)) return americanOdds;
-  if (val > 0) return (val / 100 + 1).toFixed(2);
-  if (val < 0) return (100 / Math.abs(val) + 1).toFixed(2);
-  return '1.00';
-}
 
 // Unlicensed League Badge SVG Generator
 function generateUnlicensedLeagueBadge(leagueId, leagueName = '', country = '') {
