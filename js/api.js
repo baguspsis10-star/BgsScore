@@ -184,7 +184,7 @@ async function fetchAllMatches() {
     renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
   } catch (err) {
     console.error("Gagal mengambil data pertandingan ESPN:", err);
-  } font-medium {
+  } finally {
     if (container) container.classList.remove('hidden');
   }
 }
