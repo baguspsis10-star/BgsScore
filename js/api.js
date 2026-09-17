@@ -2,29 +2,63 @@
 // API & NETWORK DATA FETCHING MODULE (ESPN API + AVATAR CIRCLE FALLBACK)
 // ==========================================
 
-// Helper untuk fetch batch agar tidak terkena rate-limit / blokir ESPN
+// Helper pintar untuk fetch pertandingan (Gunakan endpoint 'all' global jika minta semua liga)
+async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
+  const slug = (!leagueId || leagueId === 'all') ? 'all' : leagueId;
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${dateStr}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    
+    return (data.events || []).map(evt => {
+      const evtLeagueSlug = evt.leagues?.[0]?.slug || evt.season?.slug || slug;
+      const foundLeague = typeof LEAGUES !== 'undefined' ? LEAGUES.find(l => l.id === evtLeagueSlug || l.id === slug) : null;
+      
+      return {
+        ...evt,
+        leagueName: evt.leagues?.[0]?.name || foundLeague?.name || evt.leagueName || 'Liga Sepak Bola',
+        leagueId: evtLeagueSlug,
+        leagueLogo: evt.leagues?.[0]?.logos?.[0]?.href || foundLeague?.logo || '',
+        leagueFlag: foundLeague?.flag || '⚽'
+      };
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+// Helper fetch batch teroptimasi
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
-  const BATCH_SIZE = 15;
+  if (!leaguesList || leaguesList.length === 0) return [];
+  
+  // Jika memuat semua liga, gunakan 1 request global ke 'soccer/all/scoreboard'
+  if (leaguesList.length >= 10) {
+    const sampleDate = getDateStrFn(leaguesList[0]);
+    
+    // Jika rentang tanggal menggunakan format "YYYYMMDD-YYYYMMDD"
+    if (sampleDate.includes('-')) {
+      const [d1, d2] = sampleDate.split('-');
+      const [res1, res2] = await Promise.all([
+        fetchMatchesByLeagueOrAll('all', d1),
+        fetchMatchesByLeagueOrAll('all', d2)
+      ]);
+      const eventMap = new Map();
+      [...res1, ...res2].forEach(e => eventMap.set(e.id, e));
+      return Array.from(eventMap.values());
+    }
+    
+    return await fetchMatchesByLeagueOrAll('all', sampleDate);
+  }
+
+  // Jika memfilter liga spesifik dalam jumlah sedikit
+  const BATCH_SIZE = 5;
   let allEvents = [];
 
   for (let i = 0; i < leaguesList.length; i += BATCH_SIZE) {
     const batch = leaguesList.slice(i, i + BATCH_SIZE);
     const promises = batch.map(async (league) => {
-      try {
-        const dateStr = getDateStrFn(league);
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard?dates=${dateStr}`);
-        if (!res.ok) return [];
-        const data = await res.json();
-        return (data.events || []).map(evt => ({ 
-          ...evt, 
-          leagueName: league.name, 
-          leagueId: league.id, 
-          leagueLogo: league.logo,
-          leagueFlag: league.flag 
-        }));
-      } catch (e) {
-        return [];
-      }
+      const dateStr = getDateStrFn(league);
+      return await fetchMatchesByLeagueOrAll(league.id, dateStr);
     });
 
     const results = await Promise.all(promises);
@@ -66,7 +100,7 @@ async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
-// 2. ESPN Player Photo Loader (Wikipedia Dihapus Total)
+// 2. ESPN Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
   if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
@@ -150,7 +184,7 @@ async function fetchAllMatches() {
     renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
   } catch (err) {
     console.error("Gagal mengambil data pertandingan ESPN:", err);
-  } finally {
+  } font-medium {
     if (container) container.classList.remove('hidden');
   }
 }
