@@ -2,7 +2,7 @@
 // API & NETWORK DATA FETCHING MODULE (ESPN API + AVATAR CIRCLE FALLBACK)
 // ==========================================
 
-// Helper pintar untuk fetch pertandingan (Gunakan endpoint 'all' global jika minta semua liga)
+// Helper pintar untuk fetch pertandingan dengan ekstraksi nama & bendera liga yang akurat
 async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
   const slug = (!leagueId || leagueId === 'all') ? 'all' : leagueId;
   try {
@@ -10,15 +10,25 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     if (!res.ok) return [];
     const data = await res.json();
     
+    const rootLeague = data.leagues?.[0];
+
     return (data.events || []).map(evt => {
-      const evtLeagueSlug = evt.leagues?.[0]?.slug || evt.season?.slug || slug;
-      const foundLeague = typeof LEAGUES !== 'undefined' ? LEAGUES.find(l => l.id === evtLeagueSlug || l.id === slug) : null;
+      const comp = evt.competitions?.[0];
       
+      // Ekstrak nama dan slug liga dari respon ESPN API
+      const rawName = evt.league?.name || comp?.league?.name || rootLeague?.name || evt.leagueName;
+      const rawSlug = evt.league?.slug || comp?.league?.slug || rootLeague?.slug || slug;
+
+      // Pencarian ke daftar LEAGUES lokal
+      const foundLeague = typeof LEAGUES !== 'undefined' 
+        ? LEAGUES.find(l => l.id === rawSlug || l.id === slug || (rawName && l.name.toLowerCase().includes(rawName.toLowerCase()))) 
+        : null;
+
       return {
         ...evt,
-        leagueName: evt.leagues?.[0]?.name || foundLeague?.name || evt.leagueName || 'Liga Sepak Bola',
-        leagueId: evtLeagueSlug,
-        leagueLogo: evt.leagues?.[0]?.logos?.[0]?.href || foundLeague?.logo || '',
+        leagueName: foundLeague?.name || rawName || 'Liga Sepak Bola',
+        leagueId: foundLeague?.id || rawSlug,
+        leagueLogo: foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '',
         leagueFlag: foundLeague?.flag || '⚽'
       };
     });
@@ -31,11 +41,9 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   if (!leaguesList || leaguesList.length === 0) return [];
   
-  // Jika memuat semua liga, gunakan 1 request global ke 'soccer/all/scoreboard'
   if (leaguesList.length >= 10) {
     const sampleDate = getDateStrFn(leaguesList[0]);
     
-    // Jika rentang tanggal menggunakan format "YYYYMMDD-YYYYMMDD"
     if (sampleDate.includes('-')) {
       const [d1, d2] = sampleDate.split('-');
       const [res1, res2] = await Promise.all([
@@ -50,7 +58,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
     return await fetchMatchesByLeagueOrAll('all', sampleDate);
   }
 
-  // Jika memfilter liga spesifik dalam jumlah sedikit
   const BATCH_SIZE = 5;
   let allEvents = [];
 
