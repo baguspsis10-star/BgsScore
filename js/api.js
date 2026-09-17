@@ -2,6 +2,33 @@
 // API & NETWORK DATA FETCHING MODULE (ESPN API + AVATAR CIRCLE FALLBACK)
 // ==========================================
 
+// Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD" menjadi array tanggal harian
+function expandDateRange(rangeStr) {
+  if (!rangeStr || !rangeStr.includes('-')) return [rangeStr];
+  const [startStr, endStr] = rangeStr.split('-');
+  if (startStr.length !== 8 || endStr.length !== 8) return [startStr];
+  
+  const dates = [];
+  let cur = new Date(
+    parseInt(startStr.substring(0,4)),
+    parseInt(startStr.substring(4,6)) - 1,
+    parseInt(startStr.substring(6,8))
+  );
+  const end = new Date(
+    parseInt(endStr.substring(0,4)),
+    parseInt(endStr.substring(4,6)) - 1,
+    parseInt(endStr.substring(6,8))
+  );
+  
+  let count = 0;
+  while (cur <= end && count < 8) {
+    dates.push(getFormattedDate(cur));
+    cur.setDate(cur.getDate() + 1);
+    count++;
+  }
+  return dates.length > 0 ? dates : [startStr];
+}
+
 // Helper pintar untuk fetch pertandingan dengan ekstraksi nama & bendera liga yang akurat
 async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
   const slug = (!leagueId || leagueId === 'all') ? 'all' : leagueId;
@@ -18,7 +45,7 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
       // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
       let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
       
-      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345) jika slug kosong
+      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
       if (!extractedSlug && evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
         if (uidMatch) extractedSlug = uidMatch[1];
@@ -59,20 +86,31 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   if (!leaguesList || leaguesList.length === 0) return [];
   
-  // Jika memuat semua liga, kirim request rentang tanggal langsung ke ESPN API
+  const sampleDate = getDateStrFn(leaguesList[0]);
+  const dateList = expandDateRange(sampleDate);
+
   if (leaguesList.length >= 10) {
-    const sampleDate = getDateStrFn(leaguesList[0]);
-    return await fetchMatchesByLeagueOrAll('all', sampleDate);
+    // Mode 'all': fetch setiap tanggal harian secara paralel
+    const promises = dateList.map(d => fetchMatchesByLeagueOrAll('all', d));
+    const results = await Promise.all(promises);
+    const eventMap = new Map();
+    results.flat().forEach(e => eventMap.set(e.id, e));
+    return Array.from(eventMap.values());
   }
 
+  // Mode spesifik liga
   const BATCH_SIZE = 5;
   let allEvents = [];
 
   for (let i = 0; i < leaguesList.length; i += BATCH_SIZE) {
     const batch = leaguesList.slice(i, i + BATCH_SIZE);
     const promises = batch.map(async (league) => {
-      const dateStr = getDateStrFn(league);
-      return await fetchMatchesByLeagueOrAll(league.id, dateStr);
+      const leagueDateList = expandDateRange(getDateStrFn(league));
+      const datePromises = leagueDateList.map(d => fetchMatchesByLeagueOrAll(league.id, d));
+      const dateResults = await Promise.all(datePromises);
+      const map = new Map();
+      dateResults.flat().forEach(e => map.set(e.id, e));
+      return Array.from(map.values());
     });
 
     const results = await Promise.all(promises);
