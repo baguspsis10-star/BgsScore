@@ -29,53 +29,6 @@ function expandDateRange(rangeStr) {
   return dates.length > 0 ? dates : [startStr];
 }
 
-// Helper Pemetaan Format Slug Liga ke Nama Resmi jika API ESPN tidak memberikan nama
-function formatLeagueSlugToName(slug) {
-  if (!slug) return 'Liga Sepak Bola';
-  const s = String(slug).toLowerCase().trim();
-
-  // Map Slug Populer Dunia & Asia
-  const knownSlugs = {
-    'afc.2': 'AFC Champions League Two',
-    'afc.champions_league_two': 'AFC Champions League Two',
-    'afc.1': 'AFC Champions League Elite',
-    'afc.champions': 'AFC Champions League Elite',
-    'afc.cup': 'AFC Cup',
-    'asia.aff.club': 'Shopee Cup (ASEAN Club)',
-    'asean.club': 'Shopee Cup (ASEAN Club)',
-    'idn.1': 'BRI Liga 1 Indonesia',
-    'eng.1': 'Premier League',
-    'esp.1': 'LALIGA',
-    'ita.1': 'Serie A',
-    'ger.1': 'Bundesliga',
-    'fra.1': 'Ligue 1',
-    'ned.1': 'Eredivisie',
-    'por.1': 'Liga Portugal',
-    'usa.1': 'Major League Soccer (MLS)',
-    'bra.1': 'Brasileirão Serie A',
-    'arg.1': 'Liga Profesional Argentina',
-    'uefa.champions': 'UEFA Champions League',
-    'uefa.europa': 'UEFA Europa League',
-    'uefa.europa.conf': 'UEFA Conference League',
-    'fifa.friendly': 'Persahabatan Internasional',
-    'club.friendly': 'Laga Persahabatan Klub'
-  };
-
-  if (knownSlugs[s]) return knownSlugs[s];
-
-  // Auto Format jika slug belum terdaftar: "afc.champions.two" -> "AFC Champions Two"
-  return s
-    .replace(/[_\-]/g, ' ')
-    .split('.')
-    .map(part => {
-      if (['afc', 'uefa', 'fifa', 'caf', 'concacaf', 'mls', 'ebpl', 'bri'].includes(part)) {
-        return part.toUpperCase();
-      }
-      return part.charAt(0).toUpperCase() + part.slice(1);
-    })
-    .join(' ');
-}
-
 // Helper pintar untuk fetch pertandingan dengan ekstraksi nama & bendera liga yang akurat
 async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
   const slug = (!leagueId || leagueId === 'all') ? 'all' : leagueId;
@@ -84,80 +37,61 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     if (!res.ok) return [];
     const data = await res.json();
     
-    // Map data.leagues milik ESPN
-    const espnLeaguesMap = new Map();
-    if (Array.isArray(data.leagues)) {
-      data.leagues.forEach(l => {
-        if (l.id) espnLeaguesMap.set(String(l.id).toLowerCase(), l);
-        if (l.slug) espnLeaguesMap.set(String(l.slug).toLowerCase(), l);
-        if (l.uid) {
-          const m = String(l.uid).match(/~l:([^~]+)/);
-          if (m) espnLeaguesMap.set(m[1].toLowerCase(), l);
-        }
-      });
-    }
+    // Ambil array liga dari data response ESPN API
+    const apiLeagues = data.leagues || [];
+    const rootLeague = apiLeagues[0];
 
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      let extractedLeagueId = '';
-
-      // 1. Ekstrak League ID dari evt.uid (e.g., s:600~l:afc.2~e:12345)
+      // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
+      let extractedSlug = evt.league?.slug || comp?.league?.slug || rootLeague?.slug;
+      let extractedId = evt.league?.id || comp?.league?.id;
+      
+      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:2466~e:12345)
       if (evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
-        if (uidMatch) extractedLeagueId = uidMatch[1];
+        if (uidMatch) {
+          const val = uidMatch[1];
+          if (!extractedSlug) extractedSlug = val;
+          if (!extractedId) extractedId = val;
+        }
       }
 
-      // 2. Ekstrak dari objek league
-      if (!extractedLeagueId) {
-        extractedLeagueId = evt.league?.slug || evt.league?.id || comp?.league?.slug || comp?.league?.id;
+      // 3. Cari objek liga yang cocok di data.leagues bawaan ESPN API
+      const espnLeague = apiLeagues.find(l => 
+        (extractedId && String(l.id) === String(extractedId)) || 
+        (extractedSlug && (l.slug === extractedSlug || String(l.id) === String(extractedSlug)))
+      ) || rootLeague;
+
+      // 4. Ekstrak Nama Liga Mentah
+      let rawName = evt.league?.name || 
+                    comp?.league?.name || 
+                    espnLeague?.name || 
+                    espnLeague?.displayName || 
+                    evt.leagueName;
+
+      // Jika rawName berisi murni angka (seperti "2466"), abaikan dan ganti ke nama resmi liga
+      if (rawName && /^\d+$/.test(String(rawName).trim())) {
+        rawName = espnLeague?.name || espnLeague?.displayName || null;
       }
 
-      // 3. Fallback jika filter liga spesifik sedang dipilih
-      if (!extractedLeagueId && slug !== 'all') {
-        extractedLeagueId = slug;
-      }
-
-      // 4. Cari info liga dari espnLeaguesMap
-      const espnLeagueInfo = extractedLeagueId 
-        ? espnLeaguesMap.get(String(extractedLeagueId).toLowerCase()) || espnLeaguesMap.get(String(evt.league?.id).toLowerCase()) || null 
-        : null;
-
-      // 5. Ekstrak Nama Liga Mentah
-      const rawName = evt.league?.name || 
-                      comp?.league?.name || 
-                      espnLeagueInfo?.name || 
-                      espnLeagueInfo?.abbreviation || 
-                      evt.leagueName;
-
-      // 6. Pencocokan dengan LEAGUES lokal (js/leagues.js)
+      // 5. Cari pencocokan presisi di daftar LEAGUES lokal
       const foundLeague = typeof LEAGUES !== 'undefined' 
         ? LEAGUES.find(l => 
-            (extractedLeagueId && l.id.toLowerCase() === extractedLeagueId.toLowerCase()) || 
-            (espnLeagueInfo?.slug && l.id.toLowerCase() === espnLeagueInfo.slug.toLowerCase()) ||
-            (slug !== 'all' && l.id.toLowerCase() === slug.toLowerCase()) ||
+            (extractedSlug && (l.id === extractedSlug || l.slug === extractedSlug)) || 
+            (extractedId && String(l.id) === String(extractedId)) ||
+            (slug !== 'all' && l.id === slug) ||
             (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
             (rawName && rawName.toLowerCase().includes(l.name.toLowerCase())) ||
             (rawName && l.name.toLowerCase().includes(rawName.toLowerCase()))
           ) 
         : null;
 
-      // 7. Tentukan nama akhir liga dengan Fallback Cerdas
-      let finalLeagueName = foundLeague?.name || espnLeagueInfo?.name || rawName;
-
-      if (!finalLeagueName || finalLeagueName === 'Liga Sepak Bola') {
-        if (extractedLeagueId) {
-          finalLeagueName = formatLeagueSlugToName(extractedLeagueId);
-        } else if (slug !== 'all') {
-          finalLeagueName = formatLeagueSlugToName(slug);
-        } else {
-          finalLeagueName = 'Liga Sepak Bola';
-        }
-      }
-
-      const finalLeagueId = foundLeague?.id || extractedLeagueId || slug;
+      const finalLeagueName = foundLeague?.name || rawName || espnLeague?.name || espnLeague?.displayName || 'Liga Sepak Bola';
+      const finalLeagueId = foundLeague?.id || extractedSlug || extractedId || slug;
       const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
-      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || espnLeagueInfo?.logos?.[0]?.href || '';
+      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || espnLeague?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
 
       return {
         ...evt,
@@ -180,6 +114,7 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   const dateList = expandDateRange(sampleDate);
 
   if (leaguesList.length >= 10) {
+    // Mode 'all': fetch setiap tanggal harian secara paralel
     const promises = dateList.map(d => fetchMatchesByLeagueOrAll('all', d));
     const results = await Promise.all(promises);
     const eventMap = new Map();
@@ -187,6 +122,7 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
     return Array.from(eventMap.values());
   }
 
+  // Mode spesifik liga
   const BATCH_SIZE = 5;
   let allEvents = [];
 
