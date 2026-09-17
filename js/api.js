@@ -1,27 +1,27 @@
 // ==========================================
-// API & NETWORK DATA FETCHING MODULE (ESPN API + AVATAR CIRCLE FALLBACK)
+// API & NETWORK DATA FETCHING MODULE (ESPN API)
 // ==========================================
 
-// Pemetaan ID/Slug ESPN ke Nama Resmi Liga (mencegah angka/fallback umum)
+// Kamus Cadangan ID/Slug ESPN (Hanya dipakai jika ESPN API tidak menyertakan nama)
 const ESPN_LEAGUE_MAP = {
-  '2466': 'Shopee Cup (ASEAN Club)',
   '2002': 'AFC Champions League Elite',
+  'afc.champions': 'AFC Champions League Elite',
   '2003': 'AFC Champions League Two',
   '2467': 'AFC Champions League Two',
+  'afc.cup': 'AFC Champions League Two',
   '2004': 'AFC Challenge League',
+  '2466': 'ASEAN Club Championship',
   '2308': 'BRI Liga 1 Indonesia',
+  'idn.1': 'BRI Liga 1 Indonesia',
   '700': 'Premier League',
   'eng.1': 'Premier League',
   'esp.1': 'La Liga',
   'ita.1': 'Serie A',
   'ger.1': 'Bundesliga',
   'fra.1': 'Ligue 1',
-  '15': 'UEFA Champions League',
-  '14': 'UEFA Europa League',
-  '2011': 'UEFA Conference League',
-  'usa.1': 'MLS',
-  'saudi.1': 'Saudi Pro League',
-  '2324': 'Saudi Pro League'
+  'uefa.champions': 'UEFA Champions League',
+  'uefa.europa': 'UEFA Europa League',
+  'uefa.mancup': 'UEFA Conference League'
 };
 
 // Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD" menjadi array tanggal harian
@@ -51,7 +51,7 @@ function expandDateRange(rangeStr) {
   return dates.length > 0 ? dates : [startStr];
 }
 
-// Helper pintar untuk fetch pertandingan dengan ekstraksi nama & bendera liga yang akurat
+// Helper fetch pertandingan dengan ekstraksi nama & bendera liga yang akurat dari ESPN API
 async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
   const slug = (!leagueId || leagueId === 'all') ? 'all' : leagueId;
   try {
@@ -59,78 +59,82 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     if (!res.ok) return [];
     const data = await res.json();
     
-    const apiLeagues = data.leagues || [];
-    const rootLeague = apiLeagues[0];
+    // Filter array liga dari ESPN API (abaikan nama generik 'Soccer')
+    const apiLeagues = (data.leagues || []).filter(l => l.name !== 'Soccer' && l.displayName !== 'Soccer');
 
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      // 1. Ekstrak ID & Slug Liga dari UID atau Properti Event
-      let extractedSlug = evt.league?.slug || comp?.league?.slug || rootLeague?.slug || '';
-      let extractedId = evt.league?.id || comp?.league?.id || '';
-      
+      // 1. Ekstrak Kunci Liga (ID / Slug) dari UID atau Objek Event
+      let leagueKey = null;
       if (evt.uid) {
-        const uidMatch = evt.uid.match(/~l:([^~]+)/);
-        if (uidMatch) {
-          const val = uidMatch[1];
-          if (/^\d+$/.test(val)) {
-            extractedId = val;
-          } else {
-            extractedSlug = val;
-          }
-        }
+        const match = evt.uid.match(/~l:([^~]+)/);
+        if (match) leagueKey = match[1];
+      }
+      if (!leagueKey) {
+        leagueKey = evt.league?.slug || evt.league?.id || comp?.league?.slug || comp?.league?.id;
       }
 
-      // 2. Cari di daftar LEAGUES lokal
-      const foundLeague = typeof LEAGUES !== 'undefined' 
+      // 2. Cari Objek Liga Presisi di data.leagues bawaan ESPN API
+      let espnLeague = null;
+      if (leagueKey && apiLeagues.length > 0) {
+        espnLeague = apiLeagues.find(l => 
+          String(l.id) === String(leagueKey) || 
+          l.slug === leagueKey || 
+          (l.uid && l.uid.includes(`~l:${leagueKey}`))
+        );
+      }
+
+      // 3. Cari Objek Liga di LEAGUES Lokal (jika ada)
+      const foundLocalLeague = (typeof LEAGUES !== 'undefined' && Array.isArray(LEAGUES))
         ? LEAGUES.find(l => 
-            (extractedSlug && (l.id === extractedSlug || l.slug === extractedSlug)) || 
-            (extractedId && String(l.id) === String(extractedId)) ||
+            (leagueKey && (String(l.id) === String(leagueKey) || l.slug === leagueKey)) ||
             (slug !== 'all' && l.id === slug)
-          ) 
+          )
         : null;
 
-      // 3. Cari di data.leagues bawaan ESPN API
-      const espnLeague = apiLeagues.find(l => 
-        (extractedId && String(l.id) === String(extractedId)) || 
-        (extractedSlug && (l.slug === extractedSlug || String(l.id) === String(extractedSlug)))
-      ) || rootLeague;
+      // 4. Penentuan Nama Liga (Utamakan Nama Asli dari Data ESPN)
+      let finalLeagueName = foundLocalLeague?.name;
 
-      // 4. Deteksi Nama Liga (Hirarki Presisi)
-      let finalLeagueName = foundLeague?.name;
-
-      if (!finalLeagueName && (extractedId in ESPN_LEAGUE_MAP)) {
-        finalLeagueName = ESPN_LEAGUE_MAP[extractedId];
-      }
-      if (!finalLeagueName && (extractedSlug in ESPN_LEAGUE_MAP)) {
-        finalLeagueName = ESPN_LEAGUE_MAP[extractedSlug];
+      if (!finalLeagueName && espnLeague) {
+        finalLeagueName = espnLeague.displayName || espnLeague.name || espnLeague.midsizeName;
       }
 
       if (!finalLeagueName) {
-        const candidateNames = [
+        const rawCandidates = [
+          evt.league?.displayName,
           evt.league?.name,
+          comp?.league?.displayName,
           comp?.league?.name,
-          espnLeague?.name,
-          espnLeague?.displayName,
-          espnLeague?.shortName,
+          evt.season?.displayName,
+          evt.season?.name,
           evt.leagueName
         ];
 
-        for (const nm of candidateNames) {
-          if (nm && !/^\d+$/.test(String(nm).trim()) && nm !== 'Soccer' && nm !== 'Liga Sepak Bola') {
-            finalLeagueName = nm;
+        for (const name of rawCandidates) {
+          if (name && 
+              !/^\d+$/.test(String(name).trim()) && 
+              name !== 'Soccer' && 
+              name !== 'Liga Sepak Bola') {
+            finalLeagueName = name;
             break;
           }
         }
       }
 
-      if (!finalLeagueName) {
-        finalLeagueName = extractedSlug ? extractedSlug.replace(/\./g, ' ').toUpperCase() : 'Liga Sepak Bola';
+      // Jika dari API tetap kosong, cek kamus cadangan ID
+      if (!finalLeagueName && leagueKey && (leagueKey in ESPN_LEAGUE_MAP)) {
+        finalLeagueName = ESPN_LEAGUE_MAP[leagueKey];
       }
 
-      const finalLeagueId = foundLeague?.id || extractedSlug || extractedId || slug;
-      const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
-      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || espnLeague?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
+      // Fallback terakhir jika data benar-benar tidak ditemukan
+      if (!finalLeagueName) {
+        finalLeagueName = 'Liga Sepak Bola';
+      }
+
+      const finalLeagueId = foundLocalLeague?.id || espnLeague?.id || leagueKey || slug;
+      const finalLeagueFlag = foundLocalLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
+      const finalLeagueLogo = foundLocalLeague?.logo || espnLeague?.logos?.[0]?.href || evt.league?.logos?.[0]?.href || '';
 
       return {
         ...evt,
