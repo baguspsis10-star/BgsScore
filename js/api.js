@@ -36,61 +36,78 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${dateStr}`);
     if (!res.ok) return [];
     const data = await res.json();
+    
+    const rootLeague = data.leagues?.[0]; 
 
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      // 1. Ekstrak Identifier Liga dari event
-      let espnLeagueId = evt.league?.id || comp?.league?.id;
-      let espnLeagueSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug;
-
-      // Terkadang ID tersembunyi di dalam UID (contoh: s:600~l:2~e:12345 -> '2' adalah ID liga)
+      // 1. Kumpulkan semua "PETUNJUK" ID & Slug dari seluruh celah data ESPN
+      let uidLeague = null;
       if (evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
-        if (uidMatch) {
-          const extracted = uidMatch[1];
-          if (!isNaN(extracted)) espnLeagueId = espnLeagueId || extracted; // Jika angka, berarti itu ID
-          else espnLeagueSlug = espnLeagueSlug || extracted; // Jika teks, berarti itu slug
+        if (uidMatch) uidLeague = uidMatch[1];
+      }
+
+      const idClues = [
+        uidLeague, 
+        evt.league?.slug, 
+        comp?.league?.slug, 
+        evt.season?.slug, 
+        rootLeague?.slug
+      ].filter(Boolean);
+
+      // 2. Kumpulkan semua "PETUNJUK" Nama
+      const nameClues = [
+        rootLeague?.name, 
+        evt.league?.name,
+        comp?.league?.name,
+        evt.season?.name,
+        evt.leagueName
+      ].filter(Boolean);
+
+      // 3. Pencarian Agresif di data.js (LEAGUES)
+      const foundLeague = typeof LEAGUES !== 'undefined' ? LEAGUES.find(l => {
+        // Cek kecocokan Prefix ID (misal: "uefa.champions.league_phase" cocok ke "uefa.champions")
+        if (idClues.some(id => id === l.id || String(id).startsWith(l.id + '.'))) return true;
+        
+        // Cek kecocokan Nama (Sambil membersihkan angka tahun seperti "2026 27 Laliga" -> "Laliga")
+        if (nameClues.some(name => {
+          const cleanN = name.replace(/\b20\d{2}([-/ ]\d{2,4})?\b/g, '').trim().toLowerCase();
+          const leagueN = l.name.toLowerCase();
+          return cleanN === leagueN || cleanN.includes(leagueN) || leagueN.includes(cleanN);
+        })) return true;
+
+        return false;
+      }) : null;
+
+      // 4. Tahap Pembersihan Final Jika Tidak Ada di data.js
+      let finalLeagueName = foundLeague?.name;
+      
+      if (!finalLeagueName) {
+        // Ambil string nama mentah pertama yang ada
+        let raw = nameClues[0] || 'Pertandingan';
+        
+        // Hapus teks tahun yang kotor ("2026 Ncaa Division I Women" -> "Ncaa Division I Women")
+        raw = raw.replace(/\b20\d{2}([-/ ]\d{2,4})?\b/g, '').trim();
+        
+        // Jika teks cuma berisi fase ("League Phase", "Group Stage"), coba konversi dari slugnya
+        if (/phase|round|stage|group|final/i.test(raw) && raw.length < 20 && idClues.length > 0) {
+          const bestSlug = idClues.find(id => isNaN(id)) || idClues[0];
+          if (bestSlug && isNaN(bestSlug)) {
+            raw = bestSlug.split(/[.-]/)
+              .filter(w => !['group', 'stage', 'phase', 'round', 'league'].includes(w.toLowerCase()))
+              .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ');
+          }
         }
+        finalLeagueName = raw || 'Pertandingan';
       }
 
-      // 2. Ambil metadata RESMI liga dari array root data.leagues
-      // Ini mencegah nama turnamen tertimpa oleh nama fase seperti "League Phase" atau "Third Round"
-      const officialLeague = (data.leagues || []).find(l => 
-        (espnLeagueId && l.id === espnLeagueId) || 
-        (espnLeagueSlug && l.slug === espnLeagueSlug)
-      ) || data.leagues?.[0];
-
-      // 3. Ekstrak Slug Akhir
-      let extractedSlug = officialLeague?.slug || espnLeagueSlug;
-
-      // 4. Ekstrak Nama Mentah (Prioritaskan officialLeague agar nama fase tertimpa)
-      let rawName = officialLeague?.name || evt.league?.name || comp?.league?.name || evt.season?.name || evt.leagueName;
-
-      // Jaga-jaga jika masih bocor dan terbaca sebagai fase turnamen
-      const isPhaseName = rawName && /phase|round|stage|group|final|qualifying/i.test(rawName);
-      if ((!rawName || isPhaseName) && extractedSlug) {
-        rawName = extractedSlug
-          .split(/[.-]/)
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-      }
-
-      // 5. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
-      const foundLeague = typeof LEAGUES !== 'undefined' 
-        ? LEAGUES.find(l => 
-            (extractedSlug && (l.id === extractedSlug || extractedSlug.startsWith(l.id + '.'))) || 
-            (slug !== 'all' && l.id === slug) ||
-            (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
-            (rawName && rawName.toLowerCase().includes(l.name.toLowerCase()))
-          ) 
-        : null;
-
-      // 6. Terapkan hasil akhir ke objek pertandingan
-      const finalLeagueName = foundLeague?.name || rawName || 'Pertandingan';
-      const finalLeagueId = foundLeague?.id || extractedSlug || slug;
+      // 5. Terapkan Data Akhir
+      const finalLeagueId = foundLeague?.id || idClues[0] || slug;
       const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
-      const finalLeagueLogo = foundLeague?.logo || officialLeague?.logos?.[0]?.href || evt.league?.logos?.[0]?.href || '';
+      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || comp?.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
 
       return {
         ...evt,
@@ -113,7 +130,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   const dateList = expandDateRange(sampleDate);
 
   if (leaguesList.length >= 10) {
-    // Mode 'all': fetch setiap tanggal harian secara paralel
     const promises = dateList.map(d => fetchMatchesByLeagueOrAll('all', d));
     const results = await Promise.all(promises);
     const eventMap = new Map();
@@ -121,7 +137,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
     return Array.from(eventMap.values());
   }
 
-  // Mode spesifik liga
   const BATCH_SIZE = 5;
   let allEvents = [];
 
