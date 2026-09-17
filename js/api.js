@@ -15,21 +15,39 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      // Ekstrak nama dan slug liga dari respon ESPN API
-      const rawName = evt.league?.name || comp?.league?.name || rootLeague?.name || evt.leagueName;
-      const rawSlug = evt.league?.slug || comp?.league?.slug || rootLeague?.slug || slug;
+      // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
+      let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
+      
+      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345) jika slug kosong
+      if (!extractedSlug && evt.uid) {
+        const uidMatch = evt.uid.match(/~l:([^~]+)/);
+        if (uidMatch) extractedSlug = uidMatch[1];
+      }
 
-      // Pencarian ke daftar LEAGUES lokal
+      // 3. Ekstrak Nama Liga Mentah
+      const rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
+
+      // 4. Cari pencocokan presisi di daftar LEAGUES lokal
       const foundLeague = typeof LEAGUES !== 'undefined' 
-        ? LEAGUES.find(l => l.id === rawSlug || l.id === slug || (rawName && l.name.toLowerCase().includes(rawName.toLowerCase()))) 
+        ? LEAGUES.find(l => 
+            (extractedSlug && l.id === extractedSlug) || 
+            (slug !== 'all' && l.id === slug) ||
+            (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
+            (rawName && rawName.toLowerCase().includes(l.name.toLowerCase()))
+          ) 
         : null;
+
+      const finalLeagueName = foundLeague?.name || rawName || 'Liga Sepak Bola';
+      const finalLeagueId = foundLeague?.id || extractedSlug || slug;
+      const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
+      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
 
       return {
         ...evt,
-        leagueName: foundLeague?.name || rawName || 'Liga Sepak Bola',
-        leagueId: foundLeague?.id || rawSlug,
-        leagueLogo: foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '',
-        leagueFlag: foundLeague?.flag || '⚽'
+        leagueName: finalLeagueName,
+        leagueId: finalLeagueId,
+        leagueLogo: finalLeagueLogo,
+        leagueFlag: finalLeagueFlag
       };
     });
   } catch (e) {
@@ -41,20 +59,9 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   if (!leaguesList || leaguesList.length === 0) return [];
   
+  // Jika memuat semua liga, kirim request rentang tanggal langsung ke ESPN API
   if (leaguesList.length >= 10) {
     const sampleDate = getDateStrFn(leaguesList[0]);
-    
-    if (sampleDate.includes('-')) {
-      const [d1, d2] = sampleDate.split('-');
-      const [res1, res2] = await Promise.all([
-        fetchMatchesByLeagueOrAll('all', d1),
-        fetchMatchesByLeagueOrAll('all', d2)
-      ]);
-      const eventMap = new Map();
-      [...res1, ...res2].forEach(e => eventMap.set(e.id, e));
-      return Array.from(eventMap.values());
-    }
-    
     return await fetchMatchesByLeagueOrAll('all', sampleDate);
   }
 
