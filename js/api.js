@@ -36,36 +36,49 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${dateStr}`);
     if (!res.ok) return [];
     const data = await res.json();
-    
-    const rootLeague = data.leagues?.[0];
 
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
-      let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
-      
-      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
-      if (!extractedSlug && evt.uid) {
+      // 1. Ekstrak Identifier Liga dari event
+      let espnLeagueId = evt.league?.id || comp?.league?.id;
+      let espnLeagueSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug;
+
+      // Terkadang ID tersembunyi di dalam UID (contoh: s:600~l:2~e:12345 -> '2' adalah ID liga)
+      if (evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
-        if (uidMatch) extractedSlug = uidMatch[1];
+        if (uidMatch) {
+          const extracted = uidMatch[1];
+          if (!isNaN(extracted)) espnLeagueId = espnLeagueId || extracted; // Jika angka, berarti itu ID
+          else espnLeagueSlug = espnLeagueSlug || extracted; // Jika teks, berarti itu slug
+        }
       }
 
-      // 3. Ekstrak Nama Liga Mentah
-      let rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
+      // 2. Ambil metadata RESMI liga dari array root data.leagues
+      // Ini mencegah nama turnamen tertimpa oleh nama fase seperti "League Phase" atau "Third Round"
+      const officialLeague = (data.leagues || []).find(l => 
+        (espnLeagueId && l.id === espnLeagueId) || 
+        (espnLeagueSlug && l.slug === espnLeagueSlug)
+      ) || data.leagues?.[0];
 
-      // PENAMBAHAN: Format slug menjadi nama liga jika API tidak menyediakan nama resmi
-      if (!rawName && extractedSlug) {
+      // 3. Ekstrak Slug Akhir
+      let extractedSlug = officialLeague?.slug || espnLeagueSlug;
+
+      // 4. Ekstrak Nama Mentah (Prioritaskan officialLeague agar nama fase tertimpa)
+      let rawName = officialLeague?.name || evt.league?.name || comp?.league?.name || evt.season?.name || evt.leagueName;
+
+      // Jaga-jaga jika masih bocor dan terbaca sebagai fase turnamen
+      const isPhaseName = rawName && /phase|round|stage|group|final|qualifying/i.test(rawName);
+      if ((!rawName || isPhaseName) && extractedSlug) {
         rawName = extractedSlug
           .split(/[.-]/)
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' ');
       }
 
-      // 4. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
+      // 5. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
       const foundLeague = typeof LEAGUES !== 'undefined' 
         ? LEAGUES.find(l => 
-            // Cek ID persis ATAU deteksi jika ESPN menempelkan sub-fase (misal: afc.champions.group)
             (extractedSlug && (l.id === extractedSlug || extractedSlug.startsWith(l.id + '.'))) || 
             (slug !== 'all' && l.id === slug) ||
             (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
@@ -73,11 +86,11 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
           ) 
         : null;
 
-      // 5. Terapkan nama spesifik, fallback terakhir diubah agar bukan teks statis yang mengganggu
+      // 6. Terapkan hasil akhir ke objek pertandingan
       const finalLeagueName = foundLeague?.name || rawName || 'Pertandingan';
       const finalLeagueId = foundLeague?.id || extractedSlug || slug;
       const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
-      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
+      const finalLeagueLogo = foundLeague?.logo || officialLeague?.logos?.[0]?.href || evt.league?.logos?.[0]?.href || '';
 
       return {
         ...evt,
