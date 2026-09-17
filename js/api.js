@@ -29,6 +29,53 @@ function expandDateRange(rangeStr) {
   return dates.length > 0 ? dates : [startStr];
 }
 
+// Helper Pemetaan Format Slug Liga ke Nama Resmi jika API ESPN tidak memberikan nama
+function formatLeagueSlugToName(slug) {
+  if (!slug) return 'Liga Sepak Bola';
+  const s = String(slug).toLowerCase().trim();
+
+  // Map Slug Populer Dunia & Asia
+  const knownSlugs = {
+    'afc.2': 'AFC Champions League Two',
+    'afc.champions_league_two': 'AFC Champions League Two',
+    'afc.1': 'AFC Champions League Elite',
+    'afc.champions': 'AFC Champions League Elite',
+    'afc.cup': 'AFC Cup',
+    'asia.aff.club': 'Shopee Cup (ASEAN Club)',
+    'asean.club': 'Shopee Cup (ASEAN Club)',
+    'idn.1': 'BRI Liga 1 Indonesia',
+    'eng.1': 'Premier League',
+    'esp.1': 'LALIGA',
+    'ita.1': 'Serie A',
+    'ger.1': 'Bundesliga',
+    'fra.1': 'Ligue 1',
+    'ned.1': 'Eredivisie',
+    'por.1': 'Liga Portugal',
+    'usa.1': 'Major League Soccer (MLS)',
+    'bra.1': 'Brasileirão Serie A',
+    'arg.1': 'Liga Profesional Argentina',
+    'uefa.champions': 'UEFA Champions League',
+    'uefa.europa': 'UEFA Europa League',
+    'uefa.europa.conf': 'UEFA Conference League',
+    'fifa.friendly': 'Persahabatan Internasional',
+    'club.friendly': 'Laga Persahabatan Klub'
+  };
+
+  if (knownSlugs[s]) return knownSlugs[s];
+
+  // Auto Format jika slug belum terdaftar: "afc.champions.two" -> "AFC Champions Two"
+  return s
+    .replace(/[_\-]/g, ' ')
+    .split('.')
+    .map(part => {
+      if (['afc', 'uefa', 'fifa', 'caf', 'concacaf', 'mls', 'ebpl', 'bri'].includes(part)) {
+        return part.toUpperCase();
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join(' ');
+}
+
 // Helper pintar untuk fetch pertandingan dengan ekstraksi nama & bendera liga yang akurat
 async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
   const slug = (!leagueId || leagueId === 'all') ? 'all' : leagueId;
@@ -37,15 +84,15 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     if (!res.ok) return [];
     const data = await res.json();
     
-    // Map data.leagues bawaan ESPN API
+    // Map data.leagues milik ESPN
     const espnLeaguesMap = new Map();
     if (Array.isArray(data.leagues)) {
       data.leagues.forEach(l => {
-        if (l.id) espnLeaguesMap.set(String(l.id), l);
-        if (l.slug) espnLeaguesMap.set(String(l.slug), l);
+        if (l.id) espnLeaguesMap.set(String(l.id).toLowerCase(), l);
+        if (l.slug) espnLeaguesMap.set(String(l.slug).toLowerCase(), l);
         if (l.uid) {
           const m = String(l.uid).match(/~l:([^~]+)/);
-          if (m) espnLeaguesMap.set(m[1], l);
+          if (m) espnLeaguesMap.set(m[1].toLowerCase(), l);
         }
       });
     }
@@ -55,7 +102,7 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
       
       let extractedLeagueId = '';
 
-      // 1. Ekstrak League ID dari evt.uid (e.g., s:600~l:afc.cup~e:12345)
+      // 1. Ekstrak League ID dari evt.uid (e.g., s:600~l:afc.2~e:12345)
       if (evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
         if (uidMatch) extractedLeagueId = uidMatch[1];
@@ -72,24 +119,42 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
       }
 
       // 4. Cari info liga dari espnLeaguesMap
-      const espnLeagueInfo = espnLeaguesMap.get(String(extractedLeagueId)) || espnLeaguesMap.get(String(evt.league?.id)) || null;
+      const espnLeagueInfo = extractedLeagueId 
+        ? espnLeaguesMap.get(String(extractedLeagueId).toLowerCase()) || espnLeaguesMap.get(String(evt.league?.id).toLowerCase()) || null 
+        : null;
 
       // 5. Ekstrak Nama Liga Mentah
-      const rawName = evt.league?.name || comp?.league?.name || espnLeagueInfo?.name || espnLeagueInfo?.abbreviation || evt.leagueName;
+      const rawName = evt.league?.name || 
+                      comp?.league?.name || 
+                      espnLeagueInfo?.name || 
+                      espnLeagueInfo?.abbreviation || 
+                      evt.leagueName;
 
-      // 6. Pencocokan dengan LEAGUES lokal
+      // 6. Pencocokan dengan LEAGUES lokal (js/leagues.js)
       const foundLeague = typeof LEAGUES !== 'undefined' 
         ? LEAGUES.find(l => 
-            (extractedLeagueId && l.id === extractedLeagueId) || 
-            (espnLeagueInfo?.slug && l.id === espnLeagueInfo.slug) ||
-            (slug !== 'all' && l.id === slug) ||
+            (extractedLeagueId && l.id.toLowerCase() === extractedLeagueId.toLowerCase()) || 
+            (espnLeagueInfo?.slug && l.id.toLowerCase() === espnLeagueInfo.slug.toLowerCase()) ||
+            (slug !== 'all' && l.id.toLowerCase() === slug.toLowerCase()) ||
             (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
             (rawName && rawName.toLowerCase().includes(l.name.toLowerCase())) ||
             (rawName && l.name.toLowerCase().includes(rawName.toLowerCase()))
           ) 
         : null;
 
-      const finalLeagueName = foundLeague?.name || espnLeagueInfo?.name || rawName || 'Liga Sepak Bola';
+      // 7. Tentukan nama akhir liga dengan Fallback Cerdas
+      let finalLeagueName = foundLeague?.name || espnLeagueInfo?.name || rawName;
+
+      if (!finalLeagueName || finalLeagueName === 'Liga Sepak Bola') {
+        if (extractedLeagueId) {
+          finalLeagueName = formatLeagueSlugToName(extractedLeagueId);
+        } else if (slug !== 'all') {
+          finalLeagueName = formatLeagueSlugToName(slug);
+        } else {
+          finalLeagueName = 'Liga Sepak Bola';
+        }
+      }
+
       const finalLeagueId = foundLeague?.id || extractedLeagueId || slug;
       const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
       const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || espnLeagueInfo?.logos?.[0]?.href || '';
