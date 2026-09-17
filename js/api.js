@@ -1,8 +1,8 @@
 // ==========================================
-// API & NETWORK DATA FETCHING MODULE (ESPN API + DATA.JS INTEGRATION)
+// API & NETWORK DATA FETCHING MODULE (FAST & LIGHTWEIGHT)
 // ==========================================
 
-// 1. Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD" menjadi array tanggal harian
+// 1. Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD"
 function expandDateRange(rangeStr) {
   if (!rangeStr || !rangeStr.includes('-')) return [rangeStr];
   const [startStr, endStr] = rangeStr.split('-');
@@ -29,16 +29,14 @@ function expandDateRange(rangeStr) {
   return dates.length > 0 ? dates : [startStr];
 }
 
-// 2. Helper pencocokan data liga dari response ESPN dengan array LEAGUES di data.js
+// 2. Pencocokan liga dari response ESPN dengan LEAGUES di data.js
 function matchLeagueWithDataJs(extractedSlug, rawName, currentSlug) {
   if (typeof LEAGUES === 'undefined' || !Array.isArray(LEAGUES)) return null;
-
   const cleanRaw = rawName ? rawName.toLowerCase().trim() : '';
 
   return LEAGUES.find(l => {
     const lId = l.id.toLowerCase();
     const lName = l.name.toLowerCase();
-
     return (
       (extractedSlug && lId === extractedSlug.toLowerCase()) ||
       (currentSlug && currentSlug !== 'all' && lId === currentSlug.toLowerCase()) ||
@@ -48,7 +46,7 @@ function matchLeagueWithDataJs(extractedSlug, rawName, currentSlug) {
   });
 }
 
-// 3. Helper utama fetch pertandingan ESPN & mapping otomatis ke data.js
+// 3. Helper Fetch Pertandingan dari ESPN
 async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
   const slug = (!leagueId || leagueId === 'all') ? 'all' : leagueId;
   try {
@@ -61,33 +59,22 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      // Ekstrak League ID / Slug dari ESPN API
       let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
-      
       if (!extractedSlug && evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
         if (uidMatch) extractedSlug = uidMatch[1];
       }
 
-      // Ekstrak Nama Liga Mentah
       const rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
-
-      // Pencocokan presisi dengan LEAGUES di data.js
       const foundLeague = matchLeagueWithDataJs(extractedSlug, rawName, slug);
-
-      const finalLeagueName = foundLeague?.name || rawName || 'Liga Sepak Bola';
-      const finalLeagueId = foundLeague?.id || extractedSlug || slug;
-      const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
-      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || PLAIN_SHIELD_LOGO;
-      const finalCategory = foundLeague?.category || 'Lainnya';
 
       return {
         ...evt,
-        leagueName: finalLeagueName,
-        leagueId: finalLeagueId,
-        leagueLogo: finalLeagueLogo,
-        leagueFlag: finalLeagueFlag,
-        leagueCategory: finalCategory
+        leagueName: foundLeague?.name || rawName || 'Liga Sepak Bola',
+        leagueId: foundLeague?.id || extractedSlug || slug,
+        leagueLogo: foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || (typeof PLAIN_SHIELD_LOGO !== 'undefined' ? PLAIN_SHIELD_LOGO : ''),
+        leagueFlag: foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(foundLeague?.id || slug) : '⚽'),
+        leagueCategory: foundLeague?.category || 'Lainnya'
       };
     });
   } catch (e) {
@@ -95,75 +82,56 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
   }
 }
 
-// 4. Batch Fetcher teroptimasi untuk memanggil seluruh liga dari data.js
+// 4. Batch Fetcher Ter-optimasi (Anti-Hang & Ringan)
 async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   if (!leaguesList || leaguesList.length === 0) return [];
 
-  const eventMap = new Map();
   const sampleDate = getDateStrFn(leaguesList[0]);
   const dateList = expandDateRange(sampleDate);
 
-  // Jika memanggil banyak liga (mode 'all'), fetch endpoint global + batch liga khusus agar liga lokal terpanggil
-  if (leaguesList.length >= 10) {
-    const globalPromises = dateList.map(d => fetchMatchesByLeagueOrAll('all', d));
-    const globalResults = await Promise.all(globalPromises);
-    globalResults.flat().forEach(e => eventMap.set(e.id, e));
-  }
-
-  // Batch fetch liga per 5 item dari data.js
-  const BATCH_SIZE = 5;
-  for (let i = 0; i < leaguesList.length; i += BATCH_SIZE) {
-    const batch = leaguesList.slice(i, i + BATCH_SIZE);
-    const promises = batch.map(async (league) => {
-      const leagueDateList = expandDateRange(getDateStrFn(league));
-      const datePromises = leagueDateList.map(d => fetchMatchesByLeagueOrAll(league.id, d));
-      const dateResults = await Promise.all(datePromises);
-      return dateResults.flat();
-    });
-
+  // Jika memanggil banyak liga atau mode 'all', cukup panggil endpoint 'all' sekali per tanggal
+  if (leaguesList.length > 1) {
+    const promises = dateList.map(d => fetchMatchesByLeagueOrAll('all', d));
     const results = await Promise.all(promises);
+    const eventMap = new Map();
     results.flat().forEach(e => eventMap.set(e.id, e));
+    return Array.from(eventMap.values());
   }
 
+  // Jika memilih 1 liga spesifik
+  const singleLeague = leaguesList[0];
+  const promises = dateList.map(d => fetchMatchesByLeagueOrAll(singleLeague.id, d));
+  const results = await Promise.all(promises);
+  const eventMap = new Map();
+  results.flat().forEach(e => eventMap.set(e.id, e));
   return Array.from(eventMap.values());
 }
 
-// 5. Logo & Photo Loaders dengan Dukungan IndexedDB & Memory Cache dari data.js
+// 5. Logo & Photo Loaders
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
   if (!leagueName || (typeof dataSaverMode !== 'undefined' && dataSaverMode) || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
 
   const cacheKey = `league_logo_${leagueId}`;
-
   if (typeof leagueLogoCache !== 'undefined' && leagueLogoCache[cacheKey]) {
     img.src = leagueLogoCache[cacheKey];
     return;
   }
 
-  if (typeof getPhotoFromCache === 'function') {
-    const dbCached = await getPhotoFromCache(cacheKey);
-    if (dbCached) {
-      if (typeof leagueLogoCache !== 'undefined') leagueLogoCache[cacheKey] = dbCached;
-      img.src = dbCached;
-      return;
-    }
-  }
-
   if (primaryUrl) {
     if (typeof leagueLogoCache !== 'undefined') leagueLogoCache[cacheKey] = primaryUrl;
-    if (typeof savePhotoToCache === 'function') await savePhotoToCache(cacheKey, primaryUrl);
     img.src = primaryUrl;
     img.onerror = () => {
       img.src = typeof generateUnlicensedLeagueBadge === 'function' 
         ? generateUnlicensedLeagueBadge(leagueId, leagueName) 
-        : PLAIN_SHIELD_LOGO;
+        : (typeof PLAIN_SHIELD_LOGO !== 'undefined' ? PLAIN_SHIELD_LOGO : '');
     };
     return;
   }
 
   img.src = typeof generateUnlicensedLeagueBadge === 'function' 
     ? generateUnlicensedLeagueBadge(leagueId, leagueName) 
-    : PLAIN_SHIELD_LOGO;
+    : (typeof PLAIN_SHIELD_LOGO !== 'undefined' ? PLAIN_SHIELD_LOGO : '');
 }
 
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
@@ -171,32 +139,16 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
   img.dataset.photoProcessed = 'true';
 
   const cleanedName = typeof cleanPlayerName === 'function' ? cleanPlayerName(pName) : pName.trim();
-
   if (typeof playerPhotoCache !== 'undefined' && playerPhotoCache[cleanedName]) {
     img.src = playerPhotoCache[cleanedName];
     return;
   }
 
-  if (typeof getPhotoFromCache === 'function') {
-    const dbCached = await getPhotoFromCache(cleanedName);
-    if (dbCached) {
-      if (typeof playerPhotoCache !== 'undefined') playerPhotoCache[cleanedName] = dbCached;
-      img.src = dbCached;
-      return;
-    }
-  }
-
   const espnUrl = pId ? `https://a.espncdn.com/i/headshots/soccer/players/full/${pId}.png` : null;
 
   if (espnUrl) {
-    const testImg = new Image();
-    testImg.src = espnUrl;
-    testImg.onload = async () => {
-      img.src = espnUrl;
-      if (typeof playerPhotoCache !== 'undefined') playerPhotoCache[cleanedName] = espnUrl;
-      if (typeof savePhotoToCache === 'function') await savePhotoToCache(cleanedName, espnUrl);
-    };
-    testImg.onerror = () => showPlayerCircleFallback(img, cleanedName);
+    img.src = espnUrl;
+    img.onerror = () => showPlayerCircleFallback(img, cleanedName);
   } else {
     showPlayerCircleFallback(img, cleanedName);
   }
@@ -204,35 +156,28 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
 
 function showPlayerCircleFallback(img, pName) {
   img.onerror = null;
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=22c55e&color=ffffff&bold=true&rounded=true&size=128`;
-  img.src = avatarUrl;
+  img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(pName)}&background=22c55e&color=ffffff&bold=true&rounded=true&size=128`;
 }
 
-// 6. Fetch Detail / Summary Pertandingan
+// 6. Summary Pertandingan
 async function fetchMatchSummary(leagueId, eventId) {
   if (!eventId) return null;
-  const targetLeague = leagueId || 'all';
-
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague}/summary?event=${eventId}`);
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId || 'all'}/summary?event=${eventId}`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.error("Gagal mengambil summary dari ESPN API:", err);
+    console.error("Gagal ambil summary:", err);
     return null;
   }
 }
 
-// 7. Fetch Semua Pertandingan Sesuai Filter data.js
+// 7. Fetch Semua Pertandingan
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
-
   try {
     const targetDate = selectedDateFilter || (typeof getFormattedDate === 'function' ? getFormattedDate(new Date()) : new Date().toISOString().slice(0,10).replace(/-/g,''));
-
-    const targets = selectedLeague === 'all' 
-      ? LEAGUES 
-      : LEAGUES.filter(l => l.id === selectedLeague);
+    const targets = selectedLeague === 'all' ? LEAGUES : LEAGUES.filter(l => l.id === selectedLeague);
 
     let allEvents = await fetchBatchLeagues(targets, () => targetDate);
 
@@ -241,7 +186,6 @@ async function fetchAllMatches() {
     }
     
     cachedEvents = allEvents;
-
     if (typeof monitorLiveFavoriteEvents === 'function') {
       allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
     }
@@ -250,13 +194,13 @@ async function fetchAllMatches() {
       renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
     }
   } catch (err) {
-    console.error("Gagal mengambil data pertandingan ESPN:", err);
+    console.error("Gagal memuat pertandingan:", err);
   } finally {
     if (container) container.classList.remove('hidden');
   }
 }
 
-// 8. Fetch Pertandingan Live (Struktur 24j Terakhir, Live, & 12j Mendatang)
+// 8. Fetch Live Matches
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -267,12 +211,7 @@ async function fetchLiveMatchesStructured() {
     const formatDateFn = typeof getFormattedDate === 'function' ? getFormattedDate : (d) => d.toISOString().slice(0,10).replace(/-/g,'');
     const dateRangeStr = `${formatDateFn(yesterday)}-${formatDateFn(today)}`;
 
-    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
-
-    const eventMap = new Map();
-    allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
-
-    let allEvents = Array.from(eventMap.values());
+    const allEvents = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
     cachedEvents = allEvents;
 
     if (typeof monitorLiveFavoriteEvents === 'function') {
@@ -285,21 +224,12 @@ async function fetchLiveMatchesStructured() {
 
     const sortFn = typeof sortEventsByFavoriteAndDate === 'function' ? sortEventsByFavoriteAndDate : (arr) => arr;
 
-    const finishedEvents = sortFn(allEvents.filter(e => {
-      const d = new Date(e.date);
-      return e.status?.type?.state === 'post' && d >= past24h;
-    }));
-
+    const finishedEvents = sortFn(allEvents.filter(e => e.status?.type?.state === 'post' && new Date(e.date) >= past24h));
     const liveEvents = sortFn(allEvents.filter(e => e.status?.type?.state === 'in'));
-
-    const upcomingEvents = sortFn(allEvents.filter(e => {
-      const d = new Date(e.date);
-      return e.status?.type?.state === 'pre' && d > now && d <= next12h;
-    }));
+    const upcomingEvents = sortFn(allEvents.filter(e => e.status?.type?.state === 'pre' && new Date(e.date) > now && new Date(e.date) <= next12h));
 
     container.innerHTML = '';
 
-    // Section Finished
     const finishedSec = document.createElement('div');
     finishedSec.className = 'space-y-2.5';
     finishedSec.innerHTML = `
@@ -314,7 +244,6 @@ async function fetchLiveMatchesStructured() {
     container.appendChild(finishedSec);
     if (typeof renderMatchesCards === 'function') renderMatchesCards('live-finished-grid', finishedEvents, true);
 
-    // Section Live
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5';
     liveSec.innerHTML = `
@@ -333,7 +262,6 @@ async function fetchLiveMatchesStructured() {
     container.appendChild(liveSec);
     if (typeof renderMatchesCards === 'function') renderMatchesCards('live-active-grid', liveEvents, true);
 
-    // Section Upcoming
     const upcomingSec = document.createElement('div');
     upcomingSec.className = 'space-y-2.5';
     upcomingSec.innerHTML = `
@@ -354,7 +282,7 @@ async function fetchLiveMatchesStructured() {
   }
 }
 
-// 9. Fetch Pertandingan Favorit Berdasarkan State data.js
+// 9. Fetch Favorited Matches
 async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
@@ -381,12 +309,9 @@ async function fetchFavoritedMatchesStructured() {
     const formatDateFn = typeof getFormattedDate === 'function' ? getFormattedDate : (d) => d.toISOString().slice(0,10).replace(/-/g,'');
     const dateRangeStr = `${formatDateFn(past2Days)}-${formatDateFn(next7Days)}`;
 
-    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
+    const allEvents = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
 
-    const eventMap = new Map();
-    allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
-
-    const favEvents = Array.from(eventMap.values()).filter(evt => {
+    const favEvents = allEvents.filter(evt => {
       const comp = evt.competitions?.[0];
       const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
       const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
@@ -489,26 +414,6 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
     let finished = events
       .filter(e => e.status?.type?.state === 'post')
       .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    if (finished.length < 5) {
-      try {
-        const prevRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/${teamId}/schedule?season=${currentYear - 1}`);
-        if (prevRes.ok) {
-          const prevData = await prevRes.json();
-          const prevEvents = prevData.events || [];
-
-          const prevFinished = prevEvents
-            .filter(e => e.status?.type?.state === 'post')
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-          const combinedMap = new Map();
-          [...finished, ...prevFinished].forEach(e => combinedMap.set(e.id, e));
-          
-          finished = Array.from(combinedMap.values())
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
-        }
-      } catch (err) {}
-    }
 
     return finished.slice(0, 5);
   } catch (e) {
