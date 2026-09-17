@@ -37,27 +37,36 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     if (!res.ok) return [];
     const data = await res.json();
     
-    const rootLeague = data.leagues?.[0];
+    const rootLeagues = data.leagues || [];
 
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
-      let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
-      
-      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
-      if (!extractedSlug && evt.uid) {
+      let extractedLeagueId = '';
+
+      // 1. Utamakan ekstraksi ID Liga dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
+      if (evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
-        if (uidMatch) extractedSlug = uidMatch[1];
+        if (uidMatch) extractedLeagueId = uidMatch[1];
       }
 
-      // 3. Ekstrak Nama Liga Mentah
-      const rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
+      // 2. Jika UID tidak ada, cari dari objek league
+      if (!extractedLeagueId) {
+        extractedLeagueId = evt.league?.id || evt.league?.slug || comp?.league?.id || comp?.league?.slug;
+      }
 
-      // 4. Cari pencocokan presisi di daftar LEAGUES lokal
+      // 3. Fallback jika filter liga spesifik sedang dipilih
+      if (!extractedLeagueId && slug !== 'all') {
+        extractedLeagueId = slug;
+      }
+
+      // 4. Ekstrak Nama Liga Mentah
+      const rawName = evt.league?.name || comp?.league?.name || evt.leagueName;
+
+      // 5. Pencocokan dengan LEAGUES lokal
       const foundLeague = typeof LEAGUES !== 'undefined' 
         ? LEAGUES.find(l => 
-            (extractedSlug && l.id === extractedSlug) || 
+            (extractedLeagueId && l.id === extractedLeagueId) || 
             (slug !== 'all' && l.id === slug) ||
             (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
             (rawName && rawName.toLowerCase().includes(l.name.toLowerCase()))
@@ -65,9 +74,9 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
         : null;
 
       const finalLeagueName = foundLeague?.name || rawName || 'Liga Sepak Bola';
-      const finalLeagueId = foundLeague?.id || extractedSlug || slug;
+      const finalLeagueId = foundLeague?.id || extractedLeagueId || slug;
       const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
-      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
+      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || '';
 
       return {
         ...evt,
@@ -90,7 +99,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   const dateList = expandDateRange(sampleDate);
 
   if (leaguesList.length >= 10) {
-    // Mode 'all': fetch setiap tanggal harian secara paralel
     const promises = dateList.map(d => fetchMatchesByLeagueOrAll('all', d));
     const results = await Promise.all(promises);
     const eventMap = new Map();
@@ -98,7 +106,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
     return Array.from(eventMap.values());
   }
 
-  // Mode spesifik liga
   const BATCH_SIZE = 5;
   let allEvents = [];
 
