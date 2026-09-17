@@ -2,6 +2,28 @@
 // API & NETWORK DATA FETCHING MODULE (ESPN API + AVATAR CIRCLE FALLBACK)
 // ==========================================
 
+// Pemetaan ID/Slug ESPN ke Nama Resmi Liga (mencegah angka/fallback umum)
+const ESPN_LEAGUE_MAP = {
+  '2466': 'Shopee Cup (ASEAN Club)',
+  '2002': 'AFC Champions League Elite',
+  '2003': 'AFC Champions League Two',
+  '2467': 'AFC Champions League Two',
+  '2004': 'AFC Challenge League',
+  '2308': 'BRI Liga 1 Indonesia',
+  '700': 'Premier League',
+  'eng.1': 'Premier League',
+  'esp.1': 'La Liga',
+  'ita.1': 'Serie A',
+  'ger.1': 'Bundesliga',
+  'fra.1': 'Ligue 1',
+  '15': 'UEFA Champions League',
+  '14': 'UEFA Europa League',
+  '2011': 'UEFA Conference League',
+  'usa.1': 'MLS',
+  'saudi.1': 'Saudi Pro League',
+  '2324': 'Saudi Pro League'
+};
+
 // Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD" menjadi array tanggal harian
 function expandDateRange(rangeStr) {
   if (!rangeStr || !rangeStr.includes('-')) return [rangeStr];
@@ -37,58 +59,75 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     if (!res.ok) return [];
     const data = await res.json();
     
-    // Ambil array liga dari data response ESPN API
     const apiLeagues = data.leagues || [];
     const rootLeague = apiLeagues[0];
 
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
-      let extractedSlug = evt.league?.slug || comp?.league?.slug || rootLeague?.slug;
-      let extractedId = evt.league?.id || comp?.league?.id;
+      // 1. Ekstrak ID & Slug Liga dari UID atau Properti Event
+      let extractedSlug = evt.league?.slug || comp?.league?.slug || rootLeague?.slug || '';
+      let extractedId = evt.league?.id || comp?.league?.id || '';
       
-      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:2466~e:12345)
       if (evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
         if (uidMatch) {
           const val = uidMatch[1];
-          if (!extractedSlug) extractedSlug = val;
-          if (!extractedId) extractedId = val;
+          if (/^\d+$/.test(val)) {
+            extractedId = val;
+          } else {
+            extractedSlug = val;
+          }
         }
       }
 
-      // 3. Cari objek liga yang cocok di data.leagues bawaan ESPN API
+      // 2. Cari di daftar LEAGUES lokal
+      const foundLeague = typeof LEAGUES !== 'undefined' 
+        ? LEAGUES.find(l => 
+            (extractedSlug && (l.id === extractedSlug || l.slug === extractedSlug)) || 
+            (extractedId && String(l.id) === String(extractedId)) ||
+            (slug !== 'all' && l.id === slug)
+          ) 
+        : null;
+
+      // 3. Cari di data.leagues bawaan ESPN API
       const espnLeague = apiLeagues.find(l => 
         (extractedId && String(l.id) === String(extractedId)) || 
         (extractedSlug && (l.slug === extractedSlug || String(l.id) === String(extractedSlug)))
       ) || rootLeague;
 
-      // 4. Ekstrak Nama Liga Mentah
-      let rawName = evt.league?.name || 
-                    comp?.league?.name || 
-                    espnLeague?.name || 
-                    espnLeague?.displayName || 
-                    evt.leagueName;
+      // 4. Deteksi Nama Liga (Hirarki Presisi)
+      let finalLeagueName = foundLeague?.name;
 
-      // Jika rawName berisi murni angka (seperti "2466"), abaikan dan ganti ke nama resmi liga
-      if (rawName && /^\d+$/.test(String(rawName).trim())) {
-        rawName = espnLeague?.name || espnLeague?.displayName || null;
+      if (!finalLeagueName && (extractedId in ESPN_LEAGUE_MAP)) {
+        finalLeagueName = ESPN_LEAGUE_MAP[extractedId];
+      }
+      if (!finalLeagueName && (extractedSlug in ESPN_LEAGUE_MAP)) {
+        finalLeagueName = ESPN_LEAGUE_MAP[extractedSlug];
       }
 
-      // 5. Cari pencocokan presisi di daftar LEAGUES lokal
-      const foundLeague = typeof LEAGUES !== 'undefined' 
-        ? LEAGUES.find(l => 
-            (extractedSlug && (l.id === extractedSlug || l.slug === extractedSlug)) || 
-            (extractedId && String(l.id) === String(extractedId)) ||
-            (slug !== 'all' && l.id === slug) ||
-            (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
-            (rawName && rawName.toLowerCase().includes(l.name.toLowerCase())) ||
-            (rawName && l.name.toLowerCase().includes(rawName.toLowerCase()))
-          ) 
-        : null;
+      if (!finalLeagueName) {
+        const candidateNames = [
+          evt.league?.name,
+          comp?.league?.name,
+          espnLeague?.name,
+          espnLeague?.displayName,
+          espnLeague?.shortName,
+          evt.leagueName
+        ];
 
-      const finalLeagueName = foundLeague?.name || rawName || espnLeague?.name || espnLeague?.displayName || 'Liga Sepak Bola';
+        for (const nm of candidateNames) {
+          if (nm && !/^\d+$/.test(String(nm).trim()) && nm !== 'Soccer' && nm !== 'Liga Sepak Bola') {
+            finalLeagueName = nm;
+            break;
+          }
+        }
+      }
+
+      if (!finalLeagueName) {
+        finalLeagueName = extractedSlug ? extractedSlug.replace(/\./g, ' ').toUpperCase() : 'Liga Sepak Bola';
+      }
+
       const finalLeagueId = foundLeague?.id || extractedSlug || extractedId || slug;
       const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
       const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || espnLeague?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
@@ -114,7 +153,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   const dateList = expandDateRange(sampleDate);
 
   if (leaguesList.length >= 10) {
-    // Mode 'all': fetch setiap tanggal harian secara paralel
     const promises = dateList.map(d => fetchMatchesByLeagueOrAll('all', d));
     const results = await Promise.all(promises);
     const eventMap = new Map();
@@ -122,7 +160,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
     return Array.from(eventMap.values());
   }
 
-  // Mode spesifik liga
   const BATCH_SIZE = 5;
   let allEvents = [];
 
