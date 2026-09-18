@@ -246,28 +246,51 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
   }
 }
 
-// Render Top Scorers & Top Assists (League Leaders)
+// Render Top Scorers & Top Assists (League Leaders with Multi-Endpoint Fallback)
 async function renderLeagueLeaders(targetLeague, container) {
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
       <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
-      <p class="text-xs">Memuat statistik Top Skorer & Assist...</p>
+      <p class="text-xs font-semibold">Memuat statistik Top Skorer & Assist...</p>
     </div>
   `;
 
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/leaders`);
-    if (!res.ok) throw new Error("Leaders endpoint HTTP error");
-    
-    const data = await res.json();
-    const categories = data.leaders || data.categories || [];
+    let data = null;
+    const endpoints = [
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/leaders`,
+      `https://site.api.espn.com/apis/v2/sports/soccer/${targetLeague.id}/leaders`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && (json.leaders || json.categories || json.sports?.[0]?.leagues?.[0]?.leaders)) {
+            data = json;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!data) {
+      throw new Error("API leaders tidak merespon");
+    }
+
+    let categories = data.leaders || data.categories || data.sports?.[0]?.leagues?.[0]?.leaders || [];
+
+    if (!Array.isArray(categories) && typeof categories === 'object') {
+      categories = Object.values(categories);
+    }
 
     if (!categories || categories.length === 0) {
       container.innerHTML = `
         <div class="text-center py-10 text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl text-xs space-y-1">
           <i class="fa-solid fa-chart-bar text-2xl text-slate-600 block mb-2"></i>
           <p class="font-bold text-slate-300">Statistik Belum Tersedia</p>
-          <p class="text-[10px] text-slate-500">Data top skorer & assist belum dirilis oleh official liga ini.</p>
+          <p class="text-[10px] text-slate-500">Data statistik pemain belum dirilis untuk liga ini.</p>
         </div>
       `;
       return;
@@ -276,19 +299,19 @@ async function renderLeagueLeaders(targetLeague, container) {
     container.innerHTML = '';
 
     categories.forEach(cat => {
-      const catName = cat.displayName || cat.name || 'Statistik';
-      const leaders = cat.leaders || [];
-      if (leaders.length === 0) return;
+      const catName = cat.displayName || cat.name || cat.header || 'Statistik';
+      const leaders = cat.leaders || cat.athletes || cat.entries || [];
+      if (!leaders || leaders.length === 0) return;
 
       const card = document.createElement('div');
       card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-3.5 mb-3.5 shadow-xl space-y-2';
 
       let rowsHtml = leaders.slice(0, 10).map((item, idx) => {
-        const athlete = item.athlete || {};
+        const athlete = item.athlete || item.player || item;
         const team = item.team || athlete.team || {};
-        const pName = athlete.displayName || athlete.fullName || 'Pemain';
-        const pId = athlete.id;
-        const value = item.displayValue || item.value || '0';
+        const pName = athlete.displayName || athlete.fullName || athlete.shortName || 'Pemain';
+        const pId = athlete.id || '';
+        const value = item.displayValue || item.value || item.statValue || '0';
         const teamLogo = team.logo || (team.id ? `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png` : PLAIN_SHIELD_LOGO);
 
         return `
@@ -302,7 +325,7 @@ async function renderLeagueLeaders(targetLeague, container) {
                 <div class="font-bold text-white truncate leading-tight">${pName}</div>
                 <div class="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5 truncate">
                   <img src="${teamLogo}" class="w-3 h-3 object-contain shrink-0" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
-                  <span class="truncate">${team.displayName || team.shortDisplayName || 'Klub'}</span>
+                  <span class="truncate">${team.displayName || team.shortDisplayName || team.name || 'Klub'}</span>
                 </div>
               </div>
             </div>
@@ -316,7 +339,7 @@ async function renderLeagueLeaders(targetLeague, container) {
       card.innerHTML = `
         <div class="flex items-center justify-between pb-2 border-b border-slate-800">
           <h3 class="font-black text-xs uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-            <i class="fa-solid ${catName.toLowerCase().includes('goal') || catName.toLowerCase().includes('skorer') ? 'fa-futbol' : 'fa-shoe-prints'}"></i>
+            <i class="fa-solid ${catName.toLowerCase().includes('goal') || catName.toLowerCase().includes('skorer') || catName.toLowerCase().includes('point') ? 'fa-futbol' : 'fa-shoe-prints'}"></i>
             ${catName}
           </h3>
         </div>
@@ -330,7 +353,7 @@ async function renderLeagueLeaders(targetLeague, container) {
       <div class="text-center py-10 text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl text-xs space-y-1">
         <i class="fa-solid fa-circle-exclamation text-2xl text-amber-500 block mb-2"></i>
         <p class="font-bold text-slate-300">Data Stats Tidak Tersedia</p>
-        <p class="text-[10px] text-slate-500">Gagal mengambil statistik pemain untuk liga ini.</p>
+        <p class="text-[10px] text-slate-500">Statistik individu belum didukung oleh server API untuk liga ini.</p>
       </div>
     `;
   }
