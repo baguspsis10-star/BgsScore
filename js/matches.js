@@ -146,7 +146,7 @@ function monitorLiveFavoriteEvents(event) {
   };
 }
 
-// Render Match Cards dengan Warna Teks Putih Terang
+// Render Match Cards dengan Logo Liga di Badge Top Bar
 function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, customVariant = null) {
   const container = document.getElementById(targetContainerId);
   if (!container) return;
@@ -206,6 +206,9 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
       cardStyleClass = 'card-finished';
     }
 
+    // GENERATE LOGO BADGE LIGA SAMA SEPERTI DI KLASEMEN
+    const leagueLogoBadge = generateUnlicensedLeagueBadge(event.leagueId || 'generic', event.leagueName || '', '');
+
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-2xl transition-all duration-150 cursor-pointer relative ${cardStyleClass}`;
     
@@ -215,11 +218,15 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
     };
 
     card.innerHTML = `
-      <!-- TOP BADGE BAR -->
+      <!-- TOP BADGE BAR WITH LEAGUE LOGO -->
       <div class="flex items-center justify-between text-[11px] text-slate-300 mb-2.5 gap-2">
         <div class="flex items-center gap-1.5 flex-1 min-w-0">
           ${hasFavTeam ? '<span class="text-[8.5px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-black tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid fa-star text-[7px] text-amber-500"></i>FAVORIT</span>' : ''}
-          ${showLeagueBadge ? `<span class="text-[9.5px] bg-slate-100 border border-slate-200 text-slate-800 px-2 py-0.5 rounded-md truncate max-w-[170px] font-bold">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>` : ''}
+          ${showLeagueBadge ? `
+            <span class="text-[9.5px] bg-slate-100 border border-slate-200 text-slate-800 px-2 py-0.5 rounded-md truncate max-w-[170px] font-bold flex items-center gap-1.5">
+              <img src="${leagueLogoBadge}" loading="lazy" class="w-3.5 h-3.5 object-contain shrink-0" alt="">
+              <span class="truncate">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>
+            </span>` : ''}
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <button onclick="toggleFavorite('${event.id}', event)" class="p-1 hover:scale-125 transition text-xs" title="Favorit">
