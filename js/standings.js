@@ -75,16 +75,21 @@ async function fetchStandingsForSelectedLeague() {
       <button onclick="selectStandingsLeague(null)" class="text-xs font-bold text-emerald-400 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition">
         <i class="fa-solid fa-arrow-left text-[10px]"></i> Pilih Liga Lain
       </button>
-      <span class="text-xs font-bold text-white flex items-center gap-1.5">
-        <img src="${generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country)}" class="w-4 h-4 object-contain"> ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name}
+      <span class="text-xs font-bold text-white flex items-center gap-1.5 truncate max-w-[55%]">
+        <img src="${generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country)}" class="w-4 h-4 object-contain shrink-0"> 
+        <span class="truncate">${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name}</span>
       </span>
     </div>
 
-    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
-      <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+    <!-- SUB TAB BAR (LEAGUE, TOP STATS, MATCH) -->
+    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1">
+      <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-[11px] font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-list-ol mr-1"></i> League
       </button>
-      <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+      <button onclick="switchStandingsSubTab('stats')" id="stab-stats" class="flex-1 py-1.5 text-[11px] font-bold rounded-lg transition ${selectedStandingsTab === 'stats' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+        <i class="fa-solid fa-chart-simple mr-1"></i> Top Stats
+      </button>
+      <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 text-[11px] font-bold rounded-lg transition ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-calendar-days mr-1"></i> Match
       </button>
     </div>
@@ -97,6 +102,8 @@ async function fetchStandingsForSelectedLeague() {
 
   if (selectedStandingsTab === 'table') {
     await renderLeagueStandingsTable(targetLeague, subContainer);
+  } else if (selectedStandingsTab === 'stats') {
+    await renderLeagueLeaders(targetLeague, subContainer);
   } else {
     await renderLeagueMatchesList(targetLeague, subContainer);
   }
@@ -104,7 +111,7 @@ async function fetchStandingsForSelectedLeague() {
   container.classList.remove('hidden');
 }
 
-// Switch Standings Sub-Tab (Table / Matches)
+// Switch Standings Sub-Tab (Table / Stats / Matches)
 function switchStandingsSubTab(tab) {
   selectedStandingsTab = tab;
   fetchStandingsForSelectedLeague();
@@ -117,7 +124,7 @@ function selectStandingsLeague(leagueId) {
   loadData(false);
 }
 
-// Render Standings Table Component
+// Render Standings Table Component (Optimized to Fit Mobile Screen)
 async function renderLeagueStandingsTable(targetLeague, container, highlightTeamId = null) {
   const highlightIds = Array.isArray(highlightTeamId) 
     ? highlightTeamId.map(id => String(id)) 
@@ -142,7 +149,7 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 
     if (groups.length === 0 || groups.every(g => g.entries.length === 0)) {
       container.innerHTML = `
-        <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40">
+        <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40 text-xs">
           Tabel Klasemen untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name} tidak tersedia saat ini.
         </div>
       `;
@@ -187,42 +194,44 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
         const isFav = isTeamFavorite(teamId);
 
         return `
-          <tr class="border-b border-slate-800/50 hover:bg-slate-800/40 transition text-xs ${isHighlighted ? 'bg-emerald-950/80 font-bold border-l-4 border-emerald-500 text-emerald-300' : ''}">
-            <td class="p-2 text-center font-bold ${idx < 2 ? 'text-emerald-400' : 'text-slate-400'}">${idx + 1}</td>
-            <td class="p-2 flex items-center gap-2 font-semibold cursor-pointer min-w-[130px]" onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')">
-              <img src="${teamLogo}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="">
-              <span class="truncate text-slate-200 hover:text-emerald-400 transition">${entry.team?.displayName || 'Klub'}</span>
-              ${isFav ? '<i class="fa-solid fa-star text-amber-400 text-[9px]"></i>' : ''}
+          <tr class="border-b border-slate-800/50 hover:bg-slate-800/40 transition text-[10.5px] ${isHighlighted ? 'bg-emerald-950/80 font-bold border-l-2 border-emerald-500 text-emerald-300' : ''}">
+            <td class="px-0.5 py-1.5 text-center font-bold ${idx < 2 ? 'text-emerald-400' : 'text-slate-400'}">${idx + 1}</td>
+            <td class="px-1 py-1.5 font-semibold cursor-pointer max-w-[105px] sm:max-w-[180px]" onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')">
+              <div class="flex items-center gap-1.5 truncate">
+                <img src="${teamLogo}" loading="lazy" class="w-3.5 h-3.5 object-contain shrink-0" alt="">
+                <span class="truncate text-slate-200 hover:text-emerald-400 transition">${entry.team?.shortDisplayName || entry.team?.displayName || 'Klub'}</span>
+                ${isFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
+              </div>
             </td>
-            <td class="p-2 text-center text-slate-300">${m}</td>
-            <td class="p-2 text-center text-emerald-400 font-medium">${w}</td>
-            <td class="p-2 text-center text-amber-400 font-medium">${d}</td>
-            <td class="p-2 text-center text-red-400 font-medium">${l}</td>
-            <td class="p-2 text-center text-slate-400 font-mono text-[11px]">${gf}:${ga}</td>
-            <td class="p-2 text-center font-medium ${parseInt(gd) > 0 ? 'text-emerald-400' : (parseInt(gd) < 0 ? 'text-red-400' : 'text-slate-400')}">${parseInt(gd) > 0 ? '+' + gd : gd}</td>
-            <td class="p-2 text-center font-black text-white bg-slate-950/50">${pts}</td>
+            <td class="px-0.5 py-1.5 text-center text-slate-300">${m}</td>
+            <td class="px-0.5 py-1.5 text-center text-emerald-400 font-medium">${w}</td>
+            <td class="px-0.5 py-1.5 text-center text-amber-400 font-medium">${d}</td>
+            <td class="px-0.5 py-1.5 text-center text-red-400 font-medium">${l}</td>
+            <td class="px-0.5 py-1.5 text-center text-slate-400 font-mono text-[9.5px]">${gf}:${ga}</td>
+            <td class="px-0.5 py-1.5 text-center font-medium ${parseInt(gd) > 0 ? 'text-emerald-400' : (parseInt(gd) < 0 ? 'text-red-400' : 'text-slate-400')}">${parseInt(gd) > 0 ? '+' + gd : gd}</td>
+            <td class="px-1 py-1.5 text-center font-black text-white bg-slate-950/60">${pts}</td>
           </tr>
         `;
       }).join('');
 
       card.innerHTML = `
-        <div class="p-3 border-b border-slate-800 bg-slate-950/40 flex items-center gap-2">
+        <div class="p-2.5 border-b border-slate-800 bg-slate-950/40 flex items-center gap-2">
           <img src="${generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country)}" loading="lazy" class="w-4 h-4 object-contain" alt="">
-          <h3 class="font-bold text-xs tracking-wide uppercase">${group.name}</h3>
+          <h3 class="font-bold text-xs tracking-wide uppercase truncate text-white">${group.name}</h3>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
+        <div class="w-full overflow-hidden">
+          <table class="w-full text-left border-collapse table-fixed">
             <thead>
-              <tr class="text-[10px] text-slate-400 uppercase bg-slate-950/60 border-b border-slate-800">
-                <th class="p-2 text-center w-7">#</th>
-                <th class="p-2">Klub</th>
-                <th class="p-2 text-center" title="Main">M</th>
-                <th class="p-2 text-center text-emerald-400" title="Menang">M</th>
-                <th class="p-2 text-center text-amber-400" title="Seri">S</th>
-                <th class="p-2 text-center text-red-400" title="Kalah">K</th>
-                <th class="p-2 text-center" title="Gol Masuk:Kemasukan">GM:GK</th>
-                <th class="p-2 text-center" title="Selisih Gol">SG</th>
-                <th class="p-2 text-center font-bold text-emerald-400" title="Poin">PTS</th>
+              <tr class="text-[9.5px] text-slate-400 uppercase bg-slate-950/60 border-b border-slate-800">
+                <th class="px-0.5 py-1.5 text-center w-[7%]">#</th>
+                <th class="px-1 py-1.5 w-[33%]">Klub</th>
+                <th class="px-0.5 py-1.5 text-center w-[7%]" title="Main">M</th>
+                <th class="px-0.5 py-1.5 text-center text-emerald-400 w-[7%]" title="Menang">M</th>
+                <th class="px-0.5 py-1.5 text-center text-amber-400 w-[7%]" title="Seri">S</th>
+                <th class="px-0.5 py-1.5 text-center text-red-400 w-[7%]" title="Kalah">K</th>
+                <th class="px-0.5 py-1.5 text-center w-[13%]" title="Gol Masuk:Kemasukan">GM:GK</th>
+                <th class="px-0.5 py-1.5 text-center w-[9%]" title="Selisih Gol">SG</th>
+                <th class="px-1 py-1.5 text-center font-bold text-emerald-400 w-[10%]" title="Poin">PTS</th>
               </tr>
             </thead>
             <tbody>${tableRows}</tbody>
@@ -234,6 +243,96 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 
   } catch (err) {
     container.innerHTML = `<p class="text-center text-slate-400 text-xs py-8">Tabel Klasemen tidak tersedia untuk kategori ini.</p>`;
+  }
+}
+
+// Render Top Scorers & Top Assists (League Leaders)
+async function renderLeagueLeaders(targetLeague, container) {
+  container.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
+      <p class="text-xs">Memuat statistik Top Skorer & Assist...</p>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/leaders`);
+    if (!res.ok) throw new Error("Leaders endpoint HTTP error");
+    
+    const data = await res.json();
+    const categories = data.leaders || data.categories || [];
+
+    if (!categories || categories.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-10 text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl text-xs space-y-1">
+          <i class="fa-solid fa-chart-bar text-2xl text-slate-600 block mb-2"></i>
+          <p class="font-bold text-slate-300">Statistik Belum Tersedia</p>
+          <p class="text-[10px] text-slate-500">Data top skorer & assist belum dirilis oleh official liga ini.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+
+    categories.forEach(cat => {
+      const catName = cat.displayName || cat.name || 'Statistik';
+      const leaders = cat.leaders || [];
+      if (leaders.length === 0) return;
+
+      const card = document.createElement('div');
+      card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-3.5 mb-3.5 shadow-xl space-y-2';
+
+      let rowsHtml = leaders.slice(0, 10).map((item, idx) => {
+        const athlete = item.athlete || {};
+        const team = item.team || athlete.team || {};
+        const pName = athlete.displayName || athlete.fullName || 'Pemain';
+        const pId = athlete.id;
+        const value = item.displayValue || item.value || '0';
+        const teamLogo = team.logo || (team.id ? `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png` : PLAIN_SHIELD_LOGO);
+
+        return `
+          <div class="flex items-center justify-between p-2 hover:bg-slate-800/40 rounded-xl transition text-xs border-b border-slate-800/40 last:border-b-0">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+              <span class="font-black text-xs w-4 text-center ${idx === 0 ? 'text-amber-400' : (idx === 1 ? 'text-slate-300' : (idx === 2 ? 'text-amber-600' : 'text-slate-500'))}">${idx + 1}</span>
+              <div class="w-8 h-8 rounded-full bg-slate-950 overflow-hidden shrink-0 border border-slate-800 flex items-center justify-center">
+                <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pName.replace(/'/g, "\\'")}')">
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-white truncate leading-tight">${pName}</div>
+                <div class="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5 truncate">
+                  <img src="${teamLogo}" class="w-3 h-3 object-contain shrink-0" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
+                  <span class="truncate">${team.displayName || team.shortDisplayName || 'Klub'}</span>
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0 text-right">
+              <span class="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg font-black text-xs">${value}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <h3 class="font-black text-xs uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+            <i class="fa-solid ${catName.toLowerCase().includes('goal') || catName.toLowerCase().includes('skorer') ? 'fa-futbol' : 'fa-shoe-prints'}"></i>
+            ${catName}
+          </h3>
+        </div>
+        <div class="space-y-0.5">${rowsHtml}</div>
+      `;
+      container.appendChild(card);
+    });
+
+  } catch (err) {
+    container.innerHTML = `
+      <div class="text-center py-10 text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl text-xs space-y-1">
+        <i class="fa-solid fa-circle-exclamation text-2xl text-amber-500 block mb-2"></i>
+        <p class="font-bold text-slate-300">Data Stats Tidak Tersedia</p>
+        <p class="text-[10px] text-slate-500">Gagal mengambil statistik pemain untuk liga ini.</p>
+      </div>
+    `;
   }
 }
 
