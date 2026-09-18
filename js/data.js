@@ -204,7 +204,7 @@ const LEAGUES = [
 ];
 
 // App Navigation & Filter State
-let activeNav = 'all'; 
+let activeNav = 'live'; 
 let selectedLeague = 'all';
 let selectedDateFilter = '';
 let showFinishedInLive = true;

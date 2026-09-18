@@ -265,7 +265,7 @@ function updateActiveLeagueBadge() {
 document.addEventListener('DOMContentLoaded', () => {
   displayTimezoneInfo();
   renderDateStrip();
-  bottomNavSwitch('all');
+  bottomNavSwitch('live');
 
   setInterval(() => {
     if (activeNav === 'live' || activeNav === 'fav' || (activeNav === 'all' && selectedDateFilter === getFormattedDate(new Date()))) {

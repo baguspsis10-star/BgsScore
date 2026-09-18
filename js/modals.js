@@ -538,10 +538,10 @@ function renderModalCompleteData(data, leagueId) {
       rows += `
         <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
           <div class="text-right flex items-center justify-end gap-1.5 truncate">
-            ${hG ? `<span class="truncate font-bold">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i>` : ''}
+            ${hG ? `<span class="truncate font-bold">${hG.scorer}${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i>` : ''}
           </div>
           <div class="text-left flex items-center justify-start gap-1.5 truncate">
-            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i> <span class="truncate font-bold">${aG.clock} ${aG.scorer}</span>` : ''}
+            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i> <span class="truncate font-bold">${aG.clock}${aG.scorer}</span>` : ''}
           </div>
         </div>
       `;
@@ -720,8 +720,7 @@ function renderModalCompleteData(data, leagueId) {
               ${capsuleContent}
               <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>
             ` : `
-              <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>
-              ${capsuleContent}
+              <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>${capsuleContent}
             `}
           </div>
         `;
@@ -830,144 +829,150 @@ function renderModalCompleteData(data, leagueId) {
     const homeData = parsePositionRows(homeRoster.roster || []);
     const awayData = parsePositionRows(awayRoster.roster || []);
 
-    const getPlayerBadgeHtml = (athleteId) => {
-      if (!athleteId) return '';
-      const ev = playerEventsMap[String(athleteId)];
-      if (!ev) return '';
+    const homeStartersCount = homeData.gk.length + homeData.def.length + homeData.mid.length + homeData.fwd.length;
+    const awayStartersCount = awayData.gk.length + awayData.def.length + awayData.mid.length + awayData.fwd.length;
 
-      let badges = '';
-      if (ev.goals) badges += `<span title="Gol" class="bg-emerald-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-futbol text-[7px]"></i>${ev.goals > 1 ? ev.goals : ''}</span>`;
-      if (ev.penGoals) badges += `<span title="Gol Penalti" class="bg-emerald-600 text-amber-300 text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-circle-dot text-[7px]"></i>${ev.penGoals > 1 ? ev.penGoals : ''}</span>`;
-      if (ev.penMiss) badges += `<span title="Penalti Gagal" class="bg-red-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-circle-xmark text-[7px]"></i></span>`;
-      if (ev.assists) badges += `<span title="Assist" class="bg-blue-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-shoe-prints text-[7px]"></i>${ev.assists > 1 ? ev.assists : ''}</span>`;
-      if (ev.yellows) badges += `<div title="Kartu Kuning" class="w-2.5 h-3.5 bg-amber-400 rounded-sm shadow"></div>`;
-      if (ev.reds) badges += `<div title="Kartu Merah" class="w-2.5 h-3.5 bg-red-500 rounded-sm shadow"></div>`;
+    if (homeStartersCount > 0 && awayStartersCount > 0) {
+      const getPlayerBadgeHtml = (athleteId) => {
+        if (!athleteId) return '';
+        const ev = playerEventsMap[String(athleteId)];
+        if (!ev) return '';
 
-      return badges ? `<div class="absolute -bottom-1 -left-1 flex items-center gap-0.5 z-20">${badges}</div>` : '';
-    };
+        let badges = '';
+        if (ev.goals) badges += `<span title="Gol" class="bg-emerald-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-futbol text-[7px]"></i>${ev.goals > 1 ? ev.goals : ''}</span>`;
+        if (ev.penGoals) badges += `<span title="Gol Penalti" class="bg-emerald-600 text-amber-300 text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-circle-dot text-[7px]"></i>${ev.penGoals > 1 ? ev.penGoals : ''}</span>`;
+        if (ev.penMiss) badges += `<span title="Penalti Gagal" class="bg-red-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-circle-xmark text-[7px]"></i></span>`;
+        if (ev.assists) badges += `<span title="Assist" class="bg-blue-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-shoe-prints text-[7px]"></i>${ev.assists > 1 ? ev.assists : ''}</span>`;
+        if (ev.yellows) badges += `<div title="Kartu Kuning" class="w-2.5 h-3.5 bg-amber-400 rounded-sm shadow"></div>`;
+        if (ev.reds) badges += `<div title="Kartu Merah" class="w-2.5 h-3.5 bg-red-500 rounded-sm shadow"></div>`;
 
-    const renderPlayerRow = (players, borderColor = 'border-emerald-400') => {
-      if (!players || players.length === 0) return '';
-      return `
-        <div class="flex items-center justify-around w-full px-0.5 z-10 my-1 gap-0.5">
-          ${players.map(p => {
-            const pId = p.athlete?.id;
-            const pFullName = p.athlete?.fullName || p.athlete?.displayName || p.athlete?.shortName || 'Pemain';
-            const pMultiLine = formatMultiLineName(pFullName);
-            const jersey = p.jersey || '?';
-            const badgeHtml = getPlayerBadgeHtml(pId);
+        return badges ? `<div class="absolute -bottom-1 -left-1 flex items-center gap-0.5 z-20">${badges}</div>` : '';
+      };
 
-            return `
-              <div class="flex flex-col items-center group relative cursor-pointer flex-1 min-w-0 max-w-[70px] sm:max-w-[85px]">
-                <div class="relative shrink-0">
-                  <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 ${borderColor} bg-[#0f0720] overflow-hidden shadow-md flex items-center justify-center">
-                    <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
+      const renderPlayerRow = (players, borderColor = 'border-emerald-400') => {
+        if (!players || players.length === 0) return '';
+        return `
+          <div class="flex items-center justify-around w-full px-0.5 z-10 my-1 gap-0.5">
+            ${players.map(p => {
+              const pId = p.athlete?.id;
+              const pFullName = p.athlete?.fullName || p.athlete?.displayName || p.athlete?.shortName || 'Pemain';
+              const pMultiLine = formatMultiLineName(pFullName);
+              const jersey = p.jersey || '?';
+              const badgeHtml = getPlayerBadgeHtml(pId);
+
+              return `
+                <div class="flex flex-col items-center group relative cursor-pointer flex-1 min-w-0 max-w-[70px] sm:max-w-[85px]">
+                  <div class="relative shrink-0">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 ${borderColor} bg-[#0f0720] overflow-hidden shadow-md flex items-center justify-center">
+                      <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
+                    </div>
+                    <span class="absolute -top-1 -right-1 bg-[#0d061a] text-white font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full shadow z-10">#${jersey}</span>${badgeHtml}
                   </div>
-                  <span class="absolute -top-1 -right-1 bg-[#0d061a] text-white font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full shadow z-10">#${jersey}</span>
-                  ${badgeHtml}
+                  <span class="text-[8.5px] sm:text-[9.5px] font-bold text-white bg-[#0f0720]/95 px-1.5 py-0.5 rounded shadow-sm w-full text-center mt-1 border border-white/10 leading-tight break-words" title="${pFullName}">${pMultiLine}</span>
                 </div>
-                <span class="text-[8.5px] sm:text-[9.5px] font-bold text-white bg-[#0f0720]/95 px-1.5 py-0.5 rounded shadow-sm w-full text-center mt-1 border border-white/10 leading-tight break-words" title="${pFullName}">${pMultiLine}</span>
+              `;
+            }).join('')}
+          </div>
+        `;
+      };
+
+      const renderSubstitutesImage2Style = (homeSubs, awaySubs) => {
+        const maxSubs = Math.max(homeSubs.length, awaySubs.length);
+        let subRowsHtml = '';
+
+        const renderSubItem = (p) => {
+          if (!p) return `<div class="flex-1"></div>`;
+          const pId = p.athlete?.id;
+          const pFullName = p.athlete?.fullName || p.athlete?.displayName || 'Pemain';
+          const pMultiLine = formatMultiLineName(pFullName);
+          const jersey = p.jersey || '?';
+          const badgeHtml = getPlayerBadgeHtml(pId);
+
+          return `
+            <div class="flex items-center gap-2 py-1.5 px-0.5 min-w-0 flex-1">
+              <div class="relative shrink-0">
+                <div class="w-8 h-8 rounded-full bg-[#0f0720] overflow-hidden border border-white/10 flex items-center justify-center">
+                  <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
+                </div>
+                ${badgeHtml}
               </div>
-            `;
-          }).join('')}
-        </div>
-      `;
-    };
+              <div class="min-w-0 flex-1">
+                <div class="flex items-start gap-1 leading-tight">
+                  <span class="text-blue-400 font-black text-xs shrink-0">#${jersey}</span>
+                  <span class="text-xs font-bold text-slate-200 leading-snug break-words">${pMultiLine}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        };
 
-    const renderSubstitutesImage2Style = (homeSubs, awaySubs) => {
-      const maxSubs = Math.max(homeSubs.length, awaySubs.length);
-      let subRowsHtml = '';
-
-      const renderSubItem = (p) => {
-        if (!p) return `<div class="flex-1"></div>`;
-        const pId = p.athlete?.id;
-        const pFullName = p.athlete?.fullName || p.athlete?.displayName || 'Pemain';
-        const pMultiLine = formatMultiLineName(pFullName);
-        const jersey = p.jersey || '?';
-        const badgeHtml = getPlayerBadgeHtml(pId);
+        for (let i = 0; i < maxSubs; i++) {
+          const hP = homeSubs[i];
+          const aP = awaySubs[i];
+          subRowsHtml += `
+            <div class="flex items-center border-b border-white/5 last:border-b-0">
+              <div class="w-1/2 pr-1.5 border-r border-white/10">${renderSubItem(hP)}</div>
+              <div class="w-1/2 pl-1.5">${renderSubItem(aP)}</div>
+            </div>
+          `;
+        }
 
         return `
-          <div class="flex items-center gap-2 py-1.5 px-0.5 min-w-0 flex-1">
-            <div class="relative shrink-0">
-              <div class="w-8 h-8 rounded-full bg-[#0f0720] overflow-hidden border border-white/10 flex items-center justify-center">
-                <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
-              </div>
-              ${badgeHtml}
+          <div class="bg-[#180d30] border border-white/10 rounded-3xl p-3 shadow-sm space-y-2 mt-3">
+            <div class="text-sm font-extrabold text-white pb-2 border-b border-white/10 flex items-center justify-between">
+              <span>Substitutes</span>
+              <span class="text-[10px] text-slate-400 font-normal">Cadangan</span>
             </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-start gap-1 leading-tight">
-                <span class="text-blue-400 font-black text-xs shrink-0">#${jersey}</span>
-                <span class="text-xs font-bold text-slate-200 leading-snug break-words">${pMultiLine}</span>
-              </div>
+            <div class="space-y-0.5">
+              ${subRowsHtml}
             </div>
           </div>
         `;
       };
 
-      for (let i = 0; i < maxSubs; i++) {
-        const hP = homeSubs[i];
-        const aP = awaySubs[i];
-        subRowsHtml += `
-          <div class="flex items-center border-b border-white/5 last:border-b-0">
-            <div class="w-1/2 pr-1.5 border-r border-white/10">${renderSubItem(hP)}</div>
-            <div class="w-1/2 pl-1.5">${renderSubItem(aP)}</div>
+      lineupHtml = `
+        <div class="space-y-3 bg-[#180d30] border border-white/10 p-2.5 rounded-3xl shadow-sm">
+          <div class="flex items-center justify-between border-b border-white/10 pb-2 text-[10px]">
+            <div class="flex items-center gap-1.5 text-blue-400 font-bold">
+              <img src="${homeLogo}" loading="lazy" class="w-4 h-4 object-contain">
+              <span>${home.team.displayName} (${homeRoster.formation || 'Formasi'})</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-emerald-400 font-bold">
+              <span>(${awayRoster.formation || 'Formasi'}) ${away.team.displayName}</span>
+              <img src="${awayLogo}" loading="lazy" class="w-4 h-4 object-contain">
+            </div>
           </div>
-        `;
-      }
 
-      return `
-        <div class="bg-[#180d30] border border-white/10 rounded-3xl p-3 shadow-sm space-y-2 mt-3">
-          <div class="text-sm font-extrabold text-white pb-2 border-b border-white/10 flex items-center justify-between">
-            <span>Substitutes</span>
-            <span class="text-[10px] text-slate-400 font-normal">Cadangan</span>
+          <div class="soccer-full-pitch rounded-2xl p-1 py-3 flex flex-col justify-between relative">
+            <div class="pitch-center-line-full"></div>
+            <div class="pitch-center-circle"></div>
+            <div class="pitch-center-dot"></div>
+            <div class="pitch-penalty-box-top"></div>
+            <div class="pitch-penalty-box-bottom"></div>
+
+            <div class="space-y-1 z-10">
+              ${renderPlayerRow(homeData.gk, 'border-blue-500')}
+              ${renderPlayerRow(homeData.def, 'border-blue-400')}
+              ${renderPlayerRow(homeData.mid, 'border-blue-400')}
+              ${renderPlayerRow(homeData.fwd, 'border-blue-400')}
+            </div>
+
+            <div class="space-y-1 z-10">
+              ${renderPlayerRow(awayData.fwd, 'border-emerald-400')}
+              ${renderPlayerRow(awayData.mid, 'border-emerald-400')}
+              ${renderPlayerRow(awayData.def, 'border-emerald-400')}
+              ${renderPlayerRow(awayData.gk, 'border-emerald-500')}
+            </div>
           </div>
-          <div class="space-y-0.5">
-            ${subRowsHtml}
-          </div>
+
+          ${renderSubstitutesImage2Style(homeData.subs, awayData.subs)}
         </div>
       `;
-    };
-
-    lineupHtml = `
-      <div class="space-y-3 bg-[#180d30] border border-white/10 p-2.5 rounded-3xl shadow-sm">
-        <div class="flex items-center justify-between border-b border-white/10 pb-2 text-[10px]">
-          <div class="flex items-center gap-1.5 text-blue-400 font-bold">
-            <img src="${homeLogo}" loading="lazy" class="w-4 h-4 object-contain">
-            <span>${home.team.displayName} (${homeRoster.formation || 'Formasi'})</span>
-          </div>
-          <div class="flex items-center gap-1.5 text-emerald-400 font-bold">
-            <span>(${awayRoster.formation || 'Formasi'}) ${away.team.displayName}</span>
-            <img src="${awayLogo}" loading="lazy" class="w-4 h-4 object-contain">
-          </div>
-        </div>
-
-        <div class="soccer-full-pitch rounded-2xl p-1 py-3 flex flex-col justify-between relative">
-          <div class="pitch-center-line-full"></div>
-          <div class="pitch-center-circle"></div>
-          <div class="pitch-center-dot"></div>
-          <div class="pitch-penalty-box-top"></div>
-          <div class="pitch-penalty-box-bottom"></div>
-
-          <div class="space-y-1 z-10">
-            ${renderPlayerRow(homeData.gk, 'border-blue-500')}
-            ${renderPlayerRow(homeData.def, 'border-blue-400')}
-            ${renderPlayerRow(homeData.mid, 'border-blue-400')}
-            ${renderPlayerRow(homeData.fwd, 'border-blue-400')}
-          </div>
-
-          <div class="space-y-1 z-10">
-            ${renderPlayerRow(awayData.fwd, 'border-emerald-400')}
-            ${renderPlayerRow(awayData.mid, 'border-emerald-400')}
-            ${renderPlayerRow(awayData.def, 'border-emerald-400')}
-            ${renderPlayerRow(awayData.gk, 'border-emerald-500')}
-          </div>
-        </div>
-
-        ${renderSubstitutesImage2Style(homeData.subs, awayData.subs)}
-      </div>
-    `;
+    } else {
+      lineupHtml = `<div class="text-center py-12 text-slate-400 bg-[#180d30] rounded-3xl border border-white/10 space-y-2"><i class="fa-solid fa-user-slash text-3xl mb-1 text-slate-500 block"></i><p class="text-xs font-bold text-slate-200">Susunan Pemain Belum Tersedia</p><p class="text-[10px] text-slate-400">Lineup resmi belum dirilis oleh official pertandingan.</p></div>`;
+    }
   } else {
-    lineupHtml = `<div class="text-center py-8 text-slate-400 bg-[#180d30] rounded-3xl border border-white/10"><i class="fa-solid fa-user-slash text-2xl mb-2 block"></i>Susunan pemain resmi belum dirilis oleh official.</div>`;
+    lineupHtml = `<div class="text-center py-12 text-slate-400 bg-[#180d30] rounded-3xl border border-white/10 space-y-2"><i class="fa-solid fa-user-slash text-3xl mb-1 text-slate-500 block"></i><p class="text-xs font-bold text-slate-200">Susunan Pemain Belum Tersedia</p><p class="text-[10px] text-slate-400">Lineup resmi belum dirilis oleh official pertandingan.</p></div>`;
   }
   document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
 }
