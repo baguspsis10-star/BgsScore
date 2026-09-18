@@ -4,8 +4,7 @@
 
 // Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD" menjadi array tanggal harian
 function expandDateRange(rangeStr) {
-  if (!rangeStr) return [getFormattedDate(new Date())];
-  if (!rangeStr.includes('-')) return [rangeStr];
+  if (!rangeStr || !rangeStr.includes('-')) return [rangeStr];
   const [startStr, endStr] = rangeStr.split('-');
   if (startStr.length !== 8 || endStr.length !== 8) return [startStr];
   
@@ -40,73 +39,60 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     
     const rootLeague = data.leagues?.[0];
 
-    return (data.events || [])
-      .filter(evt => {
-        if (!evt) return false;
-        const comp = evt.competitions?.[0];
-        
-        // Gabungkan semua kemungkinan sumber teks liga untuk deteksi aman
-        const leagueText = [
-          evt.league?.slug,
-          evt.league?.name,
-          comp?.league?.slug,
-          comp?.league?.name,
-          evt.season?.slug,
-          evt.season?.name,
-          evt.leagueName,
-          evt.uid
-        ].filter(Boolean).join(' ').toLowerCase();
+    return (data.events || []).map(evt => {
+      const comp = evt.competitions?.[0];
+      
+      // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
+      let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
+      
+      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
+      if (!extractedSlug && evt.uid) {
+        const uidMatch = evt.uid.match(/~l:([^~]+)/);
+        if (uidMatch) extractedSlug = uidMatch[1];
+      }
 
-        // Buang semua pertandingan NCAA (Men & Women)
-        return !leagueText.includes('ncaa');
-      })
-      .map(evt => {
-        const comp = evt.competitions?.[0];
-        
-        // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
-        let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
-        
-        // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
-        if (!extractedSlug && evt.uid) {
-          const uidMatch = evt.uid.match(/~l:([^~]+)/);
-          if (uidMatch) extractedSlug = uidMatch[1];
-        }
+      // 3. Ekstrak Nama Liga Mentah
+      let rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
 
-        // 3. Ekstrak Nama Liga Mentah
-        let rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
+      // PENAMBAHAN: Format slug menjadi nama liga jika API tidak menyediakan nama resmi
+      if (!rawName && extractedSlug) {
+        rawName = extractedSlug
+          .split(/[.-]/)
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      }
 
-        // Format slug menjadi nama liga jika API tidak menyediakan nama resmi
-        if (!rawName && extractedSlug) {
-          rawName = extractedSlug
-            .split(/[.-]/)
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-        }
+      // 4. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
+      const foundLeague = typeof LEAGUES !== 'undefined' 
+        ? LEAGUES.find(l => 
+            // Cek ID persis ATAU deteksi jika ESPN menempelkan sub-fase (misal: afc.champions.group)
+            (extractedSlug && (l.id === extractedSlug || extractedSlug.startsWith(l.id + '.'))) || 
+            (slug !== 'all' && l.id === slug) ||
+            (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
+            (rawName && rawName.toLowerCase().includes(l.name.toLowerCase()))
+          ) 
+        : null;
 
-        // 4. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
-        const foundLeague = typeof LEAGUES !== 'undefined' 
-          ? LEAGUES.find(l => 
-              (extractedSlug && (l.id === extractedSlug || extractedSlug.startsWith(l.id + '.'))) || 
-              (slug !== 'all' && l.id === slug) ||
-              (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
-              (rawName && rawName.toLowerCase().includes(l.name.toLowerCase()))
-            ) 
-          : null;
+      // 5. Terapkan nama spesifik, fallback terakhir diubah agar bukan teks statis yang mengganggu
+      const finalLeagueName = foundLeague?.name || rawName || 'Pertandingan';
+      const finalLeagueId = foundLeague?.id || extractedSlug || slug;
+      const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
+      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
 
-        // 5. Terapkan nama spesifik
-        const finalLeagueName = foundLeague?.name || rawName || 'Pertandingan';
-        const finalLeagueId = foundLeague?.id || extractedSlug || slug;
-        const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
-        const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
-
-        return {
-          ...evt,
-          leagueName: finalLeagueName,
-          leagueId: finalLeagueId,
-          leagueLogo: finalLeagueLogo,
-          leagueFlag: finalLeagueFlag
-        };
-      });
+      return {
+        ...evt,
+        leagueName: finalLeagueName,
+        leagueId: finalLeagueId,
+        leagueLogo: finalLeagueLogo,
+        leagueFlag: finalLeagueFlag
+      };
+    })
+    // FILTER DITAMBAHKAN DI SINI UNTUK MEMBUANG NCAA
+    .filter(evt => {
+      const name = (evt.leagueName || '').toLowerCase();
+      const id = (evt.leagueId || '').toLowerCase();
+      return !name.includes('ncaa') && !id.includes('ncaa');
+    });
   } catch (e) {
     return [];
   }
@@ -152,61 +138,53 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
 
 // 1. ESPN League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
-  if (!leagueName || (typeof dataSaverMode !== 'undefined' && dataSaverMode) || img.dataset.logoProcessed === 'true') return;
+  if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
 
   const cacheKey = `league_logo_${leagueId}`;
 
-  if (typeof leagueLogoCache !== 'undefined' && leagueLogoCache[cacheKey]) {
+  if (leagueLogoCache[cacheKey]) {
     img.src = leagueLogoCache[cacheKey];
     return;
   }
 
-  if (typeof getPhotoFromCache === 'function') {
-    const dbCached = await getPhotoFromCache(cacheKey);
-    if (dbCached) {
-      if (typeof leagueLogoCache !== 'undefined') leagueLogoCache[cacheKey] = dbCached;
-      img.src = dbCached;
-      return;
-    }
+  const dbCached = await getPhotoFromCache(cacheKey);
+  if (dbCached) {
+    leagueLogoCache[cacheKey] = dbCached;
+    img.src = dbCached;
+    return;
   }
 
   if (primaryUrl) {
-    if (typeof leagueLogoCache !== 'undefined') leagueLogoCache[cacheKey] = primaryUrl;
-    if (typeof savePhotoToCache === 'function') await savePhotoToCache(cacheKey, primaryUrl);
+    leagueLogoCache[cacheKey] = primaryUrl;
+    await savePhotoToCache(cacheKey, primaryUrl);
     img.src = primaryUrl;
     img.onerror = () => {
-      if (typeof generateUnlicensedLeagueBadge === 'function') {
-        img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
-      }
+      img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
     };
     return;
   }
 
-  if (typeof generateUnlicensedLeagueBadge === 'function') {
-    img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
-  }
+  img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
 }
 
 // 2. ESPN Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
-  if (!pName || (typeof dataSaverMode !== 'undefined' && dataSaverMode) || img.dataset.photoProcessed === 'true') return;
+  if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
 
   const cleanedName = typeof cleanPlayerName === 'function' ? cleanPlayerName(pName) : pName.trim();
 
-  if (typeof playerPhotoCache !== 'undefined' && playerPhotoCache[cleanedName]) {
+  if (playerPhotoCache[cleanedName]) {
     img.src = playerPhotoCache[cleanedName];
     return;
   }
 
-  if (typeof getPhotoFromCache === 'function') {
-    const dbCached = await getPhotoFromCache(cleanedName);
-    if (dbCached) {
-      if (typeof playerPhotoCache !== 'undefined') playerPhotoCache[cleanedName] = dbCached;
-      img.src = dbCached;
-      return;
-    }
+  const dbCached = await getPhotoFromCache(cleanedName);
+  if (dbCached) {
+    playerPhotoCache[cleanedName] = dbCached;
+    img.src = dbCached;
+    return;
   }
 
   const espnUrl = pId 
@@ -218,8 +196,8 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
     testImg.src = espnUrl;
     testImg.onload = async () => {
       img.src = espnUrl;
-      if (typeof playerPhotoCache !== 'undefined') playerPhotoCache[cleanedName] = espnUrl;
-      if (typeof savePhotoToCache === 'function') await savePhotoToCache(cleanedName, espnUrl);
+      playerPhotoCache[cleanedName] = espnUrl;
+      await savePhotoToCache(cleanedName, espnUrl);
     };
     testImg.onerror = () => {
       showPlayerCircleFallback(img, cleanedName);
@@ -259,29 +237,19 @@ async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
   try {
-    const targetDate = (typeof selectedDateFilter !== 'undefined' && selectedDateFilter) 
-      ? selectedDateFilter 
-      : getFormattedDate(new Date());
+    const targetDate = selectedDateFilter || getFormattedDate(new Date());
 
-    const targets = (typeof selectedLeague === 'undefined' || selectedLeague === 'all')
+    const targets = selectedLeague === 'all' 
       ? LEAGUES 
       : LEAGUES.filter(l => l.id === selectedLeague);
 
     let allEvents = await fetchBatchLeagues(targets, () => targetDate);
 
-    if (typeof sortEventsByFavoriteAndDate === 'function') {
-      allEvents = sortEventsByFavoriteAndDate(allEvents);
-    }
-    
+    allEvents = sortEventsByFavoriteAndDate(allEvents);
     cachedEvents = allEvents;
 
-    if (typeof monitorLiveFavoriteEvents === 'function') {
-      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
-    }
-    
-    if (typeof renderMatchesCards === 'function') {
-      renderMatchesCards('matches-container', allEvents, typeof selectedLeague === 'undefined' || selectedLeague === 'all');
-    }
+    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
   } catch (err) {
     console.error("Gagal mengambil data pertandingan ESPN:", err);
   } finally {
@@ -307,33 +275,25 @@ async function fetchLiveMatchesStructured() {
     let allEvents = Array.from(eventMap.values());
     
     cachedEvents = allEvents;
-    
-    if (typeof monitorLiveFavoriteEvents === 'function') {
-      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
-    }
+    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
     const now = new Date();
     const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
     const next12h = new Date(now.getTime() + (12 * 60 * 60 * 1000));
 
-    const sortFn = typeof sortEventsByFavoriteAndDate === 'function' ? sortEventsByFavoriteAndDate : arr => arr;
-
-    const finishedEvents = sortFn(allEvents.filter(e => {
+    const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
       const d = new Date(e.date);
       return e.status?.type?.state === 'post' && d >= past24h;
     }));
 
-    const liveEvents = sortFn(allEvents.filter(e => e.status?.type?.state === 'in'));
+    const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status?.type?.state === 'in'));
 
-    const upcomingEvents = sortFn(allEvents.filter(e => {
+    const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
       const d = new Date(e.date);
       return e.status?.type?.state === 'pre' && d > now && d <= next12h;
     }));
 
     container.innerHTML = '';
-
-    const isFinishedShow = typeof showFinishedInLive !== 'undefined' ? showFinishedInLive : false;
-    const isUpcomingShow = typeof showUpcomingInLive !== 'undefined' ? showUpcomingInLive : true;
 
     const finishedSec = document.createElement('div');
     finishedSec.className = 'space-y-2.5';
@@ -342,12 +302,12 @@ async function fetchLiveMatchesStructured() {
         <span class="flex items-center gap-2">
           <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
         </span>
-        <i id="finished-toggle-icon" class="fa-solid fa-chevron-${isFinishedShow ? 'up' : 'down'} text-[10px]"></i>
+        <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
       </button>
-      <div id="live-finished-grid" class="space-y-2.5 ${isFinishedShow ? '' : 'hidden'}"></div>
+      <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
     `;
     container.appendChild(finishedSec);
-    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-finished-grid', finishedEvents, true);
+    renderMatchesCards('live-finished-grid', finishedEvents, true);
 
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5';
@@ -365,7 +325,7 @@ async function fetchLiveMatchesStructured() {
       <div id="live-active-grid" class="space-y-2.5"></div>
     `;
     container.appendChild(liveSec);
-    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-active-grid', liveEvents, true);
+    renderMatchesCards('live-active-grid', liveEvents, true);
 
     const upcomingSec = document.createElement('div');
     upcomingSec.className = 'space-y-2.5';
@@ -374,12 +334,12 @@ async function fetchLiveMatchesStructured() {
         <span class="flex items-center gap-2">
           <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
         </span>
-        <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${isUpcomingShow ? 'up' : 'down'} text-[10px]"></i>
+        <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
       </button>
-      <div id="live-upcoming-grid" class="space-y-2.5 ${isUpcomingShow ? '' : 'hidden'}"></div>
+      <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
     `;
     container.appendChild(upcomingSec);
-    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
+    renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
   } catch (err) {
     console.error("Gagal memuat laga live:", err);
   } finally {
@@ -392,10 +352,7 @@ async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
 
-  const favM = typeof favoriteMatches !== 'undefined' ? favoriteMatches : [];
-  const favT = typeof favoriteTeams !== 'undefined' ? favoriteTeams : [];
-
-  if (favM.length === 0 && favT.length === 0) {
+  if (favoriteMatches.length === 0 && favoriteTeams.length === 0) {
     container.innerHTML = `
       <div class="text-center py-12 px-4 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl">
         <i class="fa-solid fa-star text-3xl text-amber-500/40 mb-3 block"></i>
@@ -423,22 +380,15 @@ async function fetchFavoritedMatchesStructured() {
       const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
       const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
 
-      const checkFav = typeof isFavorite === 'function' ? isFavorite(evt.id) : false;
-      const checkTeamFav = typeof isTeamFavorite === 'function' ? (isTeamFavorite(homeId) || isTeamFavorite(awayId)) : false;
-
-      return checkFav || checkTeamFav;
+      return isFavorite(evt.id) || isTeamFavorite(homeId) || isTeamFavorite(awayId);
     });
 
     cachedEvents = favEvents;
-    if (typeof monitorLiveFavoriteEvents === 'function') {
-      favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
-    }
+    favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
 
-    const sortFn = typeof sortEventsByFavoriteAndDate === 'function' ? sortEventsByFavoriteAndDate : arr => arr;
-
-    const finishedEvents = sortFn(favEvents.filter(e => e.status?.type?.state === 'post'));
-    const liveEvents = sortFn(favEvents.filter(e => e.status?.type?.state === 'in'));
-    const upcomingEvents = sortFn(favEvents.filter(e => e.status?.type?.state === 'pre'));
+    const finishedEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'post'));
+    const liveEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'in'));
+    const upcomingEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'pre'));
 
     container.innerHTML = '';
 
@@ -468,11 +418,11 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-active-grid" class="space-y-2.5"></div>
       `;
       container.appendChild(liveSec);
-      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-active-grid', liveEvents, true);
+      renderMatchesCards('fav-active-grid', liveEvents, true);
     }
 
     if (finishedEvents.length > 0) {
-      if (typeof showFinishedInFav !== 'undefined') showFinishedInFav = false;
+      showFinishedInFav = false;
       const finishedSec = document.createElement('div');
       finishedSec.className = 'space-y-2.5 mb-4';
       finishedSec.innerHTML = `
@@ -485,11 +435,11 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
       `;
       container.appendChild(finishedSec);
-      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
+      renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
     }
 
     if (upcomingEvents.length > 0) {
-      if (typeof showUpcomingInFav !== 'undefined') showUpcomingInFav = true;
+      showUpcomingInFav = true;
       const upcomingSec = document.createElement('div');
       upcomingSec.className = 'space-y-2.5 pt-2 border-t border-white/10';
       upcomingSec.innerHTML = `
@@ -502,7 +452,7 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-upcoming-grid" class="space-y-2.5"></div>
       `;
       container.appendChild(upcomingSec);
-      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
+      renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
     }
   } catch (err) {
     console.error("Gagal memuat favorit:", err);
@@ -578,7 +528,7 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
             ${h2hEvents.map(m => {
               const hTeam = m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home');
               const aTeam = m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away');
-              const matchDate = typeof formatLocalDate === 'function' ? formatLocalDate(m.date) : m.date;
+              const matchDate = formatLocalDate(m.date);
 
               return `
                 <div class="bg-[#180d30] p-2.5 rounded-xl border border-white/10 flex items-center justify-between text-xs">
@@ -602,15 +552,13 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
       `;
     }
 
-    const renderForm = typeof renderFormBlock === 'function' ? renderFormBlock : () => '';
-
     container.innerHTML = `
       <div class="space-y-3">
         <div class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
           <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> 5 Pertandingan Terakhir
         </div>
-        ${renderForm(homeName, homeRecent, homeTeamId)}
-        ${renderForm(awayName, awayRecent, awayTeamId)}
+        ${renderFormBlock(homeName, homeRecent, homeTeamId)}
+        ${renderFormBlock(awayName, awayRecent, awayTeamId)}
         ${h2hHtml}
       </div>
     `;
