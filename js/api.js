@@ -39,54 +39,62 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     
     const rootLeague = data.leagues?.[0];
 
-    return (data.events || []).map(evt => {
-      const comp = evt.competitions?.[0];
-      
-      // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
-      let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
-      
-      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
-      if (!extractedSlug && evt.uid) {
-        const uidMatch = evt.uid.match(/~l:([^~]+)/);
-        if (uidMatch) extractedSlug = uidMatch[1];
-      }
+    return (data.events || [])
+      .filter(evt => {
+        const leagueSlug = (evt.league?.slug || evt.season?.slug || evt.uid || '').toLowerCase();
+        const leagueName = (evt.league?.name || evt.season?.name || evt.leagueName || '').toLowerCase();
+        
+        // Filter out NCAA matches
+        return !leagueSlug.includes('ncaa') && !leagueName.includes('ncaa');
+      })
+      .map(evt => {
+        const comp = evt.competitions?.[0];
+        
+        // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
+        let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
+        
+        // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
+        if (!extractedSlug && evt.uid) {
+          const uidMatch = evt.uid.match(/~l:([^~]+)/);
+          if (uidMatch) extractedSlug = uidMatch[1];
+        }
 
-      // 3. Ekstrak Nama Liga Mentah
-      let rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
+        // 3. Ekstrak Nama Liga Mentah
+        let rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
 
-      // PENAMBAHAN: Format slug menjadi nama liga jika API tidak menyediakan nama resmi
-      if (!rawName && extractedSlug) {
-        rawName = extractedSlug
-          .split(/[.-]/)
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-      }
+        // PENAMBAHAN: Format slug menjadi nama liga jika API tidak menyediakan nama resmi
+        if (!rawName && extractedSlug) {
+          rawName = extractedSlug
+            .split(/[.-]/)
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
 
-      // 4. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
-      const foundLeague = typeof LEAGUES !== 'undefined' 
-        ? LEAGUES.find(l => 
-            // Cek ID persis ATAU deteksi jika ESPN menempelkan sub-fase (misal: afc.champions.group)
-            (extractedSlug && (l.id === extractedSlug || extractedSlug.startsWith(l.id + '.'))) || 
-            (slug !== 'all' && l.id === slug) ||
-            (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
-            (rawName && rawName.toLowerCase().includes(l.name.toLowerCase()))
-          ) 
-        : null;
+        // 4. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
+        const foundLeague = typeof LEAGUES !== 'undefined' 
+          ? LEAGUES.find(l => 
+              // Cek ID persis ATAU deteksi jika ESPN menempelkan sub-fase (misal: afc.champions.group)
+              (extractedSlug && (l.id === extractedSlug || extractedSlug.startsWith(l.id + '.'))) || 
+              (slug !== 'all' && l.id === slug) ||
+              (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
+              (rawName && rawName.toLowerCase().includes(l.name.toLowerCase()))
+            ) 
+          : null;
 
-      // 5. Terapkan nama spesifik, fallback terakhir diubah agar bukan teks statis yang mengganggu
-      const finalLeagueName = foundLeague?.name || rawName || 'Pertandingan';
-      const finalLeagueId = foundLeague?.id || extractedSlug || slug;
-      const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
-      const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
+        // 5. Terapkan nama spesifik, fallback terakhir diubah agar bukan teks statis yang mengganggu
+        const finalLeagueName = foundLeague?.name || rawName || 'Pertandingan';
+        const finalLeagueId = foundLeague?.id || extractedSlug || slug;
+        const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
+        const finalLeagueLogo = foundLeague?.logo || evt.league?.logos?.[0]?.href || rootLeague?.logos?.[0]?.href || '';
 
-      return {
-        ...evt,
-        leagueName: finalLeagueName,
-        leagueId: finalLeagueId,
-        leagueLogo: finalLeagueLogo,
-        leagueFlag: finalLeagueFlag
-      };
-    });
+        return {
+          ...evt,
+          leagueName: finalLeagueName,
+          leagueId: finalLeagueId,
+          leagueLogo: finalLeagueLogo,
+          leagueFlag: finalLeagueFlag
+        };
+      });
   } catch (e) {
     return [];
   }
@@ -529,7 +537,7 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
                   <span class="text-[9px] text-slate-400 w-1/3">${matchDate}</span>
                   <div class="flex items-center justify-center gap-1.5 w-2/3">
                     <span class="font-semibold text-slate-200 text-right truncate w-5/12">${hTeam?.team?.shortDisplayName || ''}</span>
-                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score || '0'} - ${aTeam?.score || '0'}</span>
+                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score \vert{}\vert{} '0'} -${aTeam?.score || '0'}</span>
                     <span class="font-semibold text-slate-200 text-left truncate w-5/12">${aTeam?.team?.shortDisplayName || ''}</span>
                   </div>
                 </div>
