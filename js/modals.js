@@ -220,6 +220,7 @@ function selectLeagueFromModal(leagueId) {
   changeLeague(leagueId);
 }
 
+// BUKA DETAIL PERTANDINGAN
 async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) {
   currentOpenModal = { leagueId, eventId, leagueName };
   const modal = document.getElementById('detail-modal');
@@ -271,7 +272,7 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     }
 
     if (!data || !data.header || !data.header.competitions) {
-      throw new Error("Detail pertandingan tidak ditemukan pada API ESPN.");
+      throw new Error("Detail pertandingan tidak ditemukan.");
     }
 
     const realLeagueSlug = data.header?.league?.slug || 
@@ -291,7 +292,13 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     const home = header?.competitors?.find(c => c.homeAway === 'home');
     const away = header?.competitors?.find(c => c.homeAway === 'away');
 
+    // Render Data Utama Laga
     renderModalCompleteData(data, realLeagueSlug);
+
+    // Render Data Odds
+    if (typeof renderOddsTabContent === 'function') {
+      renderOddsTabContent(data, eventId);
+    }
 
     if (!isSilent) {
       if (realLeagueSlug && home?.team?.id && away?.team?.id) {
@@ -338,65 +345,6 @@ async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
   }
 }
 
-function renderFormBlock(teamName, matches, teamId) {
-  if (!matches || matches.length === 0) {
-    return `
-      <div class="bg-[#180d30] p-3.5 rounded-2xl border border-white/10 shadow-sm">
-        <div class="text-xs font-bold text-white mb-1">${teamName}</div>
-        <p class="text-[10px] text-slate-400">Tidak ada riwayat pertandingan terbaru.</p>
-      </div>
-    `;
-  }
-
-  let formBadges = '';
-  let matchRows = matches.map(m => {
-    const comp = m.competitions?.[0];
-    const myTeam = comp?.competitors?.find(c => String(c.team.id) === String(teamId));
-    const oppTeam = comp?.competitors?.find(c => String(c.team.id) !== String(teamId));
-    
-    const myScore = parseInt(myTeam?.score || '0');
-    const oppScore = parseInt(oppTeam?.score || '0');
-
-    let resBadge = { label: 'S', color: 'bg-amber-500/20 text-amber-300 border-amber-500/40' };
-    if (myScore > oppScore) {
-      resBadge = { label: 'M', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' };
-    } else if (myScore < oppScore) {
-      resBadge = { label: 'K', color: 'bg-red-500/20 text-red-400 border-red-500/40' };
-    }
-
-    formBadges += `<span class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold border ${resBadge.color}">${resBadge.label}</span>`;
-
-    const oppLogo = getTeamLogo(oppTeam?.team);
-    const isHome = myTeam?.homeAway === 'home';
-    const formattedDate = new Date(m.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-
-    return `
-      <div class="flex items-center justify-between bg-[#0f0720] p-2.5 rounded-xl border border-white/5 text-xs hover:bg-slate-800/40 transition">
-        <div class="flex items-center gap-2 truncate max-w-[62%]">
-          <span class="text-[9px] font-bold font-mono ${isHome ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30' : 'text-blue-400 bg-blue-950/60 border-blue-500/30'} px-1.5 py-0.5 rounded border">${isHome ? 'HOME' : 'AWAY'}</span>
-          <img src="${oppLogo}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="">
-          <span class="truncate font-semibold text-slate-200">${oppTeam?.team?.shortDisplayName || oppTeam?.team?.displayName || 'Lawan'}</span>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <span class="text-[10px] text-slate-400">${formattedDate}</span>
-          <span class="font-extrabold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 text-[11px] shadow-sm">${myScore} - ${oppScore}</span>
-          <span class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold border ${resBadge.color}">${resBadge.label}</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  return `
-    <div class="bg-[#180d30] p-3.5 rounded-2xl border border-white/10 space-y-3 shadow-sm">
-      <div class="flex items-center justify-between pb-2 border-b border-white/10">
-        <span class="text-xs font-bold text-white truncate max-w-[170px]">${teamName}</span>
-        <div class="flex items-center gap-1.5">${formBadges}</div>
-      </div>
-      <div class="space-y-2">${matchRows}</div>
-    </div>
-  `;
-}
-
 function parseClockMinute(clockStr) {
   if (!clockStr) return 0;
   const str = String(clockStr).replace(/['\s]/g, '');
@@ -407,16 +355,7 @@ function parseClockMinute(clockStr) {
   return parseInt(str) || 0;
 }
 
-function getBaseMinute(clockStr) {
-  if (!clockStr) return 0;
-  const str = String(clockStr).replace(/['\s]/g, '');
-  if (str.includes('+')) {
-    return parseInt(str.split('+')[0]) || 0;
-  }
-  return parseInt(str) || 0;
-}
-
-// Render Complete Match Detail Data (DARK PURPLE NEON LOOK)
+// RENDER KOMPLIT ISI DETAIL PERTANDINGAN
 function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;
@@ -450,7 +389,6 @@ function renderModalCompleteData(data, leagueId) {
     if (weatherObj.condition) weather += `, ${weatherObj.condition}`;
   }
 
-  // MODERN PURPLE STADIUM INFO BADGES
   const matchInfoBadgeHtml = `
     <div class="mt-4 pt-4 border-t border-white/10 grid grid-cols-3 gap-2.5">
       <div class="bg-white/5 p-3 rounded-2xl border border-white/10 text-center flex flex-col items-center justify-center">
@@ -553,11 +491,9 @@ function renderModalCompleteData(data, leagueId) {
     ? formattedTime 
     : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : statusDetail);
 
-  // SCORE HEADER CARD (DARK PURPLE GRADIENT)
   document.getElementById('modal-score-header').innerHTML = `
     <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#2e134b] via-[#1d0d36] to-[#150a28] p-5 shadow-2xl text-white border border-purple-900/40">
       <div class="flex items-center justify-between relative z-10">
-        <!-- Home Team -->
         <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
           <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex items-center justify-center group-hover:scale-105 transition">
             <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
@@ -568,7 +504,6 @@ function renderModalCompleteData(data, leagueId) {
           </span>
         </div>
 
-        <!-- Score Center Badge -->
         <div class="text-center w-[24%] flex flex-col items-center justify-center">
           <div class="text-2xl sm:text-3xl font-black tracking-widest text-white flex items-center justify-center gap-2">
             <span>${state === 'pre' ? 'VS' : (home.score || '0')}</span>
@@ -579,7 +514,6 @@ function renderModalCompleteData(data, leagueId) {
           </div>
         </div>
 
-        <!-- Away Team -->
         <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
           <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex items-center justify-center group-hover:scale-105 transition">
             <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
@@ -595,7 +529,7 @@ function renderModalCompleteData(data, leagueId) {
     </div>
   `;
 
-  // STATS BLOCK (RED & BLUE NEON ACCENT)
+  // STATISTIK MATCH
   let statsBlockHtml = '';
   if (state === 'pre') {
     statsBlockHtml = `
@@ -661,7 +595,7 @@ function renderModalCompleteData(data, leagueId) {
   }
   document.getElementById('mcontent-stats').innerHTML = statsBlockHtml;
 
-  // TIMELINE BLOCK (CAPSULE SIDE LAYOUT & HOME/AWAY GOAL POSITION FIX)
+  // TIMELINE EVENTS SUMMARY
   let eventsTimelineHtml = '';
   if (rawEvents && rawEvents.length > 0) {
     const validEvents = rawEvents.filter(item => {
@@ -706,7 +640,6 @@ function renderModalCompleteData(data, leagueId) {
 
       if (typeText.includes('goal') || typeText.includes('gol')) {
         const scorer = getPlayerName(0);
-
         const capsuleContent = `
           <div class="px-3.5 py-1.5 text-xs font-black flex items-center gap-2 shadow-lg rounded-full bg-emerald-950/80 border border-emerald-400 text-emerald-300">
             <i class="fa-solid fa-futbol text-xs"></i>
@@ -977,9 +910,9 @@ function renderModalCompleteData(data, leagueId) {
   document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
 }
 
-// SWITCH MODAL PILL TABS
+// SWITCH TAB DETAIL PERTANDINGAN (PERURUTAN TAB BARU: ODDS SEBELAH KANAN LINEUP)
 function switchModalTab(tabName) {
-  const tabs = ['summary', 'stats', 'lineup', 'standings', 'h2h'];
+  const tabs = ['summary', 'stats', 'lineup', 'odds', 'standings', 'h2h'];
 
   tabs.forEach(t => {
     const btn = document.getElementById(`mtab-${t}`);
@@ -987,10 +920,10 @@ function switchModalTab(tabName) {
 
     if (btn && content) {
       if (t === tabName) {
-        btn.className = "flex-1 py-1.5 px-3 text-[11px] tab-pill-active rounded-full transition-all duration-200 whitespace-nowrap text-center";
+        btn.className = "flex-1 py-1.5 px-3 text-[11px] tab-pill-active rounded-xl transition-all duration-200 whitespace-nowrap text-center font-bold";
         content.classList.remove('hidden');
       } else {
-        btn.className = "flex-1 py-1.5 px-3 text-[11px] tab-pill-inactive rounded-full transition-all duration-200 whitespace-nowrap text-center";
+        btn.className = "flex-1 py-1.5 px-3 text-[11px] tab-pill-inactive rounded-xl transition-all duration-200 whitespace-nowrap text-center font-medium";
         content.classList.add('hidden');
       }
     }
