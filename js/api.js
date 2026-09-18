@@ -86,12 +86,6 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
         leagueLogo: finalLeagueLogo,
         leagueFlag: finalLeagueFlag
       };
-    })
-    // FILTER DITAMBAHKAN DI SINI UNTUK MEMBUANG NCAA
-    .filter(evt => {
-      const name = (evt.leagueName || '').toLowerCase();
-      const id = (evt.leagueId || '').toLowerCase();
-      return !name.includes('ncaa') && !id.includes('ncaa');
     });
   } catch (e) {
     return [];
@@ -535,7 +529,7 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
                   <span class="text-[9px] text-slate-400 w-1/3">${matchDate}</span>
                   <div class="flex items-center justify-center gap-1.5 w-2/3">
                     <span class="font-semibold text-slate-200 text-right truncate w-5/12">${hTeam?.team?.shortDisplayName || ''}</span>
-                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score \vert{}\vert{} '0'} -${aTeam?.score || '0'}</span>
+                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score || '0'} - ${aTeam?.score || '0'}</span>
                     <span class="font-semibold text-slate-200 text-left truncate w-5/12">${aTeam?.team?.shortDisplayName || ''}</span>
                   </div>
                 </div>
