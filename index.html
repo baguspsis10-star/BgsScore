@@ -203,22 +203,22 @@
       <div id="modal-data-container" class="flex-1 overflow-y-auto p-3.5 space-y-4 hidden no-scrollbar">
         <div id="modal-score-header"></div>
 
-        <!-- Detail Navigation Segmented Pill Tabs -->
+        <!-- Detail Navigation Segmented Pill Tabs (ODDS DI SEBELAH KANAN LINEUP) -->
         <div id="modal-tabs-bar" class="flex bg-[#180d30] p-1.5 rounded-2xl border border-white/10 overflow-x-auto no-scrollbar gap-1 shadow-inner">
           <button id="mtab-summary" onclick="switchModalTab('summary')" class="flex-1 py-2 px-3 text-[11px] font-extrabold tab-pill-active rounded-xl transition-all duration-200 whitespace-nowrap">Ringkasan</button>
           <button id="mtab-stats" onclick="switchModalTab('stats')" class="flex-1 py-2 px-3 text-[11px] font-semibold tab-pill-inactive rounded-xl transition-all duration-200 whitespace-nowrap">Statistik</button>
           <button id="mtab-lineup" onclick="switchModalTab('lineup')" class="flex-1 py-2 px-3 text-[11px] font-semibold tab-pill-inactive rounded-xl transition-all duration-200 whitespace-nowrap">Lineup</button>
+          <button id="mtab-odds" onclick="switchModalTab('odds')" class="flex-1 py-2 px-3 text-[11px] font-semibold tab-pill-inactive rounded-xl transition-all duration-200 whitespace-nowrap"><i class="fa-solid fa-coins mr-1"></i>Odds</button>
           <button id="mtab-standings" onclick="switchModalTab('standings')" class="flex-1 py-2 px-3 text-[11px] font-semibold tab-pill-inactive rounded-xl transition-all duration-200 whitespace-nowrap">League</button>
           <button id="mtab-h2h" onclick="switchModalTab('h2h')" class="flex-1 py-2 px-3 text-[11px] font-semibold tab-pill-inactive rounded-xl transition-all duration-200 whitespace-nowrap">Form & H2H</button>
-          <button id="mtab-odds" onclick="switchModalTab('odds')" class="flex-1 py-2 px-3 text-[11px] font-semibold tab-pill-inactive rounded-xl transition-all duration-200 whitespace-nowrap"><i class="fa-solid fa-coins mr-1"></i>Odds</button>
         </div>
 
         <div id="mcontent-summary" class="space-y-3"></div>
         <div id="mcontent-stats" class="space-y-3 hidden"></div>
         <div id="mcontent-lineup" class="space-y-3 hidden"></div>
+        <div id="mcontent-odds" class="space-y-3 hidden"></div>
         <div id="mcontent-standings" class="space-y-3 hidden"></div>
         <div id="mcontent-h2h" class="space-y-3 hidden"></div>
-        <div id="mcontent-odds" class="space-y-3 hidden"></div>
       </div>
 
     </div>
