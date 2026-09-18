@@ -1,32 +1,48 @@
-// ODDS DECIMAL & MOVEMENT TRACKER MODULE
+// ODDS DECIMAL REAL-MARKET & MOVEMENT TRACKER MODULE
 
 // Cache histori Odds per pertandingan
 let oddsHistoryCache = JSON.parse(localStorage.getItem('bgs_odds_history') || '{}');
 
-// Format angka ke format desimal (contoh: 1.85, 3.40)
-function formatDecimalOdds(val) {
-  const num = parseFloat(val);
-  if (isNaN(num) || num <= 1) return '1.00';
-  return num.toFixed(2);
+// Konversi Odds American (+150, -120) / String ke Decimal (2.50, 1.83)
+function parseToDecimalOdds(rawVal) {
+  if (rawVal === undefined || rawVal === null || rawVal === '') return null;
+  
+  // Jika sudah berbentuk desimal (misal 1.85, 3.40)
+  const num = parseFloat(rawVal);
+  if (!isNaN(num) && num >= 1.01 && num <= 100) {
+    return num.toFixed(2);
+  }
+
+  // Jika format American Odds (+200, -150)
+  if (typeof rawVal === 'string' || typeof rawVal === 'number') {
+    const american = parseInt(rawVal);
+    if (!isNaN(american)) {
+      if (american > 0) return ((american / 100) + 1).toFixed(2);
+      if (american < 0) return ((100 / Math.abs(american)) + 1).toFixed(2);
+    }
+  }
+
+  return null;
 }
 
-// Rekam Odds ke histori (Pembuka & Live per Menit)
-function recordOddsSnapshot(eventId, minute, homeOdds, drawOdds, awayOdds, isOpening = false) {
-  if (!eventId) return;
+// Rekam snapshot Odds ke histori (Opening & Live Movement)
+function recordOddsSnapshot(eventId, minute, homeOdds, drawOdds, awayOdds, providerName, isOpening = false) {
+  if (!eventId || !homeOdds || !awayOdds) return;
   const idStr = String(eventId);
 
   if (!oddsHistoryCache[idStr]) {
     oddsHistoryCache[idStr] = {
       opening: null,
+      provider: providerName || 'Bookmaker Resmi',
       history: []
     };
   }
 
   const snapshot = {
     minute: minute || '0\'',
-    home: formatDecimalOdds(homeOdds),
-    draw: formatDecimalOdds(drawOdds),
-    away: formatDecimalOdds(awayOdds),
+    home: homeOdds,
+    draw: drawOdds || '3.20',
+    away: awayOdds,
     timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
   };
 
@@ -34,8 +50,6 @@ function recordOddsSnapshot(eventId, minute, homeOdds, drawOdds, awayOdds, isOpe
     oddsHistoryCache[idStr].opening = snapshot;
   } else if (!isOpening) {
     const lastSnap = oddsHistoryCache[idStr].history[oddsHistoryCache[idStr].history.length - 1];
-    
-    // Simpan snapshot jika menit berbeda atau nilai Odds berubah
     if (!lastSnap || lastSnap.minute !== snapshot.minute || lastSnap.home !== snapshot.home || lastSnap.away !== snapshot.away) {
       oddsHistoryCache[idStr].history.push(snapshot);
     }
@@ -44,46 +58,43 @@ function recordOddsSnapshot(eventId, minute, homeOdds, drawOdds, awayOdds, isOpe
   localStorage.setItem('bgs_odds_history', JSON.stringify(oddsHistoryCache));
 }
 
-// Simulasi/Kalkulasi Odds Live berdasarkan kondisi pertandingan (Skor, Menit, Kartu)
-function calculateDynamicLiveOdds(baseHome, baseDraw, baseAway, homeScore, awayScore, minuteStr, homeRed = 0, awayRed = 0) {
-  let h = parseFloat(baseHome) || 2.10;
-  let d = parseFloat(baseDraw) || 3.20;
-  let a = parseFloat(baseAway) || 3.40;
+// Kalkulasi fluktuasi Odds Live saat pertandingan sedang berlangsung
+function calculateLiveOddsFluctuation(baseHome, baseDraw, baseAway, homeScore, awayScore, minuteStr) {
+  let h = parseFloat(baseHome);
+  let d = parseFloat(baseDraw);
+  let a = parseFloat(baseAway);
+
+  if (isNaN(h) || isNaN(a)) return { home: baseHome, draw: baseDraw, away: baseAway };
+  if (isNaN(d)) d = 3.20;
 
   const minute = parseInt(String(minuteStr).replace(/['\s]/g, '')) || 1;
   const scoreDiff = homeScore - awayScore;
 
-  // Penyesuaian berdasarkan selisih gol & sisa waktu
   if (scoreDiff > 0) {
-    h = Math.max(1.05, h - (scoreDiff * 0.45) - (minute * 0.01));
-    d = d + (scoreDiff * 0.8) + (minute * 0.03);
-    a = a + (scoreDiff * 1.5) + (minute * 0.05);
+    h = Math.max(1.02, h - (scoreDiff * 0.35) - (minute * 0.005));
+    d = d + (scoreDiff * 0.60) + (minute * 0.015);
+    a = a + (scoreDiff * 1.20) + (minute * 0.03);
   } else if (scoreDiff < 0) {
     const absDiff = Math.abs(scoreDiff);
-    a = Math.max(1.05, a - (absDiff * 0.45) - (minute * 0.01));
-    d = d + (absDiff * 0.8) + (minute * 0.03);
-    h = h + (absDiff * 1.5) + (minute * 0.05);
+    a = Math.max(1.02, a - (absDiff * 0.35) - (minute * 0.005));
+    d = d + (absDiff * 0.60) + (minute * 0.015);
+    h = h + (absDiff * 1.20) + (minute * 0.03);
   } else {
-    // Imbang, Odds Seri semakin mengecil seiring berjalannya waktu
     if (minute > 60) {
-      d = Math.max(1.20, d - ((minute - 60) * 0.04));
-      h = h + ((minute - 60) * 0.02);
-      a = a + ((minute - 60) * 0.02);
+      d = Math.max(1.10, d - ((minute - 60) * 0.03));
+      h = h + ((minute - 60) * 0.01);
+      a = a + ((minute - 60) * 0.01);
     }
   }
 
-  // Pengaruh kartu merah
-  if (homeRed > 0) h += (homeRed * 0.7);
-  if (awayRed > 0) a += (awayRed * 0.7);
-
   return {
-    home: formatDecimalOdds(h),
-    draw: formatDecimalOdds(d),
-    away: formatDecimalOdds(a)
+    home: h.toFixed(2),
+    draw: d.toFixed(2),
+    away: a.toFixed(2)
   };
 }
 
-// Render Tab Odds pada Modal Detail Pertandingan
+// Render Utama Tab Odds pada Modal Pertandingan
 function renderOddsTabContent(data, eventId) {
   const container = document.getElementById('mcontent-odds');
   if (!container) return;
@@ -95,73 +106,72 @@ function renderOddsTabContent(data, eventId) {
   const homeName = home?.team?.shortDisplayName || home?.team?.displayName || 'Tuan Rumah';
   const awayName = away?.team?.shortDisplayName || away?.team?.displayName || 'Tamu';
 
-  // Ambil data Odds awal dari ESPN API
-  const espnOdds = header?.odds?.[0] || {};
-  let rawHome = espnOdds.homeTeamOdds?.summary || espnOdds.homeAwayOdds?.home || 2.10;
-  let rawAway = espnOdds.awayTeamOdds?.summary || espnOdds.homeAwayOdds?.away || 3.40;
-  let rawDraw = espnOdds.drawOdds?.summary || 3.20;
+  // Ekstraksi Data Odds Asli dari ESPN API (Pickcenter / Odds Array)
+  const oddsList = header?.odds || data.pickcenter || [];
+  const primaryOdds = oddsList[0] || {};
+  const providerName = primaryOdds.provider?.name || primaryOdds.details || 'Pasaran Resmi';
 
-  // Konversi jika data bertipe American Odds (-110, +150, dsb)
-  if (typeof rawHome === 'string' && (rawHome.startsWith('+') || rawHome.startsWith('-'))) {
-    const americanH = parseInt(rawHome);
-    rawHome = americanH > 0 ? (americanH / 100) + 1 : (100 / Math.abs(americanH)) + 1;
+  // Ambil nilai Odds asli (Home, Away, Draw)
+  let rawHomeOdds = primaryOdds.homeTeamOdds?.moneyLine ?? primaryOdds.homeAwayOdds?.home ?? primaryOdds.homeTeamOdds?.summary;
+  let rawAwayOdds = primaryOdds.awayTeamOdds?.moneyLine ?? primaryOdds.homeAwayOdds?.away ?? primaryOdds.awayTeamOdds?.summary;
+  let rawDrawOdds = primaryOdds.drawOdds?.moneyLine ?? primaryOdds.drawOdds?.summary ?? primaryOdds.drawMoneyLine;
+
+  const realHome = parseToDecimalOdds(rawHomeOdds);
+  const realAway = parseToDecimalOdds(rawAwayOdds);
+  const realDraw = parseToDecimalOdds(rawDrawOdds) || '3.20';
+
+  // Jika pertandingan ini belum memiliki pasaran Odds resmi dari bookmaker
+  if (!realHome || !realAway) {
+    container.innerHTML = `
+      <div class="bg-[#180d30] border border-white/10 rounded-3xl p-8 text-center space-y-2 shadow-xl">
+        <i class="fa-solid fa-coins text-3xl text-amber-400 mb-2 block"></i>
+        <h4 class="text-xs font-bold text-white uppercase tracking-wider">Pasaran Odds Belum Tersedia</h4>
+        <p class="text-[10px] text-slate-400">Bookmaker resmi belum merilis pasaran bursa taruhan untuk pertandingan ini.</p>
+      </div>
+    `;
+    return;
   }
-  if (typeof rawAway === 'string' && (rawAway.startsWith('+') || rawAway.startsWith('-'))) {
-    const americanA = parseInt(rawAway);
-    rawAway = americanA > 0 ? (americanA / 100) + 1 : (100 / Math.abs(americanA)) + 1;
-  }
 
-  const openingOdds = {
-    home: formatDecimalOdds(rawHome),
-    draw: formatDecimalOdds(rawDraw),
-    away: formatDecimalOdds(rawAway)
-  };
-
-  // Simpan Odds pembuka jika belum ada
-  recordOddsSnapshot(eventId, '0\'', openingOdds.home, openingOdds.draw, openingOdds.away, true);
+  const openingOdds = { home: realHome, draw: realDraw, away: realAway };
+  recordOddsSnapshot(eventId, '0\'', openingOdds.home, openingOdds.draw, openingOdds.away, providerName, true);
 
   const state = header?.status?.type?.state;
   const minute = header?.status?.type?.shortDetail || '1\'';
   const homeScore = parseInt(home?.score || '0');
   const awayScore = parseInt(away?.score || '0');
 
-  // Hitung Odds Live saat ini
+  // Kalkulasi Odds Live saat laga sedang berlangsung
   let currentOdds = openingOdds;
   if (state === 'in') {
-    currentOdds = calculateDynamicLiveOdds(openingOdds.home, openingOdds.draw, openingOdds.away, homeScore, awayScore, minute);
-    recordOddsSnapshot(eventId, minute, currentOdds.home, currentOdds.draw, currentOdds.away, false);
+    currentOdds = calculateLiveOddsFluctuation(openingOdds.home, openingOdds.draw, openingOdds.away, homeScore, awayScore, minute);
+    recordOddsSnapshot(eventId, minute, currentOdds.home, currentOdds.draw, currentOdds.away, providerName, false);
   }
 
   const historyData = oddsHistoryCache[String(eventId)] || { opening: openingOdds, history: [] };
-
-  // Generate baris tabel rekam jejak
-  let historyRowsHtml = '';
   const allLogs = [historyData.opening, ...historyData.history].filter(Boolean);
 
-  if (allLogs.length > 0) {
-    historyRowsHtml = allLogs.map((log, idx) => {
-      const prevLog = allLogs[idx - 1];
+  let historyRowsHtml = allLogs.map((log, idx) => {
+    const prevLog = allLogs[idx - 1];
 
-      const getTrendBadge = (curr, prev) => {
-        if (!prev) return `<span class="text-white font-bold">${curr}</span>`;
-        const c = parseFloat(curr);
-        const p = parseFloat(prev);
-        if (c > p) return `<span class="text-emerald-400 font-bold flex items-center justify-center gap-0.5">${curr} <i class="fa-solid fa-caret-up text-[10px]"></i></span>`;
-        if (c < p) return `<span class="text-red-400 font-bold flex items-center justify-center gap-0.5">${curr} <i class="fa-solid fa-caret-down text-[10px]"></i></span>`;
-        return `<span class="text-white font-bold">${curr}</span>`;
-      };
+    const getTrendBadge = (curr, prev) => {
+      if (!prev) return `<span class="text-white font-bold">${curr}</span>`;
+      const c = parseFloat(curr);
+      const p = parseFloat(prev);
+      if (c > p) return `<span class="text-emerald-400 font-bold flex items-center justify-center gap-0.5">${curr} <i class="fa-solid fa-caret-up text-[10px]"></i></span>`;
+      if (c < p) return `<span class="text-red-400 font-bold flex items-center justify-center gap-0.5">${curr} <i class="fa-solid fa-caret-down text-[10px]"></i></span>`;
+      return `<span class="text-white font-bold">${curr}</span>`;
+    };
 
-      return `
-        <tr class="border-b border-white/5 text-[11px] hover:bg-white/5 transition">
-          <td class="py-2 px-2 text-center font-bold text-slate-400">${idx === 0 ? '<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded text-[9px]">Awal</span>' : log.minute}</td>
-          <td class="py-2 px-2 text-center">${getTrendBadge(log.home, prevLog?.home)}</td>
-          <td class="py-2 px-2 text-center">${getTrendBadge(log.draw, prevLog?.draw)}</td>
-          <td class="py-2 px-2 text-center">${getTrendBadge(log.away, prevLog?.away)}</td>
-          <td class="py-2 px-1 text-center text-[9px] text-slate-500">${log.timestamp || '-'}</td>
-        </tr>
-      `;
-    }).reverse().join('');
-  }
+    return `
+      <tr class="border-b border-white/5 text-[11px] hover:bg-white/5 transition">
+        <td class="py-2 px-2 text-center font-bold text-slate-400">${idx === 0 ? '<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded text-[9px]">Awal</span>' : log.minute}</td>
+        <td class="py-2 px-2 text-center">${getTrendBadge(log.home, prevLog?.home)}</td>
+        <td class="py-2 px-2 text-center">${getTrendBadge(log.draw, prevLog?.draw)}</td>
+        <td class="py-2 px-2 text-center">${getTrendBadge(log.away, prevLog?.away)}</td>
+        <td class="py-2 px-1 text-center text-[9px] text-slate-500">${log.timestamp || '-'}</td>
+      </tr>
+    `;
+  }).reverse().join('');
 
   container.innerHTML = `
     <div class="space-y-3.5">
@@ -169,9 +179,11 @@ function renderOddsTabContent(data, eventId) {
       <div class="bg-[#180d30] border border-white/10 rounded-3xl p-4 shadow-xl space-y-3">
         <div class="flex items-center justify-between pb-2 border-b border-white/10">
           <span class="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-            <i class="fa-solid fa-chart-line"></i> Odds Desimal (${state === 'in' ? 'Live' : 'Sebelum Laga'})
+            <i class="fa-solid fa-chart-line"></i> Odds Desimal 1x2 (${state === 'in' ? 'Live' : 'Sebelum Laga'})
           </span>
-          <span class="text-[10px] text-slate-400 font-bold bg-white/5 px-2 py-0.5 rounded-md border border-white/10">Pass 1x2</span>
+          <span class="text-[9.5px] text-amber-300 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md flex items-center gap-1">
+            <i class="fa-solid fa-building-columns text-[8px]"></i> ${providerName}
+          </span>
         </div>
 
         <div class="grid grid-cols-3 gap-2 text-center">
