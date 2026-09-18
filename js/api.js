@@ -4,7 +4,8 @@
 
 // Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD" menjadi array tanggal harian
 function expandDateRange(rangeStr) {
-  if (!rangeStr || !rangeStr.includes('-')) return [rangeStr];
+  if (!rangeStr) return [getFormattedDate(new Date())];
+  if (!rangeStr.includes('-')) return [rangeStr];
   const [startStr, endStr] = rangeStr.split('-');
   if (startStr.length !== 8 || endStr.length !== 8) return [startStr];
   
@@ -41,11 +42,23 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
 
     return (data.events || [])
       .filter(evt => {
-        const leagueSlug = (evt.league?.slug || evt.season?.slug || evt.uid || '').toLowerCase();
-        const leagueName = (evt.league?.name || evt.season?.name || evt.leagueName || '').toLowerCase();
+        if (!evt) return false;
+        const comp = evt.competitions?.[0];
         
-        // Filter out NCAA matches
-        return !leagueSlug.includes('ncaa') && !leagueName.includes('ncaa');
+        // Gabungkan semua kemungkinan sumber teks liga untuk deteksi aman
+        const leagueText = [
+          evt.league?.slug,
+          evt.league?.name,
+          comp?.league?.slug,
+          comp?.league?.name,
+          evt.season?.slug,
+          evt.season?.name,
+          evt.leagueName,
+          evt.uid
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        // Buang semua pertandingan NCAA (Men & Women)
+        return !leagueText.includes('ncaa');
       })
       .map(evt => {
         const comp = evt.competitions?.[0];
@@ -62,7 +75,7 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
         // 3. Ekstrak Nama Liga Mentah
         let rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
 
-        // PENAMBAHAN: Format slug menjadi nama liga jika API tidak menyediakan nama resmi
+        // Format slug menjadi nama liga jika API tidak menyediakan nama resmi
         if (!rawName && extractedSlug) {
           rawName = extractedSlug
             .split(/[.-]/)
@@ -73,7 +86,6 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
         // 4. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
         const foundLeague = typeof LEAGUES !== 'undefined' 
           ? LEAGUES.find(l => 
-              // Cek ID persis ATAU deteksi jika ESPN menempelkan sub-fase (misal: afc.champions.group)
               (extractedSlug && (l.id === extractedSlug || extractedSlug.startsWith(l.id + '.'))) || 
               (slug !== 'all' && l.id === slug) ||
               (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
@@ -81,7 +93,7 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
             ) 
           : null;
 
-        // 5. Terapkan nama spesifik, fallback terakhir diubah agar bukan teks statis yang mengganggu
+        // 5. Terapkan nama spesifik
         const finalLeagueName = foundLeague?.name || rawName || 'Pertandingan';
         const finalLeagueId = foundLeague?.id || extractedSlug || slug;
         const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
@@ -140,53 +152,61 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
 
 // 1. ESPN League Logo Loader
 async function loadMultiTierLeagueLogo(img, leagueId, leagueName, primaryUrl) {
-  if (!leagueName || dataSaverMode || img.dataset.logoProcessed === 'true') return;
+  if (!leagueName || (typeof dataSaverMode !== 'undefined' && dataSaverMode) || img.dataset.logoProcessed === 'true') return;
   img.dataset.logoProcessed = 'true';
 
   const cacheKey = `league_logo_${leagueId}`;
 
-  if (leagueLogoCache[cacheKey]) {
+  if (typeof leagueLogoCache !== 'undefined' && leagueLogoCache[cacheKey]) {
     img.src = leagueLogoCache[cacheKey];
     return;
   }
 
-  const dbCached = await getPhotoFromCache(cacheKey);
-  if (dbCached) {
-    leagueLogoCache[cacheKey] = dbCached;
-    img.src = dbCached;
-    return;
+  if (typeof getPhotoFromCache === 'function') {
+    const dbCached = await getPhotoFromCache(cacheKey);
+    if (dbCached) {
+      if (typeof leagueLogoCache !== 'undefined') leagueLogoCache[cacheKey] = dbCached;
+      img.src = dbCached;
+      return;
+    }
   }
 
   if (primaryUrl) {
-    leagueLogoCache[cacheKey] = primaryUrl;
-    await savePhotoToCache(cacheKey, primaryUrl);
+    if (typeof leagueLogoCache !== 'undefined') leagueLogoCache[cacheKey] = primaryUrl;
+    if (typeof savePhotoToCache === 'function') await savePhotoToCache(cacheKey, primaryUrl);
     img.src = primaryUrl;
     img.onerror = () => {
-      img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
+      if (typeof generateUnlicensedLeagueBadge === 'function') {
+        img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
+      }
     };
     return;
   }
 
-  img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
+  if (typeof generateUnlicensedLeagueBadge === 'function') {
+    img.src = generateUnlicensedLeagueBadge(leagueId, leagueName);
+  }
 }
 
 // 2. ESPN Player Photo Loader
 async function loadMultiTierPlayerPhoto(img, pId, pName) {
-  if (!pName || dataSaverMode || img.dataset.photoProcessed === 'true') return;
+  if (!pName || (typeof dataSaverMode !== 'undefined' && dataSaverMode) || img.dataset.photoProcessed === 'true') return;
   img.dataset.photoProcessed = 'true';
 
   const cleanedName = typeof cleanPlayerName === 'function' ? cleanPlayerName(pName) : pName.trim();
 
-  if (playerPhotoCache[cleanedName]) {
+  if (typeof playerPhotoCache !== 'undefined' && playerPhotoCache[cleanedName]) {
     img.src = playerPhotoCache[cleanedName];
     return;
   }
 
-  const dbCached = await getPhotoFromCache(cleanedName);
-  if (dbCached) {
-    playerPhotoCache[cleanedName] = dbCached;
-    img.src = dbCached;
-    return;
+  if (typeof getPhotoFromCache === 'function') {
+    const dbCached = await getPhotoFromCache(cleanedName);
+    if (dbCached) {
+      if (typeof playerPhotoCache !== 'undefined') playerPhotoCache[cleanedName] = dbCached;
+      img.src = dbCached;
+      return;
+    }
   }
 
   const espnUrl = pId 
@@ -198,8 +218,8 @@ async function loadMultiTierPlayerPhoto(img, pId, pName) {
     testImg.src = espnUrl;
     testImg.onload = async () => {
       img.src = espnUrl;
-      playerPhotoCache[cleanedName] = espnUrl;
-      await savePhotoToCache(cleanedName, espnUrl);
+      if (typeof playerPhotoCache !== 'undefined') playerPhotoCache[cleanedName] = espnUrl;
+      if (typeof savePhotoToCache === 'function') await savePhotoToCache(cleanedName, espnUrl);
     };
     testImg.onerror = () => {
       showPlayerCircleFallback(img, cleanedName);
@@ -239,19 +259,29 @@ async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
   try {
-    const targetDate = selectedDateFilter || getFormattedDate(new Date());
+    const targetDate = (typeof selectedDateFilter !== 'undefined' && selectedDateFilter) 
+      ? selectedDateFilter 
+      : getFormattedDate(new Date());
 
-    const targets = selectedLeague === 'all' 
+    const targets = (typeof selectedLeague === 'undefined' || selectedLeague === 'all')
       ? LEAGUES 
       : LEAGUES.filter(l => l.id === selectedLeague);
 
     let allEvents = await fetchBatchLeagues(targets, () => targetDate);
 
-    allEvents = sortEventsByFavoriteAndDate(allEvents);
+    if (typeof sortEventsByFavoriteAndDate === 'function') {
+      allEvents = sortEventsByFavoriteAndDate(allEvents);
+    }
+    
     cachedEvents = allEvents;
 
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
-    renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
+    if (typeof monitorLiveFavoriteEvents === 'function') {
+      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    }
+    
+    if (typeof renderMatchesCards === 'function') {
+      renderMatchesCards('matches-container', allEvents, typeof selectedLeague === 'undefined' || selectedLeague === 'all');
+    }
   } catch (err) {
     console.error("Gagal mengambil data pertandingan ESPN:", err);
   } finally {
@@ -277,25 +307,33 @@ async function fetchLiveMatchesStructured() {
     let allEvents = Array.from(eventMap.values());
     
     cachedEvents = allEvents;
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    
+    if (typeof monitorLiveFavoriteEvents === 'function') {
+      allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    }
 
     const now = new Date();
     const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
     const next12h = new Date(now.getTime() + (12 * 60 * 60 * 1000));
 
-    const finishedEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+    const sortFn = typeof sortEventsByFavoriteAndDate === 'function' ? sortEventsByFavoriteAndDate : arr => arr;
+
+    const finishedEvents = sortFn(allEvents.filter(e => {
       const d = new Date(e.date);
       return e.status?.type?.state === 'post' && d >= past24h;
     }));
 
-    const liveEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => e.status?.type?.state === 'in'));
+    const liveEvents = sortFn(allEvents.filter(e => e.status?.type?.state === 'in'));
 
-    const upcomingEvents = sortEventsByFavoriteAndDate(allEvents.filter(e => {
+    const upcomingEvents = sortFn(allEvents.filter(e => {
       const d = new Date(e.date);
       return e.status?.type?.state === 'pre' && d > now && d <= next12h;
     }));
 
     container.innerHTML = '';
+
+    const isFinishedShow = typeof showFinishedInLive !== 'undefined' ? showFinishedInLive : false;
+    const isUpcomingShow = typeof showUpcomingInLive !== 'undefined' ? showUpcomingInLive : true;
 
     const finishedSec = document.createElement('div');
     finishedSec.className = 'space-y-2.5';
@@ -304,12 +342,12 @@ async function fetchLiveMatchesStructured() {
         <span class="flex items-center gap-2">
           <i class="fa-solid fa-circle-check text-emerald-400"></i> Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
         </span>
-        <i id="finished-toggle-icon" class="fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]"></i>
+        <i id="finished-toggle-icon" class="fa-solid fa-chevron-${isFinishedShow ? 'up' : 'down'} text-[10px]"></i>
       </button>
-      <div id="live-finished-grid" class="space-y-2.5 ${showFinishedInLive ? '' : 'hidden'}"></div>
+      <div id="live-finished-grid" class="space-y-2.5 ${isFinishedShow ? '' : 'hidden'}"></div>
     `;
     container.appendChild(finishedSec);
-    renderMatchesCards('live-finished-grid', finishedEvents, true);
+    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-finished-grid', finishedEvents, true);
 
     const liveSec = document.createElement('div');
     liveSec.className = 'space-y-2.5';
@@ -327,7 +365,7 @@ async function fetchLiveMatchesStructured() {
       <div id="live-active-grid" class="space-y-2.5"></div>
     `;
     container.appendChild(liveSec);
-    renderMatchesCards('live-active-grid', liveEvents, true);
+    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-active-grid', liveEvents, true);
 
     const upcomingSec = document.createElement('div');
     upcomingSec.className = 'space-y-2.5';
@@ -336,12 +374,12 @@ async function fetchLiveMatchesStructured() {
         <span class="flex items-center gap-2">
           <i class="fa-regular fa-calendar-days text-blue-400"></i> Pertandingan Mendatang (12 Jam Ke Depan) (${upcomingEvents.length})
         </span>
-        <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]"></i>
+        <i id="upcoming-toggle-icon" class="fa-solid fa-chevron-${isUpcomingShow ? 'up' : 'down'} text-[10px]"></i>
       </button>
-      <div id="live-upcoming-grid" class="space-y-2.5 ${showUpcomingInLive ? '' : 'hidden'}"></div>
+      <div id="live-upcoming-grid" class="space-y-2.5 ${isUpcomingShow ? '' : 'hidden'}"></div>
     `;
     container.appendChild(upcomingSec);
-    renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
+    if (typeof renderMatchesCards === 'function') renderMatchesCards('live-upcoming-grid', upcomingEvents, true);
   } catch (err) {
     console.error("Gagal memuat laga live:", err);
   } finally {
@@ -354,7 +392,10 @@ async function fetchFavoritedMatchesStructured() {
   const container = document.getElementById('fav-container');
   if (!container) return;
 
-  if (favoriteMatches.length === 0 && favoriteTeams.length === 0) {
+  const favM = typeof favoriteMatches !== 'undefined' ? favoriteMatches : [];
+  const favT = typeof favoriteTeams !== 'undefined' ? favoriteTeams : [];
+
+  if (favM.length === 0 && favT.length === 0) {
     container.innerHTML = `
       <div class="text-center py-12 px-4 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl">
         <i class="fa-solid fa-star text-3xl text-amber-500/40 mb-3 block"></i>
@@ -382,15 +423,22 @@ async function fetchFavoritedMatchesStructured() {
       const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
       const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
 
-      return isFavorite(evt.id) || isTeamFavorite(homeId) || isTeamFavorite(awayId);
+      const checkFav = typeof isFavorite === 'function' ? isFavorite(evt.id) : false;
+      const checkTeamFav = typeof isTeamFavorite === 'function' ? (isTeamFavorite(homeId) || isTeamFavorite(awayId)) : false;
+
+      return checkFav || checkTeamFav;
     });
 
     cachedEvents = favEvents;
-    favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    if (typeof monitorLiveFavoriteEvents === 'function') {
+      favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+    }
 
-    const finishedEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'post'));
-    const liveEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'in'));
-    const upcomingEvents = sortEventsByFavoriteAndDate(favEvents.filter(e => e.status?.type?.state === 'pre'));
+    const sortFn = typeof sortEventsByFavoriteAndDate === 'function' ? sortEventsByFavoriteAndDate : arr => arr;
+
+    const finishedEvents = sortFn(favEvents.filter(e => e.status?.type?.state === 'post'));
+    const liveEvents = sortFn(favEvents.filter(e => e.status?.type?.state === 'in'));
+    const upcomingEvents = sortFn(favEvents.filter(e => e.status?.type?.state === 'pre'));
 
     container.innerHTML = '';
 
@@ -420,11 +468,11 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-active-grid" class="space-y-2.5"></div>
       `;
       container.appendChild(liveSec);
-      renderMatchesCards('fav-active-grid', liveEvents, true);
+      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-active-grid', liveEvents, true);
     }
 
     if (finishedEvents.length > 0) {
-      showFinishedInFav = false;
+      if (typeof showFinishedInFav !== 'undefined') showFinishedInFav = false;
       const finishedSec = document.createElement('div');
       finishedSec.className = 'space-y-2.5 mb-4';
       finishedSec.innerHTML = `
@@ -437,11 +485,11 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-finished-grid" class="space-y-2.5 hidden"></div>
       `;
       container.appendChild(finishedSec);
-      renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
+      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-finished-grid', finishedEvents, true, 'finished-fav');
     }
 
     if (upcomingEvents.length > 0) {
-      showUpcomingInFav = true;
+      if (typeof showUpcomingInFav !== 'undefined') showUpcomingInFav = true;
       const upcomingSec = document.createElement('div');
       upcomingSec.className = 'space-y-2.5 pt-2 border-t border-white/10';
       upcomingSec.innerHTML = `
@@ -454,7 +502,7 @@ async function fetchFavoritedMatchesStructured() {
         <div id="fav-upcoming-grid" class="space-y-2.5"></div>
       `;
       container.appendChild(upcomingSec);
-      renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
+      if (typeof renderMatchesCards === 'function') renderMatchesCards('fav-upcoming-grid', upcomingEvents, true);
     }
   } catch (err) {
     console.error("Gagal memuat favorit:", err);
@@ -530,7 +578,7 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
             ${h2hEvents.map(m => {
               const hTeam = m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home');
               const aTeam = m.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away');
-              const matchDate = formatLocalDate(m.date);
+              const matchDate = typeof formatLocalDate === 'function' ? formatLocalDate(m.date) : m.date;
 
               return `
                 <div class="bg-[#180d30] p-2.5 rounded-xl border border-white/10 flex items-center justify-between text-xs">
@@ -554,13 +602,15 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
       `;
     }
 
+    const renderForm = typeof renderFormBlock === 'function' ? renderFormBlock : () => '';
+
     container.innerHTML = `
       <div class="space-y-3">
         <div class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
           <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> 5 Pertandingan Terakhir
         </div>
-        ${renderFormBlock(homeName, homeRecent, homeTeamId)}
-        ${renderFormBlock(awayName, awayRecent, awayTeamId)}
+        ${renderForm(homeName, homeRecent, homeTeamId)}
+        ${renderForm(awayName, awayRecent, awayTeamId)}
         ${h2hHtml}
       </div>
     `;
