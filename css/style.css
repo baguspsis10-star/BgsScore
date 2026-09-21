@@ -219,3 +219,66 @@ nav.fixed {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
+
+/* ============================================================
+   KNOCKOUT BRACKET (BAGAN BABAK GUGUR) & TOAST NOTIFICATION
+   ============================================================ */
+.bracket-wrapper {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  padding: 1rem 0.75rem;
+  scroll-behavior: smooth;
+}
+
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  min-width: 210px;
+  max-width: 230px;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.bracket-round-title {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.75rem;
+}
+
+.bracket-match {
+  background: #180d30;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bracket-match:hover {
+  background: #231344;
+  border-color: rgba(52, 211, 153, 0.5);
+  transform: translateY(-2px);
+}
+
+.bracket-team {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.bracket-team.winner {
+  background: rgba(16, 185, 129, 0.15);
+  font-weight: 800;
+}
