@@ -4,13 +4,13 @@
 
 const REPLIT_LIGA1_URL = 'https://node-express-app--bgsdesign22.replit.app/api/Liga1';
 
-// Helper Fetch Data Liga 1 Indonesia dari Replit (Dengan Timeout 2.5 Detik & Safe Fallback)
+// Fetch Data Liga 1 dari Replit dengan Timeout 3 Detik
 async function fetchLigaIndonesiaData() {
   if (!useReplitLiga1) return [];
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
     const res = await fetch(REPLIT_LIGA1_URL, { signal: controller.signal }).catch(() => null);
     clearTimeout(timeoutId);
@@ -118,12 +118,18 @@ function expandDateRange(rangeStr) {
   return dates.length > 0 ? dates : [startStr];
 }
 
+// Fetch ESPN dengan Timeout Guard 3.5 Detik
 async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
   const slug = (!leagueId || leagueId === 'all') ? 'all' : leagueId;
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${dateStr}`);
-    if (!res.ok) return [];
-    const data = await res.json();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${dateStr}`, { signal: controller.signal }).catch(() => null);
+    clearTimeout(timeoutId);
+
+    if (!res || !res.ok) return [];
+    const data = await res.json().catch(() => ({}));
     
     const rootLeague = data.leagues?.[0];
 
@@ -295,7 +301,7 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
-// 4. Fetch All Matches (SAKELAR OFF = 100% ESPN, SAKELAR ON = GANTI LIGA 1 ESPN DENGAN REPLIT)
+// 4. Fetch All Matches (PENGGANTIAN LIGA 1 ESPN DENGAN LIGA 1 REPLIT SAAT ON)
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
@@ -304,7 +310,7 @@ async function fetchAllMatches() {
     let allEvents = [];
 
     if (useReplitLiga1) {
-      // ON: Ambil Replit API & buang Liga 1 bawaan ESPN agar digantikan sepenuhnya
+      // SAKELAR ON: Ambil ESPN + Replit, buang Liga 1 ESPN dan ganti dengan Replit
       const [espnEvents, replitEvents] = await Promise.all([
         fetchBatchLeagues(LEAGUES, () => targetDate).catch(() => []),
         fetchLigaIndonesiaData().catch(() => [])
@@ -313,9 +319,11 @@ async function fetchAllMatches() {
       const filteredEspn = espnEvents.filter(e => e.leagueId !== 'idn.1' && e.leagueId !== 'indonesia.1');
       allEvents = [...replitEvents, ...filteredEspn];
     } else {
-      // OFF (DEFAULT): 100% murni data ESPN
+      // SAKELAR OFF (DEFAULT): 100% murni data ESPN
       if (selectedLeague === 'all') {
         allEvents = await fetchBatchLeagues(LEAGUES, () => targetDate).catch(() => []);
+      } else if (selectedLeague === 'idn.1' || selectedLeague === 'indonesia.1') {
+        allEvents = await fetchMatchesByLeagueOrAll('idn.1', targetDate).catch(() => []);
       } else {
         const targets = LEAGUES.filter(l => l.id === selectedLeague);
         allEvents = await fetchBatchLeagues(targets, () => targetDate).catch(() => []);
@@ -334,7 +342,7 @@ async function fetchAllMatches() {
   }
 }
 
-// 5. Fetch Live Matches (SAKELAR OFF = 100% ESPN, SAKELAR ON = GANTI LIGA 1 ESPN DENGAN REPLIT)
+// 5. Fetch Live Matches Structured
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -547,7 +555,7 @@ async function fetchFavoritedMatchesStructured() {
   } catch (err) {
     console.error("Gagal memuat favorit:", err);
   } finally {
-    container.classList.remove('hidden');
+    if (container) container.classList.remove('hidden');
   }
 }
 

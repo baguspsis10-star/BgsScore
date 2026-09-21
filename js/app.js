@@ -18,16 +18,20 @@ async function loadData(isSilent = false) {
   updateDataSaverUI();
   updateReplitLiga1UI();
 
-  // WRAP SEMUA ASYNC FETCH DALAM TRY-CATCH-FINALLY AGAR SPINNER LOKAL TIDAK NYANGKUT
+  // WRAP SEMUA ASYNC FETCH DALAM TRY-CATCH-FINALLY SUPAYA SPINNER LOKAL TIDAK PERNAH NYANGKUT
   try {
     if (activeNav === 'all') {
       await fetchAllMatches();
+      document.getElementById('matches-container')?.classList.remove('hidden');
     } else if (activeNav === 'live') {
       await fetchLiveMatchesStructured();
+      document.getElementById('live-container')?.classList.remove('hidden');
     } else if (activeNav === 'fav') {
       await fetchFavoritedMatchesStructured();
+      document.getElementById('fav-container')?.classList.remove('hidden');
     } else if (activeNav === 'league') {
       await fetchStandingsForSelectedLeague();
+      document.getElementById('standings-container')?.classList.remove('hidden');
     } else if (activeNav === 'news') {
       const newsCont = document.getElementById('news-container');
       if (newsCont) newsCont.classList.remove('hidden');

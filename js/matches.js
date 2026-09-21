@@ -1,11 +1,9 @@
-// MATCHES & MATCH CARDS MODULE - REFRESHED LIGHT MODERN CARDS
+// MATCHES & MATCH CARDS MODULE - NULL-SAFE RENDERING ENGINE
 
-// Check if Match is Favorited
 function isFavorite(eventId) {
   return favoriteMatches.some(id => String(id) === String(eventId));
 }
 
-// Toggle Favorite State for a Match
 function toggleFavorite(eventId, e) {
   if (e) e.stopPropagation();
   const idStr = String(eventId);
@@ -18,7 +16,6 @@ function toggleFavorite(eventId, e) {
   loadData(true);
 }
 
-// Sort Events Prioritizing Favorite Teams, Favorite Matches, and Date
 function sortEventsByFavoriteAndDate(events) {
   return events.sort((a, b) => {
     const compA = a.competitions?.[0];
@@ -37,8 +34,8 @@ function sortEventsByFavoriteAndDate(events) {
   });
 }
 
-// Monitor Live Favorite Events to Trigger Sounds and Push Notifications
 function monitorLiveFavoriteEvents(event) {
+  if (!event) return;
   const eventId = String(event.id);
   const comp = event.competitions?.[0];
   if (!comp) return;
@@ -56,7 +53,7 @@ function monitorLiveFavoriteEvents(event) {
   const awayScore = parseInt(away?.score || '0');
   const totalScore = homeScore + awayScore;
 
-  const state = event.status?.type?.state; 
+  const state = event.status?.type?.state || 'pre'; 
   const period = event.status?.period || 0;
   const detailStr = (event.status?.type?.shortDetail || event.status?.type?.description || '').toLowerCase();
 
@@ -146,15 +143,15 @@ function monitorLiveFavoriteEvents(event) {
   };
 }
 
-// Render Match Cards dengan Logo Asli Liga (Ukuran Diperbesar)
+// Render Kartu Skor dengan Null-Safety Lebih Ketat
 function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, customVariant = null) {
   const container = document.getElementById(targetContainerId);
   if (!container) return;
   container.innerHTML = '';
 
-  if (events.length === 0) {
+  if (!events || events.length === 0) {
     container.innerHTML = `
-      <div class="text-center py-8 text-slate-400 border border-slate-200 rounded-2xl bg-[#180d30] text-xs shadow-sm">
+      <div class="text-center py-8 text-slate-400 border border-white/10 rounded-2xl bg-[#180d30] text-xs shadow-sm">
         Tidak ada pertandingan.
       </div>
     `;
@@ -164,11 +161,12 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
   const sortedEvents = sortEventsByFavoriteAndDate([...events]);
 
   sortedEvents.forEach(event => {
+    if (!event || !event.competitions || !event.competitions[0]) return;
+
     const comp = event.competitions[0];
-    const home = comp.competitors.find(c => c.homeAway === 'home');
-    const away = comp.competitors.find(c => c.homeAway === 'away');
+    const home = comp.competitors?.find(c => c.homeAway === 'home');
+    const away = comp.competitors?.find(c => c.homeAway === 'away');
     
-    // Fallback Image Handler
     const homeLogo = getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO;
     const awayLogo = getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO;
 
@@ -176,10 +174,10 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
     const awayFav = isTeamFavorite(away?.team?.id);
     const hasFavTeam = homeFav || awayFav;
 
-    const state = event.status.type.state; 
+    const state = event.status?.type?.state || 'pre'; 
     const isPre = state === 'pre';
     const isLive = state === 'in';
-    const liveMinuteText = event.status?.type?.shortDetail || 'LIVE';
+    const liveMinuteText = event.status?.type?.shortDetail || event.status?.type?.description || 'LIVE';
     
     const formattedTime = formatLocalDate(event.date);
     const favorited = isFavorite(event.id);
@@ -187,10 +185,9 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
     const eventIdStr = String(event.id);
     const hasRecentGoal = recentGoalCache[eventIdStr] && ((Date.now() - recentGoalCache[eventIdStr]) < 30000);
 
-    // KONTROL SKOR / VS LIGHT BADGE
     let scoreDisplay = isPre 
-      ? `<span class="text-[11px] font-black tracking-widest text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">VS</span>`
-      : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
+      ? `<span class="text-[11px] font-black tracking-widest text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">VS</span>`
+      : `<span class="text-xs sm:text-sm font-black tracking-tight ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-white/10'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
 
     let cardStyleClass = 'card-upcoming';
 
@@ -206,7 +203,6 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
       cardStyleClass = 'card-finished';
     }
 
-    // RESOLUSI LOGO LIGA ASLI + FALLBACK SVG LOGO LIGA
     const foundLeague = typeof LEAGUES !== 'undefined' ? LEAGUES.find(l => l.id === event.leagueId) : null;
     const rawLeagueLogo = event.leagueLogo || foundLeague?.logo || '';
     const fallbackLeagueBadge = generateUnlicensedLeagueBadge(event.leagueId || 'generic', event.leagueName || '', '');
@@ -221,13 +217,12 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
     };
 
     card.innerHTML = `
-      <!-- TOP BADGE BAR WITH ENLARGED LEAGUE LOGO -->
       <div class="flex items-center justify-between text-[11px] text-slate-300 mb-2.5 gap-2">
         <div class="flex items-center gap-1.5 flex-1 min-w-0">
-          ${hasFavTeam ? '<span class="text-[8.5px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-black tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid fa-star text-[7px] text-amber-500"></i>FAVORIT</span>' : ''}
+          ${hasFavTeam ? '<span class="text-[8.5px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-black tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid fa-star text-[7px] text-amber-400"></i>FAVORIT</span>' : ''}
           ${showLeagueBadge ? `
-            <span class="text-[10px] bg-slate-100 border border-slate-200 text-slate-800 px-2 py-0.5 rounded-md truncate max-w-[185px] font-bold flex items-center gap-1.5">
-              <img src="${finalLeagueLogoSrc}" loading="lazy" class="w-5 h-5 object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${fallbackLeagueBadge}';">
+            <span class="text-[10px] bg-white/5 border border-white/10 text-white px-2 py-0.5 rounded-md truncate max-w-[185px] font-bold flex items-center gap-1.5">
+              <img src="${finalLeagueLogoSrc}" loading="lazy" class="w-4 h-4 object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${fallbackLeagueBadge}';">
               <span class="truncate">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>
             </span>` : ''}
         </div>
@@ -236,26 +231,23 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
             <i class="fa-solid fa-share-nodes"></i>
           </button>
           <button onclick="toggleFavorite('${event.id}', event)" class="p-1 hover:scale-125 transition text-xs" title="Favorit">
-            <i class="${favorited ? 'fa-solid fa-star text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)]' : 'fa-regular fa-star text-slate-400 hover:text-amber-500'}"></i>
+            <i class="${favorited ? 'fa-solid fa-star text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)]' : 'fa-regular fa-star text-slate-400 hover:text-amber-400'}"></i>
           </button>
-          <span class="text-[9.5px] bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-lg text-slate-800 font-bold flex items-center gap-1 transition">Detail <i class="fa-solid fa-chevron-right text-[7px] text-slate-400"></i></span>
+          <span class="text-[9.5px] bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded-lg text-slate-200 font-bold flex items-center gap-1 transition">Detail <i class="fa-solid fa-chevron-right text-[7px] text-slate-400"></i></span>
         </div>
       </div>
 
-      <!-- MAIN TEAMS & SCORE BLOCK -->
       <div class="flex items-center justify-between gap-1.5 pt-0.5">
-        <!-- HOME TEAM -->
         <div class="flex items-center gap-2.5 w-[36%] min-w-0">
-          <div class="w-9 h-9 sm:w-10 sm:h-10 p-1 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 p-1 bg-slate-900 border border-white/10 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
             <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
           </div>
           <span class="font-extrabold text-xs truncate leading-tight text-white flex items-center gap-1">
-            <span class="truncate">${home?.team?.shortDisplayName || home?.team?.displayName || ''}</span>
-            ${homeFav ? '<i class="fa-solid fa-star text-amber-500 text-[8px] shrink-0"></i>' : ''}
+            <span class="truncate">${home?.team?.shortDisplayName || home?.team?.displayName || 'Home'}</span>
+            ${homeFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
           </span>
         </div>
 
-        <!-- SCORE / VS & STATUS -->
         <div class="w-[28%] shrink-0 flex flex-col items-center justify-center text-center">
           ${scoreDisplay}
           <span class="mt-2 text-[9.5px] font-semibold text-slate-300 flex items-center justify-center gap-1 whitespace-nowrap">
@@ -264,13 +256,12 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
           </span>
         </div>
 
-        <!-- AWAY TEAM -->
         <div class="flex items-center justify-end gap-2.5 w-[36%] min-w-0 text-right">
           <span class="font-extrabold text-xs truncate leading-tight text-white flex items-center justify-end gap-1">
-            ${awayFav ? '<i class="fa-solid fa-star text-amber-500 text-[8px] shrink-0"></i>' : ''}
-            <span class="truncate">${away?.team?.shortDisplayName || away?.team?.displayName || ''}</span>
+            ${awayFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
+            <span class="truncate">${away?.team?.shortDisplayName || away?.team?.displayName || 'Away'}</span>
           </span>
-          <div class="w-9 h-9 sm:w-10 sm:h-10 p-1 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 p-1 bg-slate-900 border border-white/10 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
             <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
           </div>
         </div>
@@ -280,7 +271,6 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
   });
 }
 
-// Fitur Bagikan Kartu Skor (Web Share API + Fallback Salin Clipboard)
 async function shareMatchCard(eventId, homeName, awayName, scoreOrTime, leagueName, e) {
   if (e) e.stopPropagation();
   
