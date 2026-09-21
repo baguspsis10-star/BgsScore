@@ -94,18 +94,24 @@ function calculateLiveOddsFluctuation(baseHome, baseDraw, baseAway, homeScore, a
   };
 }
 
-// Function khusus background processing agar Odds terekam otomatis tanpa perlu buka UI Modal
-function trackAndRecordMatchOdds(data, eventId) {
-  if (!data || !eventId) return null;
+// Render Utama Tab Odds pada Modal Pertandingan
+function renderOddsTabContent(data, eventId) {
+  const container = document.getElementById('mcontent-odds');
+  if (!container) return;
 
   const header = data.header?.competitions?.[0];
   const home = header?.competitors?.find(c => c.homeAway === 'home');
   const away = header?.competitors?.find(c => c.homeAway === 'away');
 
+  const homeName = home?.team?.shortDisplayName || home?.team?.displayName || 'Tuan Rumah';
+  const awayName = away?.team?.shortDisplayName || away?.team?.displayName || 'Tamu';
+
+  // Ekstraksi Data Odds Asli dari ESPN API (Pickcenter / Odds Array)
   const oddsList = header?.odds || data.pickcenter || [];
   const primaryOdds = oddsList[0] || {};
   const providerName = primaryOdds.provider?.name || primaryOdds.details || 'Pasaran Resmi';
 
+  // Ambil nilai Odds asli (Home, Away, Draw)
   let rawHomeOdds = primaryOdds.homeTeamOdds?.moneyLine ?? primaryOdds.homeAwayOdds?.home ?? primaryOdds.homeTeamOdds?.summary;
   let rawAwayOdds = primaryOdds.awayTeamOdds?.moneyLine ?? primaryOdds.homeAwayOdds?.away ?? primaryOdds.awayTeamOdds?.summary;
   let rawDrawOdds = primaryOdds.drawOdds?.moneyLine ?? primaryOdds.drawOdds?.summary ?? primaryOdds.drawMoneyLine;
@@ -114,34 +120,8 @@ function trackAndRecordMatchOdds(data, eventId) {
   const realAway = parseToDecimalOdds(rawAwayOdds);
   const realDraw = parseToDecimalOdds(rawDrawOdds) || '3.20';
 
-  if (!realHome || !realAway) return null;
-
-  const openingOdds = { home: realHome, draw: realDraw, away: realAway };
-  recordOddsSnapshot(eventId, '0\'', openingOdds.home, openingOdds.draw, openingOdds.away, providerName, true);
-
-  const state = header?.status?.type?.state;
-  const minute = header?.status?.type?.shortDetail || '1\'';
-  const homeScore = parseInt(home?.score || '0');
-  const awayScore = parseInt(away?.score || '0');
-
-  let currentOdds = openingOdds;
-  if (state === 'in') {
-    currentOdds = calculateLiveOddsFluctuation(openingOdds.home, openingOdds.draw, openingOdds.away, homeScore, awayScore, minute);
-    recordOddsSnapshot(eventId, minute, currentOdds.home, currentOdds.draw, currentOdds.away, providerName, false);
-  }
-
-  return { currentOdds, providerName };
-}
-
-// Render Utama Tab Odds pada Modal Pertandingan
-function renderOddsTabContent(data, eventId) {
-  const container = document.getElementById('mcontent-odds');
-  if (!container) return;
-
-  // Perekaman otomatis di background sekaligus pengambilan data hasil kalkulasi
-  const processed = trackAndRecordMatchOdds(data, eventId);
-
-  if (!processed) {
+  // Jika pertandingan ini belum memiliki pasaran Odds resmi dari bookmaker
+  if (!realHome || !realAway) {
     container.innerHTML = `
       <div class="bg-[#180d30] border border-white/10 rounded-3xl p-8 text-center space-y-2 shadow-xl">
         <i class="fa-solid fa-coins text-3xl text-amber-400 mb-2 block"></i>
@@ -152,17 +132,22 @@ function renderOddsTabContent(data, eventId) {
     return;
   }
 
-  const header = data.header?.competitions?.[0];
-  const home = header?.competitors?.find(c => c.homeAway === 'home');
-  const away = header?.competitors?.find(c => c.homeAway === 'away');
+  const openingOdds = { home: realHome, draw: realDraw, away: realAway };
+  recordOddsSnapshot(eventId, '0\'', openingOdds.home, openingOdds.draw, openingOdds.away, providerName, true);
 
-  const homeName = home?.team?.shortDisplayName || home?.team?.displayName || 'Tuan Rumah';
-  const awayName = away?.team?.shortDisplayName || away?.team?.displayName || 'Tamu';
   const state = header?.status?.type?.state;
-  const currentOdds = processed.currentOdds;
-  const providerName = processed.providerName;
+  const minute = header?.status?.type?.shortDetail || '1\'';
+  const homeScore = parseInt(home?.score || '0');
+  const awayScore = parseInt(away?.score || '0');
 
-  const historyData = oddsHistoryCache[String(eventId)] || { opening: currentOdds, history: [] };
+  // Kalkulasi Odds Live saat laga sedang berlangsung
+  let currentOdds = openingOdds;
+  if (state === 'in') {
+    currentOdds = calculateLiveOddsFluctuation(openingOdds.home, openingOdds.draw, openingOdds.away, homeScore, awayScore, minute);
+    recordOddsSnapshot(eventId, minute, currentOdds.home, currentOdds.draw, currentOdds.away, providerName, false);
+  }
+
+  const historyData = oddsHistoryCache[String(eventId)] || { opening: openingOdds, history: [] };
   const allLogs = [historyData.opening, ...historyData.history].filter(Boolean);
 
   let historyRowsHtml = allLogs.map((log, idx) => {

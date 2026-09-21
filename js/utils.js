@@ -1,5 +1,6 @@
 // UTILITY & HELPER FUNCTIONS MODULE
 
+// Unlicensed League Badge SVG Generator
 function generateUnlicensedLeagueBadge(leagueId, leagueName = '', country = '') {
   const leagueThemes = {
     'eng.1': { p: '#38003c', s: '#00ff87', text: 'EPL' },
@@ -57,11 +58,13 @@ function generateUnlicensedLeagueBadge(leagueId, leagueName = '', country = '') 
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+// Format Name for Pitch Cards Line Break
 function formatMultiLineName(fullName) {
   if (!fullName) return 'Pemain';
   return fullName.trim().split(' ').filter(Boolean).join('<br>');
 }
 
+// Toggle Data Saver Mode
 function toggleDataSaver() {
   dataSaverMode = !dataSaverMode;
   localStorage.setItem('bgs_data_saver', JSON.stringify(dataSaverMode));
@@ -69,6 +72,7 @@ function toggleDataSaver() {
   loadData(true);
 }
 
+// Update Data Saver Button UI
 function updateDataSaverUI() {
   const btn = document.getElementById('data-saver-btn');
   const label = document.getElementById('data-saver-label');
@@ -83,28 +87,7 @@ function updateDataSaverUI() {
   }
 }
 
-// SAKELAR REPLIT LIGA 1
-function toggleReplitLiga1() {
-  useReplitLiga1 = !useReplitLiga1;
-  localStorage.setItem('bgs_use_replit', JSON.stringify(useReplitLiga1));
-  updateReplitLiga1UI();
-  loadData(false);
-}
-
-function updateReplitLiga1UI() {
-  const btn = document.getElementById('replit-liga1-btn');
-  const label = document.getElementById('replit-liga1-label');
-  if (!btn || !label) return;
-
-  if (useReplitLiga1) {
-    btn.className = "px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-xl text-red-400 transition flex items-center gap-1.5 text-[10px] font-bold shadow-sm active:scale-95";
-    label.innerText = "Liga 1 Replit: ON";
-  } else {
-    btn.className = "px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-400 transition flex items-center gap-1.5 text-[10px] font-bold shadow-sm active:scale-95";
-    label.innerText = "Liga 1 Replit: OFF";
-  }
-}
-
+// Resolve Team Logo URL
 function getTeamLogo(team) {
   if (dataSaverMode) return PLAIN_SHIELD_LOGO;
   if (!team) return '';
@@ -115,6 +98,7 @@ function getTeamLogo(team) {
   return '';
 }
 
+// Normalize & Clean Player Name
 function cleanPlayerName(name) {
   if (!name) return '';
   return name
@@ -123,6 +107,7 @@ function cleanPlayerName(name) {
     .trim();
 }
 
+// Check Player Name Match Strategy
 function isPlayerNameMatching(requestedName, apiPlayerName) {
   if (!requestedName || !apiPlayerName) return false;
 
@@ -144,6 +129,7 @@ function isPlayerNameMatching(requestedName, apiPlayerName) {
   return api.some(part => part === reqLast || part.includes(reqLast));
 }
 
+// Fetch Image Blob and Convert to Base64 String
 async function getBase64FromUrl(url) {
   try {
     if (url.startsWith('data:')) return url;
@@ -160,6 +146,7 @@ async function getBase64FromUrl(url) {
   }
 }
 
+// Handle Image Load Errors for Player Photos (Avatar Circle Fallback)
 function handlePlayerImgError(img, pName) {
   img.onerror = null;
   if (pName && !dataSaverMode) {
@@ -169,6 +156,7 @@ function handlePlayerImgError(img, pName) {
   }
 }
 
+// Get Country Flag Emoji
 function getCountryFlag(country) {
   if (!country) return '🌐';
   const c = country.toLowerCase().trim();
@@ -184,16 +172,18 @@ function getCountryFlag(country) {
   if (c.includes('italy') || c.includes('italia')) return '🇮🇹';
   if (c.includes('netherlands') || c.includes('belanda')) return '🇳🇱';
   if (c.includes('usa') || c.includes('amerika')) return '🇺🇸';
-  if (c.includes('japan') || c.includes('jepang')) return '🇯??';
+  if (c.includes('japan') || c.includes('jepang')) return '🇯🇵';
   if (c.includes('saudi')) return '🇸🇦';
   return '🌐';
 }
 
+// Get Flag Emoji by League ID
 function getLeagueFlag(leagueId) {
   const l = LEAGUES.find(item => item.id === leagueId);
   return l && l.flag ? l.flag : '';
 }
 
+// Format Date Object to YYYYMMDD String
 function getFormattedDate(d) {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -201,12 +191,14 @@ function getFormattedDate(d) {
   return `${year}${month}${day}`;
 }
 
+// Display System Timezone Info
 function displayTimezoneInfo() {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const el = document.getElementById('user-timezone-info');
   if (el) el.innerText = `Zona HP: ${tz}`;
 }
 
+// Format ISO Date String to Local Human Readable Format
 function formatLocalDate(isoDateStr) {
   const date = new Date(isoDateStr);
   const userLang = navigator.language || 'id-ID';
@@ -219,6 +211,7 @@ function formatLocalDate(isoDateStr) {
   return `${dayName}, ${dayNum} ${monthName} • ${timeStr}`;
 }
 
+// Render Date Selector Navigation Strip
 function renderDateStrip() {
   const container = document.getElementById('date-strip-container');
   if (!container) return;
