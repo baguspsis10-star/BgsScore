@@ -1,60 +1,55 @@
 // APP INITIALIZATION & CORE CONTROLLER MODULE
 
-// Main Data Loading Handler
 async function loadData(isSilent = false) {
   const refreshIcon = document.getElementById('refresh-icon');
   if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
   if (!isSilent) {
-    document.getElementById('loading').classList.remove('hidden');
-    document.getElementById('matches-container').classList.add('hidden');
-    document.getElementById('live-container').classList.add('hidden');
+    document.getElementById('loading')?.classList.remove('hidden');
+    document.getElementById('matches-container')?.classList.add('hidden');
+    document.getElementById('live-container')?.classList.add('hidden');
     if (document.getElementById('fav-container')) document.getElementById('fav-container').classList.add('hidden');
-    document.getElementById('standings-container').classList.add('hidden');
+    document.getElementById('standings-container')?.classList.add('hidden');
     if (document.getElementById('news-container')) document.getElementById('news-container').classList.add('hidden');
-    document.getElementById('search-results-container').classList.add('hidden');
+    document.getElementById('search-results-container')?.classList.add('hidden');
   }
 
   updateActiveLeagueBadge();
   updateDataSaverUI();
   updateReplitLiga1UI();
 
-  if (activeNav === 'all') {
-    await fetchAllMatches();
-  } else if (activeNav === 'live') {
-    await fetchLiveMatchesStructured();
-  } else if (activeNav === 'fav') {
-    await fetchFavoritedMatchesStructured();
-  } else if (activeNav === 'league') {
-    await fetchStandingsForSelectedLeague();
-  } else if (activeNav === 'news') {
-    const newsCont = document.getElementById('news-container');
-    if (newsCont) newsCont.classList.remove('hidden');
+  // WRAP SEMUA ASYNC FETCH DALAM TRY-CATCH-FINALLY AGAR SPINNER LOKAL TIDAK NYANGKUT
+  try {
+    if (activeNav === 'all') {
+      await fetchAllMatches();
+    } else if (activeNav === 'live') {
+      await fetchLiveMatchesStructured();
+    } else if (activeNav === 'fav') {
+      await fetchFavoritedMatchesStructured();
+    } else if (activeNav === 'league') {
+      await fetchStandingsForSelectedLeague();
+    } else if (activeNav === 'news') {
+      const newsCont = document.getElementById('news-container');
+      if (newsCont) newsCont.classList.remove('hidden');
 
-    if (typeof fetchESPNNews === 'function') {
-      await fetchESPNNews();
-    } else {
-      if (newsCont) {
-        newsCont.innerHTML = `
-          <div class="text-center py-12 text-slate-400 space-y-2 bg-slate-900/50 border border-slate-800 rounded-2xl">
-            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-2xl"></i>
-            <p class="text-xs font-bold text-white">File <code class="bg-slate-800 px-1.5 py-0.5 rounded text-emerald-400">js/news.js</code> belum ditemukan!</p>
-            <p class="text-[10px] text-slate-400">Pastikan kamu sudah membuat file <code class="text-slate-200">news.js</code> di dalam folder <code class="text-slate-200">js/</code>.</p>
-          </div>
-        `;
+      if (typeof fetchESPNNews === 'function') {
+        await fetchESPNNews();
+      } else if (newsCont) {
+        newsCont.innerHTML = `<div class="text-center py-12 text-slate-400 text-xs">Modul berita belum dimuat.</div>`;
       }
     }
-  }
 
-  if (currentOpenModal) {
-    await openMatchDetail(currentOpenModal.leagueId, currentOpenModal.eventId, currentOpenModal.leagueName, true);
+    if (currentOpenModal) {
+      await openMatchDetail(currentOpenModal.leagueId, currentOpenModal.eventId, currentOpenModal.leagueName, true);
+    }
+  } catch (err) {
+    console.error("Error pada loadData:", err);
+  } finally {
+    document.getElementById('loading')?.classList.add('hidden');
+    if (refreshIcon) refreshIcon.classList.remove('fa-spin');
   }
-
-  document.getElementById('loading').classList.add('hidden');
-  if (refreshIcon) refreshIcon.classList.remove('fa-spin');
 }
 
-// Bottom Navigation Switcher
 function bottomNavSwitch(navType) {
   activeNav = navType;
   clearSearch();
@@ -111,7 +106,6 @@ function bottomNavSwitch(navType) {
   loadData(false);
 }
 
-// Search Handler
 function handleSearch(query) {
   const searchContainer = document.getElementById('search-results-container');
   const clearBtn = document.getElementById('search-clear-btn');
@@ -202,14 +196,12 @@ function handleSearch(query) {
   }
 }
 
-// Clear Search Field
 function clearSearch() {
   const input = document.getElementById('search-input');
   if (input) input.value = '';
   handleSearch('');
 }
 
-// Toggle Finished Section in Live View
 function toggleFinishedInLiveView() {
   showFinishedInLive = !showFinishedInLive;
   const el = document.getElementById('live-finished-grid');
@@ -218,7 +210,6 @@ function toggleFinishedInLiveView() {
   if (icon) icon.className = `fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]`;
 }
 
-// Toggle Upcoming Section in Live View
 function toggleUpcomingInLiveView() {
   showUpcomingInLive = !showUpcomingInLive;
   const el = document.getElementById('live-upcoming-grid');
@@ -227,7 +218,6 @@ function toggleUpcomingInLiveView() {
   if (icon) icon.className = `fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]`;
 }
 
-// Toggle Finished Section in Favorited View
 function toggleFinishedInFavView() {
   showFinishedInFav = !showFinishedInFav;
   const el = document.getElementById('fav-finished-grid');
@@ -236,7 +226,6 @@ function toggleFinishedInFavView() {
   if (icon) icon.className = `fa-solid fa-chevron-${showFinishedInFav ? 'up' : 'down'} text-[10px]`;
 }
 
-// Toggle Upcoming Section in Favorited View
 function toggleUpcomingInFavView() {
   showUpcomingInFav = !showUpcomingInFav;
   const el = document.getElementById('fav-upcoming-grid');
@@ -245,7 +234,6 @@ function toggleUpcomingInFavView() {
   if (icon) icon.className = `fa-solid fa-chevron-${showUpcomingInFav ? 'up' : 'down'} text-[10px]`;
 }
 
-// Change Selected League Filter
 function changeLeague(leagueId) {
   selectedLeague = leagueId;
   document.querySelectorAll('.league-btn').forEach(btn => {
@@ -260,7 +248,6 @@ function changeLeague(leagueId) {
   loadData(false);
 }
 
-// Update Active League Badge UI
 function updateActiveLeagueBadge() {
   const badge = document.getElementById('active-league-badge');
   if (selectedLeague === 'all') {
@@ -273,7 +260,6 @@ function updateActiveLeagueBadge() {
   }
 }
 
-// Initialize App & Auto Refresh Loop
 document.addEventListener('DOMContentLoaded', () => {
   displayTimezoneInfo();
   renderDateStrip();
@@ -287,7 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 10000);
 });
 
-// Service Worker Engine Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const swCode = `
