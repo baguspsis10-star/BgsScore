@@ -231,11 +231,14 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
               <span class="truncate">${event.leagueFlag ? event.leagueFlag + ' ' : ''}${event.leagueName || ''}</span>
             </span>` : ''}
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button onclick="shareMatchCard('${event.id}', '${(home?.team?.displayName||'Home').replace(/'/g, "\\'")}', '${(away?.team?.displayName||'Away').replace(/'/g, "\\'")}', '${isPre ? formattedTime : (home?.score ?? '0') + ' - ' + (away?.score ?? '0')}', '${(event.leagueName||'').replace(/'/g, "\\'")}', event)" class="p-1 hover:scale-125 transition text-xs text-slate-400 hover:text-emerald-400" title="Bagikan Skor">
+            <i class="fa-solid fa-share-nodes"></i>
+          </button>
           <button onclick="toggleFavorite('${event.id}', event)" class="p-1 hover:scale-125 transition text-xs" title="Favorit">
             <i class="${favorited ? 'fa-solid fa-star text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)]' : 'fa-regular fa-star text-slate-400 hover:text-amber-500'}"></i>
           </button>
-          <span class="text-[9.5px] bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-0.5 rounded-lg text-slate-800 font-bold flex items-center gap-1 transition">Detail <i class="fa-solid fa-chevron-right text-[7px] text-slate-400"></i></span>
+          <span class="text-[9.5px] bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-lg text-slate-800 font-bold flex items-center gap-1 transition">Detail <i class="fa-solid fa-chevron-right text-[7px] text-slate-400"></i></span>
         </div>
       </div>
 
@@ -275,4 +278,48 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
     `;
     container.appendChild(card);
   });
+}
+
+// Fitur Bagikan Kartu Skor (Web Share API + Fallback Salin Clipboard)
+async function shareMatchCard(eventId, homeName, awayName, scoreOrTime, leagueName, e) {
+  if (e) e.stopPropagation();
+  
+  const textContent = `⚽ ${leagueName ? leagueName + ': ' : ''}${homeName} ${scoreOrTime} ${awayName}\n\nPantau live score & statistik lengkap di BGS ScoreHub!`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `BGS ScoreHub — ${homeName} vs ${awayName}`,
+        text: textContent,
+        url: window.location.href
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') copyToClipboard(textContent);
+    }
+  } else {
+    copyToClipboard(textContent);
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Teks skor berhasil disalin!');
+  }).catch(() => {
+    showToast('Gagal menyalin teks skor.');
+  });
+}
+
+function showToast(message) {
+  let toast = document.getElementById('bgs-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'bgs-toast';
+    toast.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white font-bold text-xs px-4 py-2 rounded-full shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${message}`;
+  toast.classList.remove('opacity-0', 'pointer-events-none');
+  setTimeout(() => {
+    toast.classList.add('opacity-0', 'pointer-events-none');
+  }, 2500);
 }

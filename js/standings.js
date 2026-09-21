@@ -81,15 +81,18 @@ async function fetchStandingsForSelectedLeague() {
       </span>
     </div>
 
-    <!-- SUB TAB BAR (LEAGUE, TOP STATS, MATCH) -->
-    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1">
-      <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 text-[11px] font-bold rounded-lg transition ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+    <!-- SUB TAB BAR (LEAGUE, BAGAN, TOP STATS, MATCH) -->
+    <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1 overflow-x-auto no-scrollbar">
+      <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition whitespace-nowrap ${selectedStandingsTab === 'table' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-list-ol mr-1"></i> League
       </button>
-      <button onclick="switchStandingsSubTab('stats')" id="stab-stats" class="flex-1 py-1.5 text-[11px] font-bold rounded-lg transition ${selectedStandingsTab === 'stats' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+      <button onclick="switchStandingsSubTab('bracket')" id="stab-bracket" class="flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition whitespace-nowrap ${selectedStandingsTab === 'bracket' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+        <i class="fa-solid fa-sitemap mr-1"></i> Bagan
+      </button>
+      <button onclick="switchStandingsSubTab('stats')" id="stab-stats" class="flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition whitespace-nowrap ${selectedStandingsTab === 'stats' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-chart-simple mr-1"></i> Top Stats
       </button>
-      <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 text-[11px] font-bold rounded-lg transition ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+      <button onclick="switchStandingsSubTab('matches')" id="stab-matches" class="flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition whitespace-nowrap ${selectedStandingsTab === 'matches' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
         <i class="fa-solid fa-calendar-days mr-1"></i> Match
       </button>
     </div>
@@ -102,6 +105,8 @@ async function fetchStandingsForSelectedLeague() {
 
   if (selectedStandingsTab === 'table') {
     await renderLeagueStandingsTable(targetLeague, subContainer);
+  } else if (selectedStandingsTab === 'bracket') {
+    await renderLeagueBracket(targetLeague, subContainer);
   } else if (selectedStandingsTab === 'stats') {
     await renderLeagueLeaders(targetLeague, subContainer);
   } else {
@@ -111,7 +116,7 @@ async function fetchStandingsForSelectedLeague() {
   container.classList.remove('hidden');
 }
 
-// Switch Standings Sub-Tab (Table / Stats / Matches)
+// Switch Standings Sub-Tab (Table / Bracket / Stats / Matches)
 function switchStandingsSubTab(tab) {
   selectedStandingsTab = tab;
   fetchStandingsForSelectedLeague();
@@ -243,6 +248,152 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 
   } catch (err) {
     container.innerHTML = `<p class="text-center text-slate-400 text-xs py-8">Tabel Klasemen tidak tersedia untuk kategori ini.</p>`;
+  }
+}
+
+// Render Tournament Knockout Bracket (Bagan Babak Gugur)
+async function renderLeagueBracket(targetLeague, container) {
+  container.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-400"></i>
+      <p class="text-xs font-semibold">Memuat bagan babak gugur...</p>
+    </div>
+  `;
+
+  try {
+    // 1. Cek liga berformat poin penuh (non-turnamen gugur)
+    const pureLeagueIds = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'ned.1', 'por.1', 'idn.1', 'ksa.1'];
+    if (pureLeagueIds.includes(targetLeague.id)) {
+      container.innerHTML = `
+        <div class="bg-[#180d30] border border-white/10 rounded-2xl p-6 text-center space-y-2 shadow-xl">
+          <i class="fa-solid fa-trophy text-3xl text-amber-400 mb-1 block"></i>
+          <h4 class="text-xs font-bold text-white uppercase tracking-wider">Format Liga Poin Penuh</h4>
+          <p class="text-[10px] text-slate-400 max-w-sm mx-auto leading-relaxed">
+            ${targetLeague.name} menggunakan sistem kompetisi penuh berdasarkan akumulasi poin, bukan sistem gugur (bracket). Silakan cek tab <strong class="text-emerald-400">League</strong> untuk klasemen resmi.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    // 2. Fetch data pertandingan dari ESPN API
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/scoreboard?limit=100`);
+    const data = await res.json();
+    const events = data.events || [];
+
+    if (events.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-10 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl text-xs">
+          Data babak gugur tidak ditemukan untuk turnamen ini.
+        </div>
+      `;
+      return;
+    }
+
+    // 3. Kelompokkan babak pertandingan
+    const roundGroups = {};
+    const defaultRoundOrder = ['16 Besar', 'Perempat Final', 'Semifinal', 'Final'];
+
+    events.forEach(evt => {
+      const comp = evt.competitions?.[0];
+      let roundName = 'Babak Gugur';
+
+      const noteText = comp?.notes?.[0]?.headline || evt.status?.type?.description || '';
+      const typeText = comp?.type?.text || '';
+
+      if (noteText.toLowerCase().includes('final') && !noteText.toLowerCase().includes('semi')) roundName = 'Final';
+      else if (noteText.toLowerCase().includes('semi')) roundName = 'Semifinal';
+      else if (noteText.toLowerCase().includes('quarter') || noteText.toLowerCase().includes('perempat')) roundName = 'Perempat Final';
+      else if (noteText.toLowerCase().includes('16') || noteText.toLowerCase().includes('round of 16')) roundName = '16 Besar';
+      else if (typeText.includes('Final')) roundName = 'Final';
+      else if (noteText) roundName = noteText;
+
+      if (!roundGroups[roundName]) roundGroups[roundName] = [];
+      roundGroups[roundName].push(evt);
+    });
+
+    const roundKeys = Object.keys(roundGroups);
+    roundKeys.sort((a, b) => {
+      const idxA = defaultRoundOrder.indexOf(a);
+      const idxB = defaultRoundOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return 0;
+    });
+
+    // 4. Render Layout Bagan Horizontal
+    let bracketHtml = `
+      <div class="space-y-2">
+        <div class="flex items-center justify-between px-1 text-[10px] text-slate-400">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-sitemap text-emerald-400"></i> Bagan Babak Gugur</span>
+          <span class="text-slate-500">Geser ke kanan <i class="fa-solid fa-arrow-right text-[9px]"></i></span>
+        </div>
+        <div class="bracket-wrapper no-scrollbar bg-[#180d30] border border-white/10 rounded-2xl">
+    `;
+
+    roundKeys.forEach(rKey => {
+      const matches = roundGroups[rKey];
+
+      bracketHtml += `
+        <div class="bracket-round">
+          <div class="bracket-round-title">${rKey}</div>
+          <div class="space-y-3 flex-1 flex flex-col justify-around">
+      `;
+
+      matches.forEach(evt => {
+        const comp = evt.competitions?.[0];
+        const home = comp?.competitors?.find(c => c.homeAway === 'home');
+        const away = comp?.competitors?.find(c => c.homeAway === 'away');
+        const isPre = evt.status?.type?.state === 'pre';
+
+        const homeScore = parseInt(home?.score || '0');
+        const awayScore = parseInt(away?.score || '0');
+
+        const homeWinner = home?.winner || (!isPre && homeScore > awayScore);
+        const awayWinner = away?.winner || (!isPre && awayScore > homeScore);
+
+        bracketHtml += `
+          <div class="bracket-match" onclick="openMatchDetail('${targetLeague.id}', '${evt.id}', '${(targetLeague.name||'').replace(/'/g, "\\'")}')">
+            <div class="text-[9px] text-slate-400 mb-1 flex items-center justify-between border-b border-white/5 pb-1">
+              <span>${formatLocalDate(evt.date).split('•')[0]}</span>
+              <span class="${evt.status?.type?.state === 'in' ? 'text-red-400 font-bold animate-pulse' : 'text-emerald-400'}">${evt.status?.type?.shortDetail || 'SCHEDULED'}</span>
+            </div>
+            
+            <div class="bracket-team ${homeWinner ? 'winner text-emerald-400' : 'text-slate-300'}">
+              <div class="flex items-center gap-1.5 truncate max-w-[80%]">
+                <img src="${getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO}" class="w-3.5 h-3.5 object-contain shrink-0" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
+                <span class="truncate">${home?.team?.shortDisplayName || home?.team?.displayName || 'TBD'}</span>
+              </div>
+              <span class="font-black">${isPre ? '-' : homeScore}</span>
+            </div>
+
+            <div class="bracket-team ${awayWinner ? 'winner text-emerald-400' : 'text-slate-300'} mt-0.5">
+              <div class="flex items-center gap-1.5 truncate max-w-[80%]">
+                <img src="${getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO}" class="w-3.5 h-3.5 object-contain shrink-0" onerror="this.src='${PLAIN_SHIELD_LOGO}'">
+                <span class="truncate">${away?.team?.shortDisplayName || away?.team?.displayName || 'TBD'}</span>
+              </div>
+              <span class="font-black">${isPre ? '-' : awayScore}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      bracketHtml += `
+          </div>
+        </div>
+      `;
+    });
+
+    bracketHtml += `
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = bracketHtml;
+
+  } catch (err) {
+    container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">Gagal memuat bagan babak gugur.</div>`;
   }
 }
 
