@@ -87,6 +87,29 @@ function updateDataSaverUI() {
   }
 }
 
+// Sakelar Toggle Replit Liga 1
+function toggleReplitLiga1() {
+  useReplitLiga1 = !useReplitLiga1;
+  localStorage.setItem('bgs_use_replit', JSON.stringify(useReplitLiga1));
+  updateReplitLiga1UI();
+  loadData(false);
+}
+
+// Update UI Sakelar Replit Liga 1
+function updateReplitLiga1UI() {
+  const btn = document.getElementById('replit-liga1-btn');
+  const label = document.getElementById('replit-liga1-label');
+  if (!btn || !label) return;
+
+  if (useReplitLiga1) {
+    btn.className = "px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-xl text-red-400 transition flex items-center gap-1.5 text-[10px] font-bold shadow-sm active:scale-95";
+    label.innerText = "Liga 1 Replit: ON";
+  } else {
+    btn.className = "px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-400 transition flex items-center gap-1.5 text-[10px] font-bold shadow-sm active:scale-95";
+    label.innerText = "Liga 1 Replit: OFF";
+  }
+}
+
 // Resolve Team Logo URL
 function getTeamLogo(team) {
   if (dataSaverMode) return PLAIN_SHIELD_LOGO;

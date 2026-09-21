@@ -1,6 +1,98 @@
 // ==========================================
-// API & NETWORK DATA FETCHING MODULE (ESPN API + AVATAR CIRCLE FALLBACK)
+// API & NETWORK DATA FETCHING MODULE (ESPN API + REPLIT LIGA 1 + AVATAR CIRCLE FALLBACK)
 // ==========================================
+
+// URL Backend Replit BRI Liga 1
+const REPLIT_LIGA1_URL = 'https://node-express-app--bgsdesign22.replit.app/api/Liga1';
+
+// Helper Fetch Data Liga 1 Indonesia dari Replit (Dengan Timeout Max 3 Detik & Sakelar Pakai Replit)
+async function fetchLigaIndonesiaData() {
+  if (typeof useReplitLiga1 !== 'undefined' && !useReplitLiga1) return [];
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+  try {
+    const res = await fetch(REPLIT_LIGA1_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return [];
+    const rawMatches = await res.json();
+
+    if (!Array.isArray(rawMatches)) return [];
+
+    return rawMatches.map(match => {
+      let state = 'pre';
+      const statusLower = String(match.status || '').toLowerCase();
+      if (statusLower === 'ft' || statusLower === 'finished' || statusLower === 'post') {
+        state = 'post';
+      } else if (statusLower === 'live' || statusLower === 'ht' || statusLower === 'halftime' || statusLower === 'in') {
+        state = 'in';
+      }
+
+      let safeDate = new Date().toISOString();
+      if (match.date) {
+        safeDate = match.date.includes('T') ? match.date : `${match.date}T15:30:00Z`;
+      }
+
+      const statusObj = {
+        type: {
+          state: state,
+          completed: state === 'post',
+          description: match.status ? String(match.status).toUpperCase() : "SCHEDULED",
+          shortDetail: match.status ? String(match.status).toUpperCase() : "SCHEDULED"
+        }
+      };
+
+      const homeTeamName = match.homeTeam || "Home Team";
+      const awayTeamName = match.awayTeam || "Away Team";
+
+      return {
+        id: match.id || `indo-${Date.now()}-${Math.random()}`,
+        date: safeDate,
+        name: `${homeTeamName} vs ${awayTeamName}`,
+        shortName: `${homeTeamName.substring(0,3)} vs ${awayTeamName.substring(0,3)}`,
+        leagueName: "BRI Liga 1",
+        leagueId: "indonesia.1",
+        leagueFlag: "🇮🇩",
+        leagueLogo: "https://a.espncdn.com/i/leaguelogos/soccer/500/2205.png",
+        status: statusObj,
+        competitions: [
+          {
+            id: match.id || `comp-${Date.now()}`,
+            date: safeDate,
+            status: statusObj,
+            competitors: [
+              {
+                homeAway: 'home',
+                score: match.homeScore !== null && match.homeScore !== undefined ? String(match.homeScore) : "-",
+                team: {
+                  id: `team-home-${encodeURIComponent(homeTeamName)}`,
+                  displayName: homeTeamName,
+                  shortDisplayName: homeTeamName,
+                  logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(homeTeamName)}&background=15803d&color=fff&bold=true&rounded=true`
+                }
+              },
+              {
+                homeAway: 'away',
+                score: match.awayScore !== null && match.awayScore !== undefined ? String(match.awayScore) : "-",
+                team: {
+                  id: `team-away-${encodeURIComponent(awayTeamName)}`,
+                  displayName: awayTeamName,
+                  shortDisplayName: awayTeamName,
+                  logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(awayTeamName)}&background=0369a1&color=fff&bold=true&rounded=true`
+                }
+              }
+            ]
+          }
+        ]
+      };
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    return [];
+  }
+}
 
 // Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD" menjadi array tanggal harian
 function expandDateRange(rangeStr) {
@@ -42,19 +134,15 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
       
-      // 1. Ekstrak League ID / Slug dari berbagai lokasi ESPN API
       let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
       
-      // 2. Ekstrak dari evt.uid (format ESPN: s:600~l:afc.cup~e:12345)
       if (!extractedSlug && evt.uid) {
         const uidMatch = evt.uid.match(/~l:([^~]+)/);
         if (uidMatch) extractedSlug = uidMatch[1];
       }
 
-      // 3. Ekstrak Nama Liga Mentah
       let rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
 
-      // PENAMBAHAN: Format slug menjadi nama liga jika API tidak menyediakan nama resmi
       if (!rawName && extractedSlug) {
         rawName = extractedSlug
           .split(/[.-]/)
@@ -62,10 +150,8 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
           .join(' ');
       }
 
-      // 4. Cari pencocokan presisi di daftar LEAGUES lokal (data.js)
       const foundLeague = typeof LEAGUES !== 'undefined' 
         ? LEAGUES.find(l => 
-            // Cek ID persis ATAU deteksi jika ESPN menempelkan sub-fase (misal: afc.champions.group)
             (extractedSlug && (l.id === extractedSlug || extractedSlug.startsWith(l.id + '.'))) || 
             (slug !== 'all' && l.id === slug) ||
             (rawName && l.name.toLowerCase() === rawName.toLowerCase()) ||
@@ -73,7 +159,6 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
           ) 
         : null;
 
-      // 5. Terapkan nama spesifik, fallback terakhir diubah agar bukan teks statis yang mengganggu
       const finalLeagueName = foundLeague?.name || rawName || 'Pertandingan';
       const finalLeagueId = foundLeague?.id || extractedSlug || slug;
       const finalLeagueFlag = foundLeague?.flag || (typeof getLeagueFlag === 'function' ? getLeagueFlag(finalLeagueId) : '⚽');
@@ -100,7 +185,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
   const dateList = expandDateRange(sampleDate);
 
   if (leaguesList.length >= 10) {
-    // Mode 'all': fetch setiap tanggal harian secara paralel
     const promises = dateList.map(d => fetchMatchesByLeagueOrAll('all', d));
     const results = await Promise.all(promises);
     const eventMap = new Map();
@@ -108,7 +192,6 @@ async function fetchBatchLeagues(leaguesList, getDateStrFn) {
     return Array.from(eventMap.values());
   }
 
-  // Mode spesifik liga
   const BATCH_SIZE = 5;
   let allEvents = [];
 
@@ -226,18 +309,31 @@ async function fetchMatchSummary(leagueId, eventId) {
   }
 }
 
-// 4. Fetch All Matches
+// 4. Fetch All Matches (Memisahkan Sumber Replit Liga 1 & ESPN)
 async function fetchAllMatches() {
   const container = document.getElementById('matches-container');
 
   try {
     const targetDate = selectedDateFilter || getFormattedDate(new Date());
+    let allEvents = [];
 
-    const targets = selectedLeague === 'all' 
-      ? LEAGUES 
-      : LEAGUES.filter(l => l.id === selectedLeague);
-
-    let allEvents = await fetchBatchLeagues(targets, () => targetDate);
+    // Jika filter khusus Liga 1 -> Ambil murni dari Replit
+    if (selectedLeague === 'indonesia.1' || selectedLeague === 'liga1') {
+      allEvents = await fetchLigaIndonesiaData();
+    } 
+    // Jika filter 'Semua Liga' -> Ambil ESPN + Replit Liga 1 secara paralel
+    else if (selectedLeague === 'all') {
+      const [espnEvents, indoEvents] = await Promise.all([
+        fetchBatchLeagues(LEAGUES, () => targetDate),
+        fetchLigaIndonesiaData()
+      ]);
+      allEvents = [...indoEvents, ...espnEvents];
+    } 
+    // Jika filter liga asing (EPL, La Liga, UCL, dll.) -> Murni 100% dari ESPN
+    else {
+      const targets = LEAGUES.filter(l => l.id === selectedLeague);
+      allEvents = await fetchBatchLeagues(targets, () => targetDate);
+    }
 
     allEvents = sortEventsByFavoriteAndDate(allEvents);
     cachedEvents = allEvents;
@@ -245,13 +341,13 @@ async function fetchAllMatches() {
     allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
     renderMatchesCards('matches-container', allEvents, selectedLeague === 'all');
   } catch (err) {
-    console.error("Gagal mengambil data pertandingan ESPN:", err);
+    console.error("Gagal mengambil data pertandingan:", err);
   } finally {
     if (container) container.classList.remove('hidden');
   }
 }
 
-// 5. Fetch Live Matches
+// 5. Fetch Live Matches Structured
 async function fetchLiveMatchesStructured() {
   const container = document.getElementById('live-container');
   if (!container) return;
@@ -261,10 +357,14 @@ async function fetchLiveMatchesStructured() {
     const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
     const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
-    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
+    const [allEventsRaw, indoEvents] = await Promise.all([
+      fetchBatchLeagues(LEAGUES, () => dateRangeStr),
+      fetchLigaIndonesiaData()
+    ]);
 
     const eventMap = new Map();
     allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
+    indoEvents.forEach(evt => eventMap.set(evt.id, evt));
 
     let allEvents = Array.from(eventMap.values());
     
@@ -364,10 +464,14 @@ async function fetchFavoritedMatchesStructured() {
     const next7Days = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
     const dateRangeStr = `${getFormattedDate(past2Days)}-${getFormattedDate(next7Days)}`;
 
-    const allEventsRaw = await fetchBatchLeagues(LEAGUES, () => dateRangeStr);
+    const [allEventsRaw, indoEvents] = await Promise.all([
+      fetchBatchLeagues(LEAGUES, () => dateRangeStr),
+      fetchLigaIndonesiaData()
+    ]);
 
     const eventMap = new Map();
     allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
+    indoEvents.forEach(evt => eventMap.set(evt.id, evt));
 
     const favEvents = Array.from(eventMap.values()).filter(evt => {
       const comp = evt.competitions?.[0];
@@ -529,7 +633,7 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
                   <span class="text-[9px] text-slate-400 w-1/3">${matchDate}</span>
                   <div class="flex items-center justify-center gap-1.5 w-2/3">
                     <span class="font-semibold text-slate-200 text-right truncate w-5/12">${hTeam?.team?.shortDisplayName || ''}</span>
-                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score || '0'} - ${aTeam?.score || '0'}</span>
+                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score \vert{}\vert{} '0'} -${aTeam?.score || '0'}</span>
                     <span class="font-semibold text-slate-200 text-left truncate w-5/12">${aTeam?.team?.shortDisplayName || ''}</span>
                   </div>
                 </div>

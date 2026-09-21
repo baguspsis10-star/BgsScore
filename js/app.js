@@ -17,6 +17,7 @@ async function loadData(isSilent = false) {
 
   updateActiveLeagueBadge();
   updateDataSaverUI();
+  updateReplitLiga1UI();
 
   if (activeNav === 'all') {
     await fetchAllMatches();
@@ -71,19 +72,29 @@ function bottomNavSwitch(navType) {
 
   const topHeader = document.getElementById('top-all-matches-header');
   const dateStrip = document.getElementById('date-strip-container');
+  const replitBtn = document.getElementById('replit-liga1-btn');
 
   if (navType === 'all') {
     if (topHeader) topHeader.classList.remove('hidden');
     if (dateStrip) dateStrip.classList.remove('hidden');
+    if (replitBtn) replitBtn.classList.remove('hidden');
     document.getElementById('active-badge-container').classList.remove('hidden');
     document.getElementById('active-mode-tag').innerText = "Urut Waktu & Tim Favorit";
-  } else if (navType === 'live' || navType === 'fav') {
+  } else if (navType === 'live') {
     if (topHeader) topHeader.classList.add('hidden');
     if (dateStrip) dateStrip.classList.add('hidden');
+    if (replitBtn) replitBtn.classList.remove('hidden');
+    document.getElementById('active-badge-container').classList.remove('hidden');
+    document.getElementById('active-mode-tag').innerText = "Sedang Live & Terjadwal";
+  } else if (navType === 'fav') {
+    if (topHeader) topHeader.classList.add('hidden');
+    if (dateStrip) dateStrip.classList.add('hidden');
+    if (replitBtn) replitBtn.classList.add('hidden');
     document.getElementById('active-badge-container').classList.add('hidden');
   } else if (navType === 'league') {
     if (topHeader) topHeader.classList.add('hidden');
     if (dateStrip) dateStrip.classList.add('hidden');
+    if (replitBtn) replitBtn.classList.add('hidden');
     document.getElementById('active-badge-container').classList.remove('hidden');
     document.getElementById('active-mode-tag').innerText = "League";
     selectedStandingsLeague = null;
@@ -91,6 +102,7 @@ function bottomNavSwitch(navType) {
   } else if (navType === 'news') {
     if (topHeader) topHeader.classList.add('hidden');
     if (dateStrip) dateStrip.classList.add('hidden');
+    if (replitBtn) replitBtn.classList.add('hidden');
     document.getElementById('active-badge-container').classList.add('hidden');
     const newsCont = document.getElementById('news-container');
     if (newsCont) newsCont.classList.remove('hidden');
@@ -265,6 +277,7 @@ function updateActiveLeagueBadge() {
 document.addEventListener('DOMContentLoaded', () => {
   displayTimezoneInfo();
   renderDateStrip();
+  updateReplitLiga1UI();
   bottomNavSwitch('live');
 
   setInterval(() => {

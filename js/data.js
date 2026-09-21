@@ -219,6 +219,7 @@ let currentOpenTeam = null;
 
 // User Preferences (LocalStorage)
 let dataSaverMode = JSON.parse(localStorage.getItem('bgs_data_saver') || 'false');
+let useReplitLiga1 = JSON.parse(localStorage.getItem('bgs_use_replit') || 'true');
 let favoriteMatches = JSON.parse(localStorage.getItem('bgs_favorites') || '[]');
 let favoriteTeams = JSON.parse(localStorage.getItem('bgs_favorite_teams') || '[]');
 let soundSettings = JSON.parse(localStorage.getItem('bgs_sound_settings') || JSON.stringify({
