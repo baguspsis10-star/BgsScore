@@ -560,20 +560,56 @@ async function renderLeagueMatchesList(targetLeague, container) {
   `;
 
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/scoreboard`);
-    const data = await res.json();
-    const events = (data.events || []).map(evt => ({ 
-      ...evt, 
-      leagueName: targetLeague.name, 
-      leagueId: targetLeague.id, 
-      leagueLogo: targetLeague.logo,
-      leagueFlag: targetLeague.flag 
-    }));
+    const isLiga1 = [
+      'idn.1',
+      'indonesia.1',
+      'liga1'
+    ].includes(targetLeague.id);
+
+    let events = [];
+
+    if (isLiga1) {
+      /*
+       * Tab Match Liga 1 menampilkan seluruh pertandingan mendatang
+       * dari endpoint Replit, bukan scoreboard ESPN hari ini saja.
+       */
+      const liga1Events = await fetchLigaIndonesiaData();
+
+      events = liga1Events
+        .filter(evt => {
+          return evt.status?.type?.state === 'pre';
+        })
+        .map(evt => ({
+          ...evt,
+          leagueName: 'BRI Liga 1 Indonesia',
+          leagueId: 'idn.1',
+          leagueLogo: targetLeague.logo,
+          leagueFlag: '🇮🇩'
+        }));
+    } else {
+      const res = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/scoreboard`
+      );
+
+      if (!res.ok) {
+        throw new Error(`Match list HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      events = (data.events || []).map(evt => ({
+        ...evt,
+        leagueName: targetLeague.name,
+        leagueId: targetLeague.id,
+        leagueLogo: targetLeague.logo,
+        leagueFlag: targetLeague.flag
+      }));
+    }
 
     if (events.length === 0) {
       container.innerHTML = `
         <div class="text-center py-12 text-slate-500 border border-slate-800/50 rounded-2xl bg-slate-900/40 text-xs">
-          Tidak ada jadwal pertandingan untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name}.
+          Tidak ada pertandingan mendatang untuk ${targetLeague.flag ? targetLeague.flag + ' ' : ''}${targetLeague.name}.
         </div>
       `;
       return;

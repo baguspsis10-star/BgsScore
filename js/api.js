@@ -107,8 +107,23 @@ async function fetchLiga1Standings() {
   }
 }
 
+// Normalisasi tanggal API Liga 1 dan filter aplikasi menjadi YYYYMMDD.
+// API Liga 1 mengirim tanggal seperti "2026-10-09",
+// sedangkan date strip aplikasi menggunakan "20261009".
+function normalizeLiga1DateKey(dateValue) {
+  const value = String(dateValue || '');
+  const match = value.match(/^(\d{4})-?(\d{2})-?(\d{2})/);
+
+  return match
+    ? `${match[1]}${match[2]}${match[3]}`
+    : '';
+}
+
 // Helper Fetch Data Liga 1 Indonesia dari Replit (Dengan Timeout Max 3 Detik)
-async function fetchLigaIndonesiaData() {
+// dateFilter bersifat opsional:
+// - di menu Semua: kirim selectedDateFilter agar tanggal tepat
+// - di menu Live/Favorit: kosongkan agar seluruh data tetap tersedia
+async function fetchLigaIndonesiaData(dateFilter = '') {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 3000);
 
@@ -121,7 +136,17 @@ async function fetchLigaIndonesiaData() {
 
     if (!Array.isArray(rawMatches)) return [];
 
-    return rawMatches.map(match => {
+    const selectedDateKey = normalizeLiga1DateKey(dateFilter);
+    const filteredMatches = selectedDateKey
+      ? rawMatches.filter(match => {
+          return (
+            normalizeLiga1DateKey(match.date) ===
+            selectedDateKey
+          );
+        })
+      : rawMatches;
+
+    return filteredMatches.map(match => {
       let state = 'pre';
       const statusLower = String(match.status || '').toLowerCase();
       if (statusLower === 'ft' || statusLower === 'finished' || statusLower === 'post') {
@@ -431,13 +456,13 @@ async function fetchAllMatches() {
       selectedLeague === 'indonesia.1' ||
       selectedLeague === 'liga1'
     ) {
-      allEvents = await fetchLigaIndonesiaData();
+      allEvents = await fetchLigaIndonesiaData(targetDate);
     } 
     // Jika filter 'Semua Liga' -> Ambil ESPN + Replit Liga 1 secara paralel
     else if (selectedLeague === 'all') {
       const [espnEvents, indoEvents] = await Promise.all([
         fetchBatchLeagues(LEAGUES, () => targetDate),
-        fetchLigaIndonesiaData()
+        fetchLigaIndonesiaData(targetDate)
       ]);
       allEvents = [...indoEvents, ...espnEvents];
     } 
