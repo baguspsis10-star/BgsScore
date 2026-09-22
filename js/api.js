@@ -671,7 +671,7 @@ async function fetchFavoritedMatchesStructured() {
     }
   } catch (err) {
     console.error("Gagal memuat favorit:", err);
-  } font-medium {
+  } finally {
     container.classList.remove('hidden');
   }
 }
