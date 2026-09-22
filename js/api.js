@@ -4,6 +4,7 @@
 
 // URL Backend Replit BRI Liga 1
 const REPLIT_LIGA1_URL = 'https://node-express-app--bgsdesign22.replit.app/api/Liga1';
+const REPLIT_LIGA1_FINISHED_URL = 'https://node-express-app--bgsdesign22.replit.app/api/liga1/finished';
 const REPLIT_LIGA1_STANDINGS_URL = 'https://node-express-app--bgsdesign22.replit.app/api/liga1/standings';
 
 // Pemetaan klub Liga 1 ke ID logo API-Football.
@@ -119,112 +120,182 @@ function normalizeLiga1DateKey(dateValue) {
     : '';
 }
 
-// Helper Fetch Data Liga 1 Indonesia dari Replit (Dengan Timeout Max 3 Detik)
-// dateFilter bersifat opsional:
-// - di menu Semua: kirim selectedDateFilter agar tanggal tepat
-// - di menu Live/Favorit: kosongkan agar seluruh data tetap tersedia
-async function fetchLigaIndonesiaData(dateFilter = '') {
+function mapLiga1Matches(rawMatches, dateFilter = '', fallbackStatus = 'scheduled') {
+  const selectedDateKey = normalizeLiga1DateKey(dateFilter);
+
+  const filteredMatches = selectedDateKey
+    ? rawMatches.filter(match => {
+        return (
+          normalizeLiga1DateKey(match.date) ===
+          selectedDateKey
+        );
+      })
+    : rawMatches;
+
+  return filteredMatches.map(match => {
+    let state = 'pre';
+    const statusLower = String(
+      match.status || fallbackStatus || ''
+    ).toLowerCase();
+
+    if (
+      statusLower === 'ft' ||
+      statusLower === 'finished' ||
+      statusLower === 'post'
+    ) {
+      state = 'post';
+    } else if (
+      statusLower === 'live' ||
+      statusLower === 'ht' ||
+      statusLower === 'halftime' ||
+      statusLower === 'in'
+    ) {
+      state = 'in';
+    }
+
+    let safeDate = new Date().toISOString();
+    if (match.date) {
+      safeDate = match.date.includes('T')
+        ? match.date
+        : `${match.date}T15:30:00Z`;
+    }
+
+    const statusObj = {
+      type: {
+        state,
+        completed: state === 'post',
+        description: match.status
+          ? String(match.status).toUpperCase()
+          : String(fallbackStatus || 'SCHEDULED').toUpperCase(),
+        shortDetail: match.status
+          ? String(match.status).toUpperCase()
+          : String(fallbackStatus || 'SCHEDULED').toUpperCase()
+      }
+    };
+
+    const homeTeamName = match.homeTeam || 'Home Team';
+    const awayTeamName = match.awayTeam || 'Away Team';
+
+    const homeTeamLogo = getLiga1TeamLogo(
+      homeTeamName,
+      match.homeLogo || match.homeTeamLogo
+    );
+
+    const awayTeamLogo = getLiga1TeamLogo(
+      awayTeamName,
+      match.awayLogo || match.awayTeamLogo
+    );
+
+    return {
+      id:
+        match.id ||
+        `indo-${Date.now()}-${Math.random()}`,
+
+      date: safeDate,
+      name: `${homeTeamName} vs ${awayTeamName}`,
+      shortName: `${homeTeamName.substring(0, 3)} vs ${awayTeamName.substring(0, 3)}`,
+      leagueName: 'BRI Liga 1',
+      leagueId: 'indonesia.1',
+      leagueFlag: '🇮🇩',
+      leagueLogo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2205.png',
+      status: statusObj,
+
+      competitions: [
+        {
+          id:
+            match.id ||
+            `comp-${Date.now()}`,
+          date: safeDate,
+          status: statusObj,
+
+          competitors: [
+            {
+              homeAway: 'home',
+              score:
+                match.homeScore !== null &&
+                match.homeScore !== undefined
+                  ? String(match.homeScore)
+                  : '-',
+
+              team: {
+                id: `team-home-${encodeURIComponent(homeTeamName)}`,
+                displayName: homeTeamName,
+                shortDisplayName: homeTeamName,
+                logo: homeTeamLogo
+              }
+            },
+
+            {
+              homeAway: 'away',
+              score:
+                match.awayScore !== null &&
+                match.awayScore !== undefined
+                  ? String(match.awayScore)
+                  : '-',
+
+              team: {
+                id: `team-away-${encodeURIComponent(awayTeamName)}`,
+                displayName: awayTeamName,
+                shortDisplayName: awayTeamName,
+                logo: awayTeamLogo
+              }
+            }
+          ]
+        }
+      ]
+    };
+  });
+}
+
+async function fetchLiga1MatchesFromEndpoint(
+  endpoint,
+  dateFilter = '',
+  fallbackStatus = 'scheduled'
+) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 3000);
 
   try {
-    const res = await fetch(REPLIT_LIGA1_URL, { signal: controller.signal });
+    const res = await fetch(endpoint, {
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+
     clearTimeout(timeoutId);
 
     if (!res.ok) return [];
+
     const rawMatches = await res.json();
 
     if (!Array.isArray(rawMatches)) return [];
 
-    const selectedDateKey = normalizeLiga1DateKey(dateFilter);
-    const filteredMatches = selectedDateKey
-      ? rawMatches.filter(match => {
-          return (
-            normalizeLiga1DateKey(match.date) ===
-            selectedDateKey
-          );
-        })
-      : rawMatches;
-
-    return filteredMatches.map(match => {
-      let state = 'pre';
-      const statusLower = String(match.status || '').toLowerCase();
-      if (statusLower === 'ft' || statusLower === 'finished' || statusLower === 'post') {
-        state = 'post';
-      } else if (statusLower === 'live' || statusLower === 'ht' || statusLower === 'halftime' || statusLower === 'in') {
-        state = 'in';
-      }
-
-      let safeDate = new Date().toISOString();
-      if (match.date) {
-        safeDate = match.date.includes('T') ? match.date : `${match.date}T15:30:00Z`;
-      }
-
-      const statusObj = {
-        type: {
-          state: state,
-          completed: state === 'post',
-          description: match.status ? String(match.status).toUpperCase() : "SCHEDULED",
-          shortDetail: match.status ? String(match.status).toUpperCase() : "SCHEDULED"
-        }
-      };
-
-      const homeTeamName = match.homeTeam || "Home Team";
-      const awayTeamName = match.awayTeam || "Away Team";
-      const homeTeamLogo = getLiga1TeamLogo(
-        homeTeamName,
-        match.homeLogo || match.homeTeamLogo
-      );
-      const awayTeamLogo = getLiga1TeamLogo(
-        awayTeamName,
-        match.awayLogo || match.awayTeamLogo
-      );
-
-      return {
-        id: match.id || `indo-${Date.now()}-${Math.random()}`,
-        date: safeDate,
-        name: `${homeTeamName} vs ${awayTeamName}`,
-        shortName: `${homeTeamName.substring(0,3)} vs ${awayTeamName.substring(0,3)}`,
-        leagueName: "BRI Liga 1",
-        leagueId: "indonesia.1",
-        leagueFlag: "🇮🇩",
-        leagueLogo: "https://a.espncdn.com/i/leaguelogos/soccer/500/2205.png",
-        status: statusObj,
-        competitions: [
-          {
-            id: match.id || `comp-${Date.now()}`,
-            date: safeDate,
-            status: statusObj,
-            competitors: [
-              {
-                homeAway: 'home',
-                score: match.homeScore !== null && match.homeScore !== undefined ? String(match.homeScore) : "-",
-                team: {
-                  id: `team-home-${encodeURIComponent(homeTeamName)}`,
-                  displayName: homeTeamName,
-                  shortDisplayName: homeTeamName,
-                  logo: homeTeamLogo
-                }
-              },
-              {
-                homeAway: 'away',
-                score: match.awayScore !== null && match.awayScore !== undefined ? String(match.awayScore) : "-",
-                team: {
-                  id: `team-away-${encodeURIComponent(awayTeamName)}`,
-                  displayName: awayTeamName,
-                  shortDisplayName: awayTeamName,
-                  logo: awayTeamLogo
-                }
-              }
-            ]
-          }
-        ]
-      };
-    });
+    return mapLiga1Matches(
+      rawMatches,
+      dateFilter,
+      fallbackStatus
+    );
   } catch (err) {
     clearTimeout(timeoutId);
     return [];
   }
+}
+
+// Jadwal Liga 1 yang belum selesai / akan datang
+async function fetchLigaIndonesiaData(dateFilter = '') {
+  return fetchLiga1MatchesFromEndpoint(
+    REPLIT_LIGA1_URL,
+    dateFilter,
+    'scheduled'
+  );
+}
+
+// Pertandingan Liga 1 yang sudah selesai
+async function fetchLigaIndonesiaFinishedData(dateFilter = '') {
+  return fetchLiga1MatchesFromEndpoint(
+    REPLIT_LIGA1_FINISHED_URL,
+    dateFilter,
+    'finished'
+  );
 }
 
 // Helper pemecah rentang tanggal "YYYYMMDD-YYYYMMDD" menjadi array tanggal harian
@@ -456,15 +527,33 @@ async function fetchAllMatches() {
       selectedLeague === 'indonesia.1' ||
       selectedLeague === 'liga1'
     ) {
-      allEvents = await fetchLigaIndonesiaData(targetDate);
+      const [upcomingEvents, finishedEvents] = await Promise.all([
+        fetchLigaIndonesiaData(targetDate),
+        fetchLigaIndonesiaFinishedData(targetDate)
+      ]);
+
+      allEvents = [
+        ...finishedEvents,
+        ...upcomingEvents
+      ];
     } 
     // Jika filter 'Semua Liga' -> Ambil ESPN + Replit Liga 1 secara paralel
     else if (selectedLeague === 'all') {
-      const [espnEvents, indoEvents] = await Promise.all([
+      const [
+        espnEvents,
+        indoEvents,
+        finishedIndoEvents
+      ] = await Promise.all([
         fetchBatchLeagues(LEAGUES, () => targetDate),
-        fetchLigaIndonesiaData(targetDate)
+        fetchLigaIndonesiaData(targetDate),
+        fetchLigaIndonesiaFinishedData(targetDate)
       ]);
-      allEvents = [...indoEvents, ...espnEvents];
+
+      allEvents = [
+        ...finishedIndoEvents,
+        ...indoEvents,
+        ...espnEvents
+      ];
     } 
     // Jika filter liga asing (EPL, La Liga, UCL, dll.) -> Murni 100% dari ESPN
     else {
@@ -472,7 +561,14 @@ async function fetchAllMatches() {
       allEvents = await fetchBatchLeagues(targets, () => targetDate);
     }
 
-    allEvents = sortEventsByFavoriteAndDate(allEvents);
+    const uniqueEvents = new Map();
+    allEvents.forEach(event => {
+      uniqueEvents.set(String(event.id), event);
+    });
+
+    allEvents = sortEventsByFavoriteAndDate(
+      Array.from(uniqueEvents.values())
+    );
     cachedEvents = allEvents;
 
     allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
