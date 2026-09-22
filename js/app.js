@@ -15,25 +15,25 @@ async function loadData(isSilent = false) {
     document.getElementById('search-results-container').classList.add('hidden');
   }
 
-  updateActiveLeagueBadge();
-  updateDataSaverUI();
+  try {
+    updateActiveLeagueBadge();
+    updateDataSaverUI();
 
-  if (activeNav === 'all') {
-    await fetchAllMatches();
-  } else if (activeNav === 'live') {
-    await fetchLiveMatchesStructured();
-  } else if (activeNav === 'fav') {
-    await fetchFavoritedMatchesStructured();
-  } else if (activeNav === 'league') {
-    await fetchStandingsForSelectedLeague();
-  } else if (activeNav === 'news') {
-    const newsCont = document.getElementById('news-container');
-    if (newsCont) newsCont.classList.remove('hidden');
+    if (activeNav === 'all') {
+      await fetchAllMatches();
+    } else if (activeNav === 'live') {
+      await fetchLiveMatchesStructured();
+    } else if (activeNav === 'fav') {
+      await fetchFavoritedMatchesStructured();
+    } else if (activeNav === 'league') {
+      await fetchStandingsForSelectedLeague();
+    } else if (activeNav === 'news') {
+      const newsCont = document.getElementById('news-container');
+      if (newsCont) newsCont.classList.remove('hidden');
 
-    if (typeof fetchESPNNews === 'function') {
-      await fetchESPNNews();
-    } else {
-      if (newsCont) {
+      if (typeof fetchESPNNews === 'function') {
+        await fetchESPNNews();
+      } else if (newsCont) {
         newsCont.innerHTML = `
           <div class="text-center py-12 text-slate-400 space-y-2 bg-slate-900/50 border border-slate-800 rounded-2xl">
             <i class="fa-solid fa-triangle-exclamation text-amber-400 text-2xl"></i>
@@ -43,14 +43,47 @@ async function loadData(isSilent = false) {
         `;
       }
     }
-  }
 
-  if (currentOpenModal) {
-    await openMatchDetail(currentOpenModal.leagueId, currentOpenModal.eventId, currentOpenModal.leagueName, true);
-  }
+    if (currentOpenModal) {
+      await openMatchDetail(currentOpenModal.leagueId, currentOpenModal.eventId, currentOpenModal.leagueName, true);
+    }
+  } catch (err) {
+    console.error('Gagal memuat data:', err);
 
-  document.getElementById('loading').classList.add('hidden');
-  if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    // Jangan biarkan layar loading menggantung ketika API gagal.
+    if (!isSilent) {
+      const viewByNav = {
+        all: 'matches-container',
+        live: 'live-container',
+        fav: 'fav-container',
+        league: 'standings-container',
+        news: 'news-container'
+      };
+
+      const target = document.getElementById(
+        viewByNav[activeNav] || 'matches-container'
+      );
+
+      if (target) {
+        target.innerHTML = `
+          <div class="text-center py-10 px-4 text-slate-400 bg-[#180d30] border border-red-400/20 rounded-2xl">
+            <i class="fa-solid fa-wifi text-2xl text-red-400 mb-2"></i>
+            <p class="text-xs font-bold text-white">Data belum bisa dimuat</p>
+            <p class="text-[10px] mt-1">Periksa koneksi internet lalu tekan tombol refresh.</p>
+          </div>
+        `;
+
+        target.classList.remove('hidden');
+      }
+    }
+  } finally {
+    // Selalu matikan spinner, baik request berhasil maupun gagal.
+    document.getElementById('loading')?.classList.add('hidden');
+
+    if (refreshIcon) {
+      refreshIcon.classList.remove('fa-spin');
+    }
+  }
 }
 
 // Bottom Navigation Switcher
@@ -64,6 +97,7 @@ function bottomNavSwitch(navType) {
   });
 
   const activeBtn = document.getElementById(`bnav-${navType}`);
+
   if (activeBtn) {
     activeBtn.classList.remove('text-slate-400');
     activeBtn.classList.add('text-emerald-400', 'font-bold');
@@ -75,25 +109,45 @@ function bottomNavSwitch(navType) {
   if (navType === 'all') {
     if (topHeader) topHeader.classList.remove('hidden');
     if (dateStrip) dateStrip.classList.remove('hidden');
-    document.getElementById('active-badge-container').classList.remove('hidden');
-    document.getElementById('active-mode-tag').innerText = "Urut Waktu & Tim Favorit";
+
+    document
+      .getElementById('active-badge-container')
+      .classList.remove('hidden');
+
+    document.getElementById('active-mode-tag').innerText =
+      'Urut Waktu & Tim Favorit';
   } else if (navType === 'live' || navType === 'fav') {
     if (topHeader) topHeader.classList.add('hidden');
     if (dateStrip) dateStrip.classList.add('hidden');
-    document.getElementById('active-badge-container').classList.add('hidden');
+
+    document
+      .getElementById('active-badge-container')
+      .classList.add('hidden');
   } else if (navType === 'league') {
     if (topHeader) topHeader.classList.add('hidden');
     if (dateStrip) dateStrip.classList.add('hidden');
-    document.getElementById('active-badge-container').classList.remove('hidden');
-    document.getElementById('active-mode-tag').innerText = "League";
+
+    document
+      .getElementById('active-badge-container')
+      .classList.remove('hidden');
+
+    document.getElementById('active-mode-tag').innerText = 'League';
+
     selectedStandingsLeague = null;
     selectedStandingsTab = 'table';
   } else if (navType === 'news') {
     if (topHeader) topHeader.classList.add('hidden');
     if (dateStrip) dateStrip.classList.add('hidden');
-    document.getElementById('active-badge-container').classList.add('hidden');
+
+    document
+      .getElementById('active-badge-container')
+      .classList.add('hidden');
+
     const newsCont = document.getElementById('news-container');
-    if (newsCont) newsCont.classList.remove('hidden');
+
+    if (newsCont) {
+      newsCont.classList.remove('hidden');
+    }
   }
 
   loadData(false);
@@ -101,7 +155,10 @@ function bottomNavSwitch(navType) {
 
 // Search Handler
 function handleSearch(query) {
-  const searchContainer = document.getElementById('search-results-container');
+  const searchContainer = document.getElementById(
+    'search-results-container'
+  );
+
   const clearBtn = document.getElementById('search-clear-btn');
   const dateStrip = document.getElementById('date-strip-container');
   const q = query.trim().toLowerCase();
@@ -109,154 +166,341 @@ function handleSearch(query) {
   if (q === '') {
     clearBtn.classList.add('hidden');
     searchContainer.classList.add('hidden');
+
     if (activeNav === 'all') {
-      document.getElementById('matches-container').classList.remove('hidden');
-      if (dateStrip) dateStrip.classList.remove('hidden');
+      document
+        .getElementById('matches-container')
+        .classList.remove('hidden');
+
+      if (dateStrip) {
+        dateStrip.classList.remove('hidden');
+      }
     }
-    if (activeNav === 'live') document.getElementById('live-container').classList.remove('hidden');
-    if (activeNav === 'fav') document.getElementById('fav-container').classList.remove('hidden');
-    if (activeNav === 'league') document.getElementById('standings-container').classList.remove('hidden');
-    if (activeNav === 'news' && document.getElementById('news-container')) document.getElementById('news-container').classList.remove('hidden');
+
+    if (activeNav === 'live') {
+      document
+        .getElementById('live-container')
+        .classList.remove('hidden');
+    }
+
+    if (activeNav === 'fav') {
+      document
+        .getElementById('fav-container')
+        .classList.remove('hidden');
+    }
+
+    if (activeNav === 'league') {
+      document
+        .getElementById('standings-container')
+        .classList.remove('hidden');
+    }
+
+    if (
+      activeNav === 'news' &&
+      document.getElementById('news-container')
+    ) {
+      document
+        .getElementById('news-container')
+        .classList.remove('hidden');
+    }
+
     return;
   }
 
   clearBtn.classList.remove('hidden');
 
-  document.getElementById('matches-container').classList.add('hidden');
-  document.getElementById('live-container').classList.add('hidden');
-  if (document.getElementById('fav-container')) document.getElementById('fav-container').classList.add('hidden');
-  document.getElementById('standings-container').classList.add('hidden');
-  if (document.getElementById('news-container')) document.getElementById('news-container').classList.add('hidden');
-  if (dateStrip) dateStrip.classList.add('hidden');
+  document
+    .getElementById('matches-container')
+    .classList.add('hidden');
+
+  document
+    .getElementById('live-container')
+    .classList.add('hidden');
+
+  if (document.getElementById('fav-container')) {
+    document
+      .getElementById('fav-container')
+      .classList.add('hidden');
+  }
+
+  document
+    .getElementById('standings-container')
+    .classList.add('hidden');
+
+  if (document.getElementById('news-container')) {
+    document
+      .getElementById('news-container')
+      .classList.add('hidden');
+  }
+
+  if (dateStrip) {
+    dateStrip.classList.add('hidden');
+  }
 
   searchContainer.innerHTML = '';
   searchContainer.classList.remove('hidden');
 
-  const matchedLeagues = LEAGUES.filter(l => 
-    l.name.toLowerCase().includes(q) || l.country.toLowerCase().includes(q)
+  const matchedLeagues = LEAGUES.filter(l =>
+    l.name.toLowerCase().includes(q) ||
+    l.country.toLowerCase().includes(q)
   );
 
   const matchedEvents = cachedEvents.filter(e => {
-    const homeName = e.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.displayName || '';
-    const awayName = e.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.displayName || '';
+    const homeName =
+      e.competitions?.[0]?.competitors?.find(
+        c => c.homeAway === 'home'
+      )?.team?.displayName || '';
+
+    const awayName =
+      e.competitions?.[0]?.competitors?.find(
+        c => c.homeAway === 'away'
+      )?.team?.displayName || '';
+
     const leagueName = e.leagueName || '';
-    return homeName.toLowerCase().includes(q) || awayName.toLowerCase().includes(q) || leagueName.toLowerCase().includes(q);
+
+    return (
+      homeName.toLowerCase().includes(q) ||
+      awayName.toLowerCase().includes(q) ||
+      leagueName.toLowerCase().includes(q)
+    );
   });
 
-  if (matchedLeagues.length === 0 && matchedEvents.length === 0) {
+  if (
+    matchedLeagues.length === 0 &&
+    matchedEvents.length === 0
+  ) {
     searchContainer.innerHTML = `
       <div class="text-center py-10 text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl text-xs">
         <i class="fa-solid fa-magnifying-glass text-2xl mb-2 block text-slate-600"></i>
         Tidak ditemukan liga atau pertandingan untuk "<strong>${query}</strong>"
       </div>
     `;
+
     return;
   }
 
   if (matchedLeagues.length > 0) {
     const leagueSec = document.createElement('div');
     leagueSec.className = 'space-y-2';
+
     leagueSec.innerHTML = `
       <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-slate-800">
         <i class="fa-solid fa-trophy"></i> Liga Ditemukan (${matchedLeagues.length})
       </div>
+
       <div class="flex flex-col gap-1.5">
-        ${matchedLeagues.map(l => `
-          <button onclick="selectStandingsLeague('${l.id}'); bottomNavSwitch('league'); clearSearch();" class="p-2 bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-xl flex items-center gap-2.5 text-left transition w-full">
-            <img src="${generateUnlicensedLeagueBadge(l.id, l.name, l.country)}" loading="lazy" class="w-5 h-5 object-contain shrink-0" alt="">
-            <div class="flex-1 min-w-0 pr-1">
-              <div class="text-xs font-bold text-white whitespace-normal break-words">${l.flag ? l.flag + ' ' : ''}${l.name}</div>
-              <div class="text-[9px] text-slate-400 mt-0.5">${l.country}</div>
-            </div>
-            <i class="fa-solid fa-chevron-right text-[9px] text-slate-600 shrink-0"></i>
-          </button>
-        `).join('')}
+        ${matchedLeagues
+          .map(
+            l => `
+              <button onclick="selectStandingsLeague('${l.id}'); bottomNavSwitch('league'); clearSearch();" class="p-2 bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-xl flex items-center gap-2.5 text-left transition w-full">
+                <img src="${generateUnlicensedLeagueBadge(
+                  l.id,
+                  l.name,
+                  l.country
+                )}" loading="lazy" class="w-5 h-5 object-contain shrink-0" alt="">
+
+                <div class="flex-1 min-w-0 pr-1">
+                  <div class="text-xs font-bold text-white whitespace-normal break-words">
+                    ${l.flag ? l.flag + ' ' : ''}${l.name}
+                  </div>
+
+                  <div class="text-[9px] text-slate-400 mt-0.5">
+                    ${l.country}
+                  </div>
+                </div>
+
+                <i class="fa-solid fa-chevron-right text-[9px] text-slate-600 shrink-0"></i>
+              </button>
+            `
+          )
+          .join('')}
       </div>
     `;
+
     searchContainer.appendChild(leagueSec);
   }
 
   if (matchedEvents.length > 0) {
     const matchSec = document.createElement('div');
     matchSec.className = 'space-y-2 pt-2';
+
     matchSec.innerHTML = `
       <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-slate-800">
         <i class="fa-solid fa-futbol"></i> Pertandingan Ditemukan (${matchedEvents.length})
       </div>
+
       <div id="search-matches-grid" class="space-y-2.5"></div>
     `;
+
     searchContainer.appendChild(matchSec);
-    renderMatchesCards('search-matches-grid', matchedEvents, true);
+
+    renderMatchesCards(
+      'search-matches-grid',
+      matchedEvents,
+      true
+    );
   }
 }
 
 // Clear Search Field
 function clearSearch() {
   const input = document.getElementById('search-input');
-  if (input) input.value = '';
+
+  if (input) {
+    input.value = '';
+  }
+
   handleSearch('');
 }
 
 // Toggle Finished Section in Live View
 function toggleFinishedInLiveView() {
   showFinishedInLive = !showFinishedInLive;
+
   const el = document.getElementById('live-finished-grid');
   const icon = document.getElementById('finished-toggle-icon');
-  if (el) el.classList.toggle('hidden', !showFinishedInLive);
-  if (icon) icon.className = `fa-solid fa-chevron-${showFinishedInLive ? 'up' : 'down'} text-[10px]`;
+
+  if (el) {
+    el.classList.toggle(
+      'hidden',
+      !showFinishedInLive
+    );
+  }
+
+  if (icon) {
+    icon.className = `fa-solid fa-chevron-${
+      showFinishedInLive ? 'up' : 'down'
+    } text-[10px]`;
+  }
 }
 
 // Toggle Upcoming Section in Live View
 function toggleUpcomingInLiveView() {
   showUpcomingInLive = !showUpcomingInLive;
+
   const el = document.getElementById('live-upcoming-grid');
   const icon = document.getElementById('upcoming-toggle-icon');
-  if (el) el.classList.toggle('hidden', !showUpcomingInLive);
-  if (icon) icon.className = `fa-solid fa-chevron-${showUpcomingInLive ? 'up' : 'down'} text-[10px]`;
+
+  if (el) {
+    el.classList.toggle(
+      'hidden',
+      !showUpcomingInLive
+    );
+  }
+
+  if (icon) {
+    icon.className = `fa-solid fa-chevron-${
+      showUpcomingInLive ? 'up' : 'down'
+    } text-[10px]`;
+  }
 }
 
 // Toggle Finished Section in Favorited View
 function toggleFinishedInFavView() {
   showFinishedInFav = !showFinishedInFav;
+
   const el = document.getElementById('fav-finished-grid');
-  const icon = document.getElementById('fav-finished-toggle-icon');
-  if (el) el.classList.toggle('hidden', !showFinishedInFav);
-  if (icon) icon.className = `fa-solid fa-chevron-${showFinishedInFav ? 'up' : 'down'} text-[10px]`;
+  const icon = document.getElementById(
+    'fav-finished-toggle-icon'
+  );
+
+  if (el) {
+    el.classList.toggle(
+      'hidden',
+      !showFinishedInFav
+    );
+  }
+
+  if (icon) {
+    icon.className = `fa-solid fa-chevron-${
+      showFinishedInFav ? 'up' : 'down'
+    } text-[10px]`;
+  }
 }
 
 // Toggle Upcoming Section in Favorited View
 function toggleUpcomingInFavView() {
   showUpcomingInFav = !showUpcomingInFav;
+
   const el = document.getElementById('fav-upcoming-grid');
-  const icon = document.getElementById('fav-upcoming-toggle-icon');
-  if (el) el.classList.toggle('hidden', !showUpcomingInFav);
-  if (icon) icon.className = `fa-solid fa-chevron-${showUpcomingInFav ? 'up' : 'down'} text-[10px]`;
+  const icon = document.getElementById(
+    'fav-upcoming-toggle-icon'
+  );
+
+  if (el) {
+    el.classList.toggle(
+      'hidden',
+      !showUpcomingInFav
+    );
+  }
+
+  if (icon) {
+    icon.className = `fa-solid fa-chevron-${
+      showUpcomingInFav ? 'up' : 'down'
+    } text-[10px]`;
+  }
 }
 
 // Change Selected League Filter
 function changeLeague(leagueId) {
   selectedLeague = leagueId;
+
   document.querySelectorAll('.league-btn').forEach(btn => {
-    btn.classList.remove('bg-emerald-600', 'text-white');
-    btn.classList.add('bg-slate-800', 'text-slate-300');
+    btn.classList.remove(
+      'bg-emerald-600',
+      'text-white'
+    );
+
+    btn.classList.add(
+      'bg-slate-800',
+      'text-slate-300'
+    );
   });
-  const activeBtn = document.getElementById(`btn-${leagueId}`);
+
+  const activeBtn = document.getElementById(
+    `btn-${leagueId}`
+  );
+
   if (activeBtn) {
-    activeBtn.classList.remove('bg-slate-800', 'text-slate-300');
-    activeBtn.classList.add('bg-emerald-600', 'text-white');
+    activeBtn.classList.remove(
+      'bg-slate-800',
+      'text-slate-300'
+    );
+
+    activeBtn.classList.add(
+      'bg-emerald-600',
+      'text-white'
+    );
   }
+
   loadData(false);
 }
 
 // Update Active League Badge UI
 function updateActiveLeagueBadge() {
-  const badge = document.getElementById('active-league-badge');
+  const badge = document.getElementById(
+    'active-league-badge'
+  );
+
   if (selectedLeague === 'all') {
-    badge.innerHTML = `<i class="fa-solid fa-globe text-emerald-400"></i> Semua Liga`;
+    badge.innerHTML = `
+      <i class="fa-solid fa-globe text-emerald-400"></i>
+      Semua Liga
+    `;
   } else {
-    const found = LEAGUES.find(l => l.id === selectedLeague);
+    const found = LEAGUES.find(
+      l => l.id === selectedLeague
+    );
+
     if (found) {
-      badge.innerHTML = `<img src="${generateUnlicensedLeagueBadge(found.id, found.name, found.country)}" loading="lazy" class="w-3.5 h-3.5 object-contain" alt=""> ${found.flag ? found.flag + ' ' : ''}${found.name}`;
+      badge.innerHTML = `
+        <img src="${generateUnlicensedLeagueBadge(
+          found.id,
+          found.name,
+          found.country
+        )}" loading="lazy" class="w-3.5 h-3.5 object-contain" alt="">
+        ${found.flag ? found.flag + ' ' : ''}${found.name}
+      `;
     }
   }
 }
@@ -268,7 +512,14 @@ document.addEventListener('DOMContentLoaded', () => {
   bottomNavSwitch('live');
 
   setInterval(() => {
-    if (activeNav === 'live' || activeNav === 'fav' || (activeNav === 'all' && selectedDateFilter === getFormattedDate(new Date()))) {
+    if (
+      activeNav === 'live' ||
+      activeNav === 'fav' ||
+      (
+        activeNav === 'all' &&
+        selectedDateFilter === getFormattedDate(new Date())
+      )
+    ) {
       loadData(true);
     }
   }, 10000);
@@ -279,17 +530,28 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const swCode = `
       const CACHE_NAME = 'bgs-scorehub-v2';
-      self.addEventListener('install', (e) => self.skipWaiting());
-      self.addEventListener('activate', (e) => self.clients.claim());
-      
+
+      self.addEventListener('install', (e) => {
+        self.skipWaiting();
+      });
+
+      self.addEventListener('activate', (e) => {
+        self.clients.claim();
+      });
+
       self.addEventListener('fetch', (e) => {
         if (e.request.destination === 'image') {
           e.respondWith(
             caches.match(e.request).then((cachedResponse) => {
               if (cachedResponse) return cachedResponse;
+
               return fetch(e.request).then((networkResponse) => {
                 return caches.open(CACHE_NAME).then((cache) => {
-                  cache.put(e.request, networkResponse.clone());
+                  cache.put(
+                    e.request,
+                    networkResponse.clone()
+                  );
+
                   return networkResponse;
                 });
               });
@@ -299,11 +561,20 @@ if ('serviceWorker' in navigator) {
       });
     `;
 
-    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const blob = new Blob(
+      [swCode],
+      { type: 'application/javascript' }
+    );
+
     const swUrl = URL.createObjectURL(blob);
 
-    navigator.serviceWorker.register(swUrl)
-      .then(() => console.log('BGS Cache Engine Active!'))
-      .catch(err => console.error('ServiceWorker Error:', err));
+    navigator.serviceWorker
+      .register(swUrl)
+      .then(() => {
+        console.log('BGS Cache Engine Active!');
+      })
+      .catch(err => {
+        console.error('ServiceWorker Error:', err);
+      });
   });
 }
