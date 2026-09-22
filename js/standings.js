@@ -137,27 +137,41 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 
   try {
     let groups = [];
+    let data = {};
 
-    // Khusus BRI Liga 1 Indonesia: Ambil data dari Replit API
-    if (
-      targetLeague.id === 'idn.1' || 
-      targetLeague.id === 'indonesia.1' || 
-      targetLeague.id === 'liga1'
-    ) {
-      const indoEntries = await fetchLigaIndonesiaStandings();
-      if (indoEntries && indoEntries.length > 0) {
-        groups = [{
-          name: targetLeague.name || 'BRI Liga 1 Indonesia',
-          entries: indoEntries
-        }];
-      }
-    }
+    const isLiga1 = ['idn.1', 'indonesia.1', 'liga1'].includes(targetLeague.id);
 
-    // Jika bukan Liga 1 atau data Replit kosong, fallback ke ESPN
-    if (groups.length === 0) {
+    if (isLiga1) {
+      const liga1Rows = await fetchLiga1Standings();
+
+      groups = [{
+        name: 'BRI Liga 1 Indonesia',
+        entries: liga1Rows.map(row => ({
+          position: row.position,
+          team: {
+            id: `liga1-${normalizeLiga1TeamName(row.team).replace(/\s+/g, '-')}`,
+            displayName: row.team,
+            shortDisplayName: row.team,
+            logo: getLiga1TeamLogo(row.team)
+          },
+          stats: [
+            { name: 'gamesPlayed', value: row.played },
+            { name: 'wins', value: row.won },
+            { name: 'ties', value: row.drawn },
+            { name: 'losses', value: row.lost },
+            { name: 'goalsFor', value: row.goalsFor },
+            { name: 'goalsAgainst', value: row.goalsAgainst },
+            { name: 'goalDifference', value: row.goalDifference },
+            { name: 'points', value: row.points }
+          ],
+          form: row.form
+        }))
+      }];
+    } else {
       const res = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${targetLeague.id}/standings`);
-      const data = await res.json();
-      
+      if (!res.ok) throw new Error(`Standings HTTP ${res.status}`);
+      data = await res.json();
+
       if (data?.children && data.children.length > 0) {
         groups = data.children.map(child => ({
           name: child.name || child.displayName || 'Grup',
@@ -184,7 +198,13 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 
     groups.forEach(group => {
       const entries = [...group.entries];
-      entries.sort((a, b) => getPointsFromEntry(b) - getPointsFromEntry(a));
+      entries.sort((a, b) => {
+        if (a.position && b.position) {
+          return Number(a.position) - Number(b.position);
+        }
+
+        return getPointsFromEntry(b) - getPointsFromEntry(a);
+      });
 
       const card = document.createElement('div');
       card.className = 'bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl mb-4';
@@ -211,25 +231,16 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
         const rawLogo = entry.team?.logos?.[0]?.href || getTeamLogo(entry.team);
         const teamLogo = dataSaverMode ? PLAIN_SHIELD_LOGO : rawLogo;
         const teamId = String(entry.team?.id);
-        const teamNameNorm = typeof normalizeLiga1TeamName === 'function' ? normalizeLiga1TeamName(entry.team?.displayName) : '';
+        const displayPosition = Number(entry.position) || idx + 1;
         
-        const isHighlighted = highlightIds.some(hId => {
-          const hIdStr = String(hId);
-          if (hIdStr === teamId) return true;
-          if (typeof normalizeLiga1TeamName === 'function') {
-            const normH = normalizeLiga1TeamName(decodeURIComponent(hIdStr).replace(/^team-(home|away)-/, ''));
-            if (normH && teamNameNorm && (normH === teamNameNorm || normH.includes(teamNameNorm) || teamNameNorm.includes(normH))) {
-              return true;
-            }
-          }
-          return false;
-        });
-
+        const isHome = highlightIds[0] && String(highlightIds[0]) === teamId;
+        const isAway = highlightIds[1] && String(highlightIds[1]) === teamId;
+        const isHighlighted = isHome || isAway;
         const isFav = isTeamFavorite(teamId);
 
         return `
           <tr class="border-b border-slate-800/50 hover:bg-slate-800/40 transition text-[10.5px] ${isHighlighted ? 'bg-emerald-950/80 font-bold border-l-2 border-emerald-500 text-emerald-300' : ''}">
-            <td class="px-0.5 py-1.5 text-center font-bold ${idx < 2 ? 'text-emerald-400' : 'text-slate-400'}">${idx + 1}</td>
+            <td class="px-0.5 py-1.5 text-center font-bold ${displayPosition <= 4 ? 'text-emerald-400' : 'text-slate-400'}">${displayPosition}</td>
             <td class="px-1 py-1.5 font-semibold cursor-pointer max-w-[105px] sm:max-w-[180px]" onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')">
               <div class="flex items-center gap-1.5 truncate">
                 <img src="${teamLogo}" loading="lazy" class="w-3.5 h-3.5 object-contain shrink-0" alt="">
