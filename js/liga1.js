@@ -60,7 +60,18 @@ function normalizeLiga1OfficialDateKey(value) {
     september: '09',
     oktober: '10',
     november: '11',
-    desember: '12'
+    desember: '12',
+    january: '01',
+    february: '02',
+    march: '03',
+    may: '05',
+    june: '06',
+    july: '07',
+    august: '08',
+    september: '09',
+    october: '10',
+    november: '11',
+    december: '12'
   };
   const localized = text.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/i);
   if (!localized) return '';
@@ -89,9 +100,27 @@ function liga1OfficialDateTime(match) {
 }
 
 function liga1OfficialStatus(status) {
-  const value = String(status || '').toLowerCase();
-  if (['live', 'in', 'ht', 'halftime'].includes(value)) return 'in';
-  if (['finished', 'ft', 'post', 'completed'].includes(value)) return 'post';
+  const value = String(
+    typeof status === 'object'
+      ? status.name ||
+          status.type?.name ||
+          status.type?.state ||
+          status.state ||
+          status.description ||
+          ''
+      : status || ''
+  )
+    .toLowerCase()
+    .trim();
+
+  if (['live', 'in', 'ht', 'halftime', 'playing', 'ongoing'].includes(value)) {
+    return 'in';
+  }
+
+  if (['finished', 'ft', 'post', 'completed', 'final'].includes(value)) {
+    return 'post';
+  }
+
   return 'pre';
 }
 
@@ -107,8 +136,12 @@ function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
   const eventId =
     rawMatch.id ||
     `${normalizeLiga1OfficialDateKey(rawMatch.date)}-${homeName}-${awayName}`;
-  const homeScore = rawMatch.score?.home ?? rawMatch.homeScore;
-  const awayScore = rawMatch.score?.away ?? rawMatch.awayScore;
+  // Some detail responses currently return a stale "finished" score for a
+  // match that is still upcoming. A pre-match card must never expose scores.
+  const homeScore =
+    state === 'pre' ? null : rawMatch.score?.home ?? rawMatch.homeScore;
+  const awayScore =
+    state === 'pre' ? null : rawMatch.score?.away ?? rawMatch.awayScore;
   const statusLabel =
     state === 'in'
       ? rawMatch.minute
@@ -393,14 +426,51 @@ async function fetchLiga1MatchDetailSummary(
   const detail = await fetchLiga1OfficialApi(
     `/liga-1/matches/${encodeURIComponent(eventId)}`
   );
-  const match = detail.match || detail;
+  const detailMatch = detail.match || detail;
+  const cachedRaw = cachedEvent?.liga1Raw || {};
+  const cachedState =
+    cachedEvent?.status?.type?.state ||
+    liga1OfficialStatus(cachedRaw.status || '');
+  const isScheduled = cachedState === 'pre';
+
+  // The list/snapshot endpoint describes the schedule state. Prefer it over
+  // the detail endpoint when the latter has stale result data for an upcoming
+  // fixture. Keep the detail endpoint's metadata and logos where possible.
+  const match = isScheduled
+    ? {
+        ...detailMatch,
+        ...cachedRaw,
+        status: 'upcoming',
+        date: cachedRaw.date || detailMatch.date,
+        kickoff: cachedRaw.kickoff || detailMatch.kickoff,
+        kickoffIso: cachedRaw.kickoffIso || detailMatch.kickoffIso,
+        venue: cachedRaw.venue || detailMatch.venue,
+        home: { ...(detailMatch.home || {}), ...(cachedRaw.home || {}) },
+        away: { ...(detailMatch.away || {}), ...(cachedRaw.away || {}) },
+        score: null,
+        homeScore: null,
+        awayScore: null
+      }
+    : detailMatch;
+
   const mapped = mapLiga1OfficialMatch(match, match.status);
   if (!mapped) return null;
+  const safeDetail = isScheduled
+    ? {
+        ...detail,
+        ...match,
+        status: 'upcoming',
+        score: null,
+        timeline: [],
+        statistics: [],
+        lineups: []
+      }
+    : detail;
   const enrichedDetail = {
-    ...detail,
-    location: detail.venue || match.venue || '',
-    kickoffLabel: detail.kickoff || '',
-    match: detail
+    ...safeDetail,
+    location: safeDetail.venue || match.venue || '',
+    kickoffLabel: safeDetail.kickoff || '',
+    match: safeDetail
   };
 
   return {
@@ -413,17 +483,17 @@ async function fetchLiga1MatchDetailSummary(
     leagues: [
       { slug: LIGA1_OFFICIAL_ID, name: fallbackLeagueName }
     ],
-    details: detail.timeline || [],
+    details: safeDetail.timeline || [],
     headToHead: [],
     gameInfo: {
       venue: { fullName: detail.venue || match.venue || '' },
-      officials: (detail.officials || []).map(official => ({
+      officials: (safeDetail.officials || []).map(official => ({
         displayName: official.name || official.displayName || String(official),
         position: { name: 'Referee' }
       }))
     },
     boxscore: { teams: [] },
-    rosters: detail.lineups || [],
+    rosters: safeDetail.lineups || [],
     liga1Detail: enrichedDetail,
     liga2Detail: enrichedDetail
   };
