@@ -1,5 +1,19 @@
 // APP INITIALIZATION & CORE CONTROLLER MODULE
 
+// Manual refresh button: request a fresh official Liga 1 snapshot before
+// re-rendering the active view. Other leagues continue through their normal
+// loading path.
+async function manualRefreshData() {
+  try {
+    if (typeof refreshLiga1OfficialData === 'function') {
+      await refreshLiga1OfficialData();
+    }
+  } catch (err) {
+    console.warn('Refresh manual Liga 1 gagal, memakai cache/API biasa:', err);
+  }
+  await loadData(false);
+}
+
 // Main Data Loading Handler
 async function loadData(isSilent = false) {
   const refreshIcon = document.getElementById('refresh-icon');

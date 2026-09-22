@@ -153,7 +153,7 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
             id: `liga1-${normalizeLiga1TeamName(row.team).replace(/\s+/g, '-')}`,
             displayName: row.team,
             shortDisplayName: row.team,
-            logo: getLiga1TeamLogo(row.team)
+              logo: getLiga1TeamLogo(row.team, row.teamLogo)
           },
           stats: [
             { name: 'gamesPlayed', value: row.played },
@@ -452,6 +452,11 @@ async function renderLeagueLeaders(targetLeague, container) {
   try {
     if (isLiga2LeagueId(targetLeague.id)) {
       renderLiga2TopScorers(container, await fetchLiga2TopScorers());
+      return;
+    }
+
+    if (isLiga1LeagueId(targetLeague.id)) {
+      renderLiga1TopScorers(container, await fetchLiga1TopScorers());
       return;
     }
 

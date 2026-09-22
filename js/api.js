@@ -502,6 +502,13 @@ async function fetchMatchSummary(leagueId, eventId) {
     return null;
   }
 
+  if (isLiga1LeagueId(leagueId)) {
+    const cachedEvent = Array.isArray(cachedEvents)
+      ? cachedEvents.find(event => String(event.id) === String(eventId))
+      : null;
+    return fetchLiga1MatchDetailSummary(cachedEvent, 'BRI SUPER LEAGUE 2026-27');
+  }
+
   if (isLiga2LeagueId(leagueId)) {
     const cachedEvent = Array.isArray(cachedEvents)
       ? cachedEvents.find(event => String(event.id) === String(eventId))
@@ -555,7 +562,7 @@ async function fetchAllMatches() {
         finishedIndoEvents,
         liga2Events
       ] = await Promise.all([
-        fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id)), () => targetDate),
+        fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id) && !isLiga1LeagueId(l.id)), () => targetDate),
         fetchLigaIndonesiaData(targetDate),
         fetchLigaIndonesiaFinishedData(targetDate),
         fetchLiga2EventsForDate(targetDate)
@@ -604,7 +611,7 @@ async function fetchLiveMatchesStructured() {
     const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
     const [allEventsRaw, indoEvents, liga2Events] = await Promise.all([
-      fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id)), () => dateRangeStr),
+      fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id) && !isLiga1LeagueId(l.id)), () => dateRangeStr),
       fetchLigaIndonesiaData(),
       fetchLiga2EventsForDate()
     ]);
@@ -713,7 +720,7 @@ async function fetchFavoritedMatchesStructured() {
     const dateRangeStr = `${getFormattedDate(past2Days)}-${getFormattedDate(next7Days)}`;
 
     const [allEventsRaw, indoEvents, liga2Events] = await Promise.all([
-      fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id)), () => dateRangeStr),
+      fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id) && !isLiga1LeagueId(l.id)), () => dateRangeStr),
       fetchLigaIndonesiaData(),
       fetchLiga2EventsForDate()
     ]);

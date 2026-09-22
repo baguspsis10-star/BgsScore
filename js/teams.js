@@ -37,7 +37,16 @@ async function openTeamDetail(leagueId, teamId, teamName, event) {
 
   const isFavTeam = isTeamFavorite(teamId);
   const banner = document.getElementById('team-modal-banner');
-  const teamLogo = dataSaverMode ? PLAIN_SHIELD_LOGO : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+  const officialLiga1Logo =
+    typeof isLiga1LeagueId === 'function' &&
+    isLiga1LeagueId(leagueId) &&
+    typeof getLiga1ClubLogo === 'function'
+      ? getLiga1ClubLogo(teamName)
+      : '';
+  const teamLogo = dataSaverMode
+    ? PLAIN_SHIELD_LOGO
+    : officialLiga1Logo ||
+      `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
 
   banner.innerHTML = `
     <div class="flex items-center gap-3">

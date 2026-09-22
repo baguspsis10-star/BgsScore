@@ -258,7 +258,9 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
 
     let data = null;
 
-    if (isLiga2LeagueId(leagueId) || isLiga2LeagueId(cachedEvt?.leagueId)) {
+    if (isLiga1LeagueId(leagueId) || isLiga1LeagueId(cachedEvt?.leagueId)) {
+      data = await fetchLiga1MatchDetailSummary(cachedEvt, leagueName);
+    } else if (isLiga2LeagueId(leagueId) || isLiga2LeagueId(cachedEvt?.leagueId)) {
       data = await fetchLiga2MatchDetailSummary(cachedEvt, leagueName);
     }
 
@@ -320,9 +322,9 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     }
 
     if (!isSilent) {
-      if (isLiga2LeagueId(realLeagueSlug)) {
+      if (isLiga1LeagueId(realLeagueSlug) || isLiga2LeagueId(realLeagueSlug)) {
         fetchModalStandings(standingsLeagueId, home?.team?.id, away?.team?.id);
-        document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Data H2H Liga 2 belum disediakan oleh API iLeague.</p>`;
+        document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Data H2H Liga Indonesia belum disediakan oleh API iLeague.</p>`;
       } else if (realLeagueSlug && home?.team?.id && away?.team?.id) {
         fetchModalStandings(standingsLeagueId, home.team.id, away.team.id);
         fetchFormAndH2H(realLeagueSlug, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
@@ -340,7 +342,13 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       document.getElementById('modal-data-container').innerHTML = `
         <div class="text-center py-12 text-slate-400 space-y-2">
           <i class="fa-solid fa-circle-exclamation text-2xl text-amber-400"></i>
-          <p class="text-xs">Rincian pertandingan belum tersedia di ${isLiga2LeagueId(leagueId) ? 'API Liga 2' : 'server ESPN'}.</p>
+          <p class="text-xs">Rincian pertandingan belum tersedia di ${
+            isLiga1LeagueId(leagueId)
+              ? 'API Liga 1'
+              : isLiga2LeagueId(leagueId)
+              ? 'API Liga 2'
+              : 'server ESPN'
+          }.</p>
         </div>
       `;
       loading.classList.add('hidden');
@@ -705,16 +713,47 @@ function renderModalCompleteData(data, leagueId) {
     const boxscoreTeams = data.boxscore?.teams || [];
     const homeBox = boxscoreTeams.find(t => String(t.team?.id) === String(home.team?.id));
     const awayBox = boxscoreTeams.find(t => String(t.team?.id) === String(away.team?.id));
+    const officialStats =
+      data.liga1Detail?.statistics ||
+      data.liga2Detail?.statistics ||
+      [];
 
-    const getStatVal = (teamBox, keys) => {
-      if (!teamBox || !teamBox.statistics) return 0;
-      for (let key of keys) {
-        const st = teamBox.statistics.find(s => s.name?.toLowerCase() === key.toLowerCase() || s.label?.toLowerCase() === key.toLowerCase());
-        if (st) {
-          const val = parseFloat(st.displayValue);
-          return isNaN(val) ? st.displayValue : val;
+    const getStatVal = (teamBox, keys, side = 'home') => {
+      if (teamBox?.statistics) {
+        for (let key of keys) {
+          const st = teamBox.statistics.find(s => s.name?.toLowerCase() === key.toLowerCase() || s.label?.toLowerCase() === key.toLowerCase());
+          if (st) {
+            const val = parseFloat(st.displayValue);
+            return isNaN(val) ? st.displayValue : val;
+          }
         }
       }
+
+      const officialKeyMap = {
+        possessionPct: ['penguasaan', 'possession'],
+        possession: ['penguasaan', 'possession'],
+        shotsOnTarget: ['tembakan ke gawang', 'shots on target'],
+        shotsOffTarget: ['total tembakan', 'shots off target'],
+        wonCorners: ['tendangan sudut', 'corner'],
+        cornerKicks: ['tendangan sudut', 'corner'],
+        corners: ['tendangan sudut', 'corner'],
+        foulsCommitted: ['pelanggaran', 'foul'],
+        fouls: ['pelanggaran', 'foul'],
+        yellowCards: ['kartu kuning', 'yellow'],
+        yellowcards: ['kartu kuning', 'yellow'],
+        redCards: ['kartu merah', 'red'],
+        redcards: ['kartu merah', 'red']
+      };
+      const aliases = keys.flatMap(key => officialKeyMap[key] || [String(key).toLowerCase()]);
+      const official = officialStats.find(stat => {
+        const metric = String(stat.metric || stat.name || '').toLowerCase();
+        return aliases.some(alias => metric.includes(alias));
+      });
+      if (official) {
+        const value = official[side];
+        return value === undefined || value === null ? 0 : value;
+      }
+
       return 0;
     };
 
@@ -744,13 +783,13 @@ function renderModalCompleteData(data, leagueId) {
       <div class="bg-[#180d30] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
         <h3 class="text-center text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-white/10">Overview</h3>
         <div class="space-y-3 pt-1">
-          ${renderStatRow('Possession', getStatVal(homeBox, ['possessionPct', 'possession']) || 50, getStatVal(awayBox, ['possessionPct', 'possession']) || 50, true)}
-          ${renderStatRow('Shots on Target', getStatVal(homeBox, ['shotsOnTarget', 'shotsontarget']) || 0, getStatVal(awayBox, ['shotsOnTarget', 'shotsontarget']) || 0)}
-          ${renderStatRow('Shots off Target', getStatVal(homeBox, ['shotsOffTarget']) || 0, getStatVal(awayBox, ['shotsOffTarget']) || 0)}
-          ${renderStatRow('Corners', getStatVal(homeBox, ['wonCorners', 'cornerKicks', 'corners']) || 0, getStatVal(awayBox, ['wonCorners', 'cornerKicks', 'corners']) || 0)}
-          ${renderStatRow('Fouls', getStatVal(homeBox, ['foulsCommitted', 'fouls']) || 0, getStatVal(awayBox, ['foulsCommitted', 'fouls']) || 0)}
-          ${renderStatRow('Yellow Cards', getStatVal(homeBox, ['yellowCards', 'yellowcards']) || 0, getStatVal(awayBox, ['yellowCards', 'yellowcards']) || 0)}
-          ${renderStatRow('Red Cards', getStatVal(homeBox, ['redCards', 'redcards']) || 0, getStatVal(awayBox, ['redCards', 'redcards']) || 0)}
+          ${renderStatRow('Possession', getStatVal(homeBox, ['possessionPct', 'possession'], 'home') || 50, getStatVal(awayBox, ['possessionPct', 'possession'], 'away') || 50, true)}
+          ${renderStatRow('Shots on Target', getStatVal(homeBox, ['shotsOnTarget', 'shotsontarget'], 'home') || 0, getStatVal(awayBox, ['shotsOnTarget', 'shotsontarget'], 'away') || 0)}
+          ${renderStatRow('Shots off Target', getStatVal(homeBox, ['shotsOffTarget'], 'home') || 0, getStatVal(awayBox, ['shotsOffTarget'], 'away') || 0)}
+          ${renderStatRow('Corners', getStatVal(homeBox, ['wonCorners', 'cornerKicks', 'corners'], 'home') || 0, getStatVal(awayBox, ['wonCorners', 'cornerKicks', 'corners'], 'away') || 0)}
+          ${renderStatRow('Fouls', getStatVal(homeBox, ['foulsCommitted', 'fouls'], 'home') || 0, getStatVal(awayBox, ['foulsCommitted', 'fouls'], 'away') || 0)}
+          ${renderStatRow('Yellow Cards', getStatVal(homeBox, ['yellowCards', 'yellowcards'], 'home') || 0, getStatVal(awayBox, ['yellowCards', 'yellowcards'], 'away') || 0)}
+          ${renderStatRow('Red Cards', getStatVal(homeBox, ['redCards', 'redcards'], 'home') || 0, getStatVal(awayBox, ['redCards', 'redcards'], 'away') || 0)}
         </div>
       </div>
     `;
