@@ -220,48 +220,6 @@ function selectLeagueFromModal(leagueId) {
   changeLeague(leagueId);
 }
 
-// Membuat format detail lokal untuk pertandingan Liga 1 dari API Replit.
-// Liga 1 custom tidak memiliki endpoint summary di ESPN.
-function buildLiga1LocalSummary(event) {
-  const sourceCompetition = event?.competitions?.[0] || {};
-  const sourceCompetitors = sourceCompetition.competitors || [];
-
-  const home = sourceCompetitors.find(c => c.homeAway === 'home') || sourceCompetitors[0];
-  const away = sourceCompetitors.find(c => c.homeAway === 'away') || sourceCompetitors[1];
-
-  if (!home || !away) return null;
-
-  const competition = {
-    ...sourceCompetition,
-    id: sourceCompetition.id || event.id,
-    date: event.date || sourceCompetition.date,
-    status: sourceCompetition.status || event.status,
-    competitors: [home, away]
-  };
-
-  return {
-    isCustomLiga1: true,
-    header: {
-      id: event.id,
-      league: {
-        slug: 'idn.1',
-        name: 'BRI Liga 1 Indonesia'
-      },
-      competitions: [competition]
-    },
-    leagues: [
-      {
-        slug: 'idn.1',
-        name: 'BRI Liga 1 Indonesia'
-      }
-    ],
-    gameInfo: {},
-    details: [],
-    headToHead: [],
-    odds: []
-  };
-}
-
 // BUKA DETAIL PERTANDINGAN
 async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) {
   currentOpenModal = { leagueId, eventId, leagueName };
@@ -299,40 +257,31 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     ].filter(l => l && l !== 'all')));
 
     let data = null;
-    const isLiga1Custom =
-      leagueId === 'idn.1' ||
-      leagueId === 'indonesia.1' ||
-      leagueId === 'liga1' ||
-      cachedEvt?.leagueId === 'idn.1' ||
-      cachedEvt?.leagueId === 'indonesia.1' ||
-      cachedEvt?.leagueName === 'BRI Liga 1';
 
-    if (isLiga1Custom && cachedEvt) {
-      data = buildLiga1LocalSummary(cachedEvt);
-    } else {
-      for (const slug of candidateLeagues) {
-        try {
-          const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`);
-          if (res.ok) {
-            const json = await res.json();
-            if (json && json.header && json.header.competitions) {
-              data = json;
-              break;
-            }
+    for (const slug of candidateLeagues) {
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.header && json.header.competitions) {
+            data = json;
+            break;
           }
-        } catch (e) {}
-      }
+        }
+      } catch (e) {}
     }
 
     if (!data || !data.header || !data.header.competitions) {
       throw new Error("Detail pertandingan tidak ditemukan.");
     }
 
-    const realLeagueSlug = data.header?.league?.slug ||
-                           data.leagues?.[0]?.slug || 
-                           data.header?.competitions?.[0]?.league?.slug || 
-                           cachedEvt?.leagueId || 
-                           leagueId;
+      const realLeagueSlug = data.header?.league?.slug || 
+                             data.leagues?.[0]?.slug || 
+                             data.header?.competitions?.[0]?.league?.slug || 
+                             cachedEvt?.leagueId || 
+                             leagueId;
+
+      const standingsLeagueId = normalizeLiga1LeagueId(realLeagueSlug);
 
     const realLeagueName = data.header?.league?.name || 
                            data.leagues?.[0]?.name || 
@@ -348,38 +297,15 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     // Render Data Utama Laga
     renderModalCompleteData(data, realLeagueSlug);
 
-    // Odds hanya tersedia untuk data yang berasal dari ESPN.
-    if (!isLiga1Custom && typeof renderOddsTabContent === 'function') {
+    // Render Data Odds
+    if (typeof renderOddsTabContent === 'function') {
       renderOddsTabContent(data, eventId);
-    } else if (isLiga1Custom) {
-      document.getElementById('mcontent-odds').innerHTML = `
-        <div class="text-center py-8 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl text-xs">
-          <i class="fa-solid fa-coins text-2xl text-slate-500 mb-2 block"></i>
-          Data odds Liga 1 belum tersedia.
-        </div>
-      `;
     }
 
     if (!isSilent) {
-      if (
-        !isLiga1Custom &&
-        realLeagueSlug &&
-        home?.team?.id &&
-        away?.team?.id
-      ) {
-        fetchModalStandings(realLeagueSlug, home.team.id, away.team.id);
+      if (realLeagueSlug && home?.team?.id && away?.team?.id) {
+        fetchModalStandings(standingsLeagueId, home.team.id, away.team.id);
         fetchFormAndH2H(realLeagueSlug, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
-      } else if (isLiga1Custom) {
-        document.getElementById('mcontent-standings').innerHTML = `
-          <p class="text-center text-slate-400 text-xs py-6">
-            Data klasemen Liga 1 tersedia di menu Klasemen.
-          </p>
-        `;
-        document.getElementById('mcontent-h2h').innerHTML = `
-          <p class="text-center text-slate-400 text-xs py-6">
-            Data form dan H2H Liga 1 belum tersedia dari API Replit.
-          </p>
-        `;
       } else {
         document.getElementById('mcontent-standings').innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Klasemen tidak tersedia.</p>`;
         document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Data riwayat tidak tersedia.</p>`;
@@ -403,8 +329,25 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   }
 }
 
+function normalizeLiga1LeagueId(leagueId) {
+  const normalizedId = String(leagueId || '').toLowerCase();
+
+  if (
+    normalizedId === 'idn.1' ||
+    normalizedId === 'indonesia.1' ||
+    normalizedId === 'liga1'
+  ) {
+    return 'idn.1';
+  }
+
+  return leagueId;
+}
+
 async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
   const container = document.getElementById('mcontent-standings');
+
+  if (!container) return;
+
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
       <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-400"></i>
@@ -413,11 +356,42 @@ async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
   `;
 
   try {
-    const targetLeague = LEAGUES.find(l => l.id === leagueId) || { id: leagueId, name: 'Klasemen' };
+    const normalizedLeagueId = normalizeLiga1LeagueId(leagueId);
+
+    const targetLeague = normalizedLeagueId === 'idn.1'
+      ? {
+          id: 'idn.1',
+          name: 'BRI Liga 1 Indonesia',
+          country: 'Indonesia',
+          flag: '🇮🇩'
+        }
+      : (
+          LEAGUES.find(l => l.id === normalizedLeagueId) || {
+            id: normalizedLeagueId,
+            name: 'Klasemen'
+          }
+        );
+
     container.innerHTML = '';
-    await renderLeagueStandingsTable(targetLeague, container, [homeTeamId, awayTeamId]);
+    await renderLeagueStandingsTable(
+      targetLeague,
+      container,
+      [homeTeamId, awayTeamId]
+    );
   } catch (err) {
-    container.innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Klasemen tidak tersedia.</p>`;
+    console.error('Gagal memuat klasemen pada detail pertandingan:', err);
+
+    container.innerHTML = `
+      <div class="text-center py-8 text-slate-400">
+        <i class="fa-solid fa-triangle-exclamation text-xl text-amber-400 mb-2"></i>
+        <p class="text-xs font-semibold">
+          Klasemen Liga 1 belum bisa dimuat.
+        </p>
+        <p class="text-[10px] mt-1">
+          Silakan coba buka kembali detail pertandingan.
+        </p>
+      </div>
+    `;
   }
 }
 
@@ -435,12 +409,6 @@ function parseClockMinute(clockStr) {
 function renderModalCompleteData(data, leagueId) {
   const header = data.header?.competitions?.[0];
   if (!header) return;
-
-  const isCustomLiga1 =
-    data.isCustomLiga1 === true ||
-    leagueId === 'idn.1' ||
-    leagueId === 'indonesia.1' ||
-    leagueId === 'liga1';
 
   const home = header.competitors?.find(c => c.homeAway === 'home') || header.competitors?.[0];
   const away = header.competitors?.find(c => c.homeAway === 'away') || header.competitors?.[1];
@@ -613,19 +581,7 @@ function renderModalCompleteData(data, leagueId) {
 
   // STATISTIK MATCH
   let statsBlockHtml = '';
-  if (isCustomLiga1) {
-    statsBlockHtml = `
-      <div class="bg-[#180d30] border border-white/10 rounded-3xl p-6 text-center shadow-sm">
-        <i class="fa-solid fa-chart-line text-3xl text-slate-500 mb-2 block"></i>
-        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">
-          Statistik Belum Tersedia
-        </h4>
-        <p class="text-[10px] text-slate-400 mt-1">
-          API Liga 1 saat ini hanya menyediakan jadwal dan skor pertandingan.
-        </p>
-      </div>
-    `;
-  } else if (state === 'pre') {
+  if (state === 'pre') {
     statsBlockHtml = `
       <div class="bg-[#180d30] border border-white/10 rounded-3xl p-6 text-center shadow-sm">
         <i class="fa-solid fa-chart-line text-3xl text-slate-500 mb-2 block"></i>
