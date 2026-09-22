@@ -258,7 +258,11 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
 
     let data = null;
 
-    for (const slug of candidateLeagues) {
+    if (isLiga2LeagueId(leagueId) || isLiga2LeagueId(cachedEvt?.leagueId)) {
+      data = await fetchLiga2MatchDetailSummary(cachedEvt, leagueName);
+    }
+
+    for (const slug of data ? [] : candidateLeagues) {
       try {
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`);
         if (res.ok) {
@@ -316,7 +320,10 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     }
 
     if (!isSilent) {
-      if (realLeagueSlug && home?.team?.id && away?.team?.id) {
+      if (isLiga2LeagueId(realLeagueSlug)) {
+        fetchModalStandings(standingsLeagueId, home?.team?.id, away?.team?.id);
+        document.getElementById('mcontent-h2h').innerHTML = `<p class="text-center text-slate-400 text-xs py-6">Data H2H Liga 2 belum disediakan oleh API iLeague.</p>`;
+      } else if (realLeagueSlug && home?.team?.id && away?.team?.id) {
         fetchModalStandings(standingsLeagueId, home.team.id, away.team.id);
         fetchFormAndH2H(realLeagueSlug, home.team.id, away.team.id, home.team.displayName, away.team.displayName, data.headToHead || data.h2h || []);
       } else {
@@ -333,7 +340,7 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       document.getElementById('modal-data-container').innerHTML = `
         <div class="text-center py-12 text-slate-400 space-y-2">
           <i class="fa-solid fa-circle-exclamation text-2xl text-amber-400"></i>
-          <p class="text-xs">Rincian pertandingan belum tersedia di server ESPN.</p>
+          <p class="text-xs">Rincian pertandingan belum tersedia di ${isLiga2LeagueId(leagueId) ? 'API Liga 2' : 'server ESPN'}.</p>
         </div>
       `;
       loading.classList.add('hidden');
@@ -417,6 +424,8 @@ function normalizeLiga1LeagueId(leagueId) {
     return 'idn.1';
   }
 
+  if (isLiga2LeagueId(normalizedId)) return 'idn.2';
+
   return leagueId;
 }
 
@@ -439,6 +448,13 @@ async function fetchModalStandings(leagueId, homeTeamId, awayTeamId) {
       ? {
           id: 'idn.1',
           name: 'BRI Liga 1 Indonesia',
+          country: 'Indonesia',
+          flag: '🇮🇩'
+        }
+      : isLiga2LeagueId(normalizedLeagueId)
+      ? {
+          id: 'idn.2',
+          name: 'Pegadaian Championship 2026-27',
           country: 'Indonesia',
           flag: '🇮🇩'
         }
@@ -501,7 +517,13 @@ function renderModalCompleteData(data, leagueId) {
 
   const gameInfo = data.gameInfo || {};
   const venue = gameInfo.venue || {};
-  const stadium = venue.fullName ? `${venue.fullName}${venue.address?.city ? ', ' + venue.address.city : ''}` : 'Belum ditentukan';
+  const liga2Detail = data.liga2Detail || {};
+  const liga2Match = liga2Detail.match || {};
+  const stadium = liga2Detail.location ||
+    (venue.fullName ? `${venue.fullName}${venue.address?.city ? ', ' + venue.address.city : ''}` : 'Belum ditentukan');
+  const attendance = liga2Detail.attendance || 'Belum dirilis';
+  const kickoffLabel = liga2Detail.kickoffLabel || '';
+  const timezoneLabel = liga2Match.timezone || '';
 
   const officials = gameInfo.officials || [];
   const refereeObj = officials.find(o => (o.position?.name || '').toLowerCase().includes('referee')) || officials[0];
@@ -530,8 +552,8 @@ function renderModalCompleteData(data, leagueId) {
         <div class="w-8 h-8 rounded-xl bg-sky-500/20 flex items-center justify-center mb-1.5 text-sky-400">
           <i class="fa-solid fa-user-ninja text-xs"></i>
         </div>
-        <span class="font-extrabold text-slate-200 text-[11px] block truncate w-full" title="${referee}">${referee}</span>
-        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Wasit</span>
+        <span class="font-extrabold text-slate-200 text-[11px] block truncate w-full" title="${liga2Detail.attendance || referee}">${liga2Detail.attendance ? attendance : referee}</span>
+        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">${liga2Detail.attendance ? 'Penonton' : 'Wasit'}</span>
       </div>
 
       <div class="bg-white/5 p-3 rounded-2xl border border-white/10 text-center flex flex-col items-center justify-center">
@@ -543,6 +565,19 @@ function renderModalCompleteData(data, leagueId) {
       </div>
     </div>
   `;
+
+  const liga2InfoHtml = data.liga2Detail ? `
+    <div class="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+      <div class="bg-white/5 border border-white/10 rounded-xl p-2.5">
+        <div class="text-slate-400 uppercase tracking-wider font-bold">Kick-off</div>
+        <div class="text-white font-bold mt-1">${kickoffLabel || 'Belum dirilis'}</div>
+      </div>
+      <div class="bg-white/5 border border-white/10 rounded-xl p-2.5">
+        <div class="text-slate-400 uppercase tracking-wider font-bold">Zona waktu</div>
+        <div class="text-white font-bold mt-1">${timezoneLabel || 'Asia/Jakarta'}</div>
+      </div>
+    </div>
+  ` : '';
 
   const rawEvents = data.details || data.keyEvents || header.details || [];
   const homeGoals = [];
@@ -846,6 +881,7 @@ function renderModalCompleteData(data, leagueId) {
     eventsTimelineHtml = `
       <div class="bg-[#180d30] p-4 rounded-3xl border border-white/10 shadow-xl space-y-1">
         ${timelineItems}
+        ${liga2InfoHtml}
         ${matchInfoBadgeHtml}
       </div>
     `;
@@ -855,6 +891,7 @@ function renderModalCompleteData(data, leagueId) {
         <div class="py-8 text-center text-slate-400 text-xs font-medium space-y-1">
           <p class="text-slate-200 font-bold">Belum ada catatan kejadian penting.</p>
         </div>
+        ${liga2InfoHtml}
         ${matchInfoBadgeHtml}
       </div>
     `;

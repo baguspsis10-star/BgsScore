@@ -140,6 +140,7 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
     let data = {};
 
     const isLiga1 = ['idn.1', 'indonesia.1', 'liga1'].includes(targetLeague.id);
+    const isLiga2 = isLiga2LeagueId(targetLeague.id);
 
     if (isLiga1) {
       const liga1Rows = await fetchLiga1Standings();
@@ -167,6 +168,8 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
           form: row.form
         }))
       }];
+    } else if (isLiga2) {
+      groups = await fetchLiga2Standings();
     } else {
       const res = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${targetLeague.id}/standings`);
       if (!res.ok) throw new Error(`Standings HTTP ${res.status}`);
@@ -447,6 +450,11 @@ async function renderLeagueLeaders(targetLeague, container) {
   `;
 
   try {
+    if (isLiga2LeagueId(targetLeague.id)) {
+      renderLiga2TopScorers(container, await fetchLiga2TopScorers());
+      return;
+    }
+
     let data = null;
     const endpoints = [
       `https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/leaders`,
@@ -565,6 +573,7 @@ async function renderLeagueMatchesList(targetLeague, container) {
       'indonesia.1',
       'liga1'
     ].includes(targetLeague.id);
+    const isLiga2 = isLiga2LeagueId(targetLeague.id);
 
     let events = [];
 
@@ -586,6 +595,8 @@ async function renderLeagueMatchesList(targetLeague, container) {
           leagueLogo: targetLeague.logo,
           leagueFlag: '🇮🇩'
         }));
+    } else if (isLiga2) {
+      events = await fetchLiga2EventsForDate();
     } else {
       const res = await fetch(
         `https://site.api.espn.com/apis/site/v2/sports/soccer/${targetLeague.id}/scoreboard`
@@ -615,6 +626,7 @@ async function renderLeagueMatchesList(targetLeague, container) {
       return;
     }
 
+    cachedEvents = events;
     const finished = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'post'));
     const live = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'in'));
     const upcoming = sortEventsByFavoriteAndDate(events.filter(e => e.status.type.state === 'pre'));

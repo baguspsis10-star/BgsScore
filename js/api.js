@@ -502,6 +502,13 @@ async function fetchMatchSummary(leagueId, eventId) {
     return null;
   }
 
+  if (isLiga2LeagueId(leagueId)) {
+    const cachedEvent = Array.isArray(cachedEvents)
+      ? cachedEvents.find(event => String(event.id) === String(eventId))
+      : null;
+    return fetchLiga2MatchDetailSummary(cachedEvent, 'Pegadaian Championship 2026-27');
+  }
+
   try {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/summary?event=${eventId}`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
@@ -522,7 +529,10 @@ async function fetchAllMatches() {
     let allEvents = [];
 
     // Jika filter khusus Liga 1 -> Ambil murni dari Replit
-    if (
+    if (isLiga2LeagueId(selectedLeague)) {
+      allEvents = await fetchLiga2EventsForDate(targetDate);
+    }
+    else if (
       selectedLeague === 'idn.1' ||
       selectedLeague === 'indonesia.1' ||
       selectedLeague === 'liga1'
@@ -542,16 +552,19 @@ async function fetchAllMatches() {
       const [
         espnEvents,
         indoEvents,
-        finishedIndoEvents
+        finishedIndoEvents,
+        liga2Events
       ] = await Promise.all([
-        fetchBatchLeagues(LEAGUES, () => targetDate),
+        fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id)), () => targetDate),
         fetchLigaIndonesiaData(targetDate),
-        fetchLigaIndonesiaFinishedData(targetDate)
+        fetchLigaIndonesiaFinishedData(targetDate),
+        fetchLiga2EventsForDate(targetDate)
       ]);
 
       allEvents = [
         ...finishedIndoEvents,
         ...indoEvents,
+        ...liga2Events,
         ...espnEvents
       ];
     } 
@@ -590,14 +603,16 @@ async function fetchLiveMatchesStructured() {
     const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
     const dateRangeStr = `${getFormattedDate(yesterday)}-${getFormattedDate(today)}`;
 
-    const [allEventsRaw, indoEvents] = await Promise.all([
-      fetchBatchLeagues(LEAGUES, () => dateRangeStr),
-      fetchLigaIndonesiaData()
+    const [allEventsRaw, indoEvents, liga2Events] = await Promise.all([
+      fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id)), () => dateRangeStr),
+      fetchLigaIndonesiaData(),
+      fetchLiga2EventsForDate()
     ]);
 
     const eventMap = new Map();
     allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
     indoEvents.forEach(evt => eventMap.set(evt.id, evt));
+    liga2Events.forEach(evt => eventMap.set(evt.id, evt));
 
     let allEvents = Array.from(eventMap.values());
     
@@ -697,14 +712,16 @@ async function fetchFavoritedMatchesStructured() {
     const next7Days = new Date(today.getTime() + (7 * 24 * 60 * 60 * 1000));
     const dateRangeStr = `${getFormattedDate(past2Days)}-${getFormattedDate(next7Days)}`;
 
-    const [allEventsRaw, indoEvents] = await Promise.all([
-      fetchBatchLeagues(LEAGUES, () => dateRangeStr),
-      fetchLigaIndonesiaData()
+    const [allEventsRaw, indoEvents, liga2Events] = await Promise.all([
+      fetchBatchLeagues(LEAGUES.filter(l => !isLiga2LeagueId(l.id)), () => dateRangeStr),
+      fetchLigaIndonesiaData(),
+      fetchLiga2EventsForDate()
     ]);
 
     const eventMap = new Map();
     allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
     indoEvents.forEach(evt => eventMap.set(evt.id, evt));
+    liga2Events.forEach(evt => eventMap.set(evt.id, evt));
 
     const favEvents = Array.from(eventMap.values()).filter(evt => {
       const comp = evt.competitions?.[0];

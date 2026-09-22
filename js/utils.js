@@ -22,6 +22,7 @@ function generateUnlicensedLeagueBadge(leagueId, leagueName = '', country = '') 
     'rus.1': { p: '#b91c1c', s: '#1d4ed8', text: 'RPL' },
     'sco.1': { p: '#1e3a8a', s: '#ffffff', text: 'SPFL' },
     'idn.1': { p: '#991b1b', s: '#ffffff', text: 'L1' },
+     'idn.2': { p: '#0f766e', s: '#fbbf24', text: 'L2' },
     'ksa.1': { p: '#047857', s: '#f59e0b', text: 'SPL' },
     'jpn.1': { p: '#be123c', s: '#ffffff', text: 'J1' },
     'chn.1': { p: '#b91c1c', s: '#f59e0b', text: 'CSL' },
