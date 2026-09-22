@@ -45,7 +45,12 @@ async function loadData(isSilent = false) {
     }
 
     if (currentOpenModal) {
-      await openMatchDetail(currentOpenModal.leagueId, currentOpenModal.eventId, currentOpenModal.leagueName, true);
+      await openMatchDetail(
+        currentOpenModal.leagueId,
+        currentOpenModal.eventId,
+        currentOpenModal.leagueName,
+        true
+      );
     }
   } catch (err) {
     console.error('Gagal memuat data:', err);
@@ -159,8 +164,14 @@ function handleSearch(query) {
     'search-results-container'
   );
 
-  const clearBtn = document.getElementById('search-clear-btn');
-  const dateStrip = document.getElementById('date-strip-container');
+  const clearBtn = document.getElementById(
+    'search-clear-btn'
+  );
+
+  const dateStrip = document.getElementById(
+    'date-strip-container'
+  );
+
   const q = query.trim().toLowerCase();
 
   if (q === '') {
@@ -285,7 +296,8 @@ function handleSearch(query) {
 
     leagueSec.innerHTML = `
       <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-slate-800">
-        <i class="fa-solid fa-trophy"></i> Liga Ditemukan (${matchedLeagues.length})
+        <i class="fa-solid fa-trophy"></i>
+        Liga Ditemukan (${matchedLeagues.length})
       </div>
 
       <div class="flex flex-col gap-1.5">
@@ -326,7 +338,8 @@ function handleSearch(query) {
 
     matchSec.innerHTML = `
       <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-slate-800">
-        <i class="fa-solid fa-futbol"></i> Pertandingan Ditemukan (${matchedEvents.length})
+        <i class="fa-solid fa-futbol"></i>
+        Pertandingan Ditemukan (${matchedEvents.length})
       </div>
 
       <div id="search-matches-grid" class="space-y-2.5"></div>

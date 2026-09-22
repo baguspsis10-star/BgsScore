@@ -445,6 +445,7 @@ async function fetchAllMatches() {
 
     // Jika filter khusus Liga 1 -> Ambil murni dari Replit
     if (
+      selectedLeague === 'idn.1' ||
       selectedLeague === 'indonesia.1' ||
       selectedLeague === 'liga1'
     ) {
@@ -482,7 +483,10 @@ async function fetchAllMatches() {
       selectedLeague === 'all'
     );
   } catch (err) {
-    console.error('Gagal mengambil data pertandingan:', err);
+    console.error(
+      'Gagal mengambil data pertandingan:',
+      err
+    );
   } finally {
     if (container) {
       container.classList.remove('hidden');
@@ -520,7 +524,10 @@ async function fetchLiveMatchesStructured() {
     let allEvents = Array.from(eventMap.values());
 
     cachedEvents = allEvents;
-    allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
+
+    allEvents.forEach(evt =>
+      monitorLiveFavoriteEvents(evt)
+    );
 
     const now = new Date();
 
@@ -572,6 +579,7 @@ async function fetchLiveMatchesStructured() {
           <i class="fa-solid fa-circle-check text-emerald-400"></i>
           Pertandingan Selesai (24 Jam Terakhir) (${finishedEvents.length})
         </span>
+
         <i id="finished-toggle-icon" class="fa-solid fa-chevron-${
           showFinishedInLive ? 'up' : 'down'
         } text-[10px]"></i>
@@ -647,7 +655,10 @@ async function fetchLiveMatchesStructured() {
       true
     );
   } catch (err) {
-    console.error('Gagal memuat laga live:', err);
+    console.error(
+      'Gagal memuat laga live:',
+      err
+    );
   } finally {
     container.classList.remove('hidden');
   }
@@ -666,9 +677,11 @@ async function fetchFavoritedMatchesStructured() {
     container.innerHTML = `
       <div class="text-center py-12 px-4 text-slate-400 bg-[#180d30] border border-white/10 rounded-2xl">
         <i class="fa-solid fa-star text-3xl text-amber-500/40 mb-3 block"></i>
+
         <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">
           Belum Ada Favorit
         </h3>
+
         <p class="text-[11px] text-slate-400">
           Tekan ikon bintang
           <i class="fa-regular fa-star text-amber-400"></i>
@@ -706,23 +719,25 @@ async function fetchFavoritedMatchesStructured() {
     allEventsRaw.forEach(evt => eventMap.set(evt.id, evt));
     indoEvents.forEach(evt => eventMap.set(evt.id, evt));
 
-    const favEvents = Array.from(eventMap.values()).filter(evt => {
-      const comp = evt.competitions?.[0];
+    const favEvents = Array.from(eventMap.values()).filter(
+      evt => {
+        const comp = evt.competitions?.[0];
 
-      const homeId = comp?.competitors?.find(
-        c => c.homeAway === 'home'
-      )?.team?.id;
+        const homeId = comp?.competitors?.find(
+          c => c.homeAway === 'home'
+        )?.team?.id;
 
-      const awayId = comp?.competitors?.find(
-        c => c.homeAway === 'away'
-      )?.team?.id;
+        const awayId = comp?.competitors?.find(
+          c => c.homeAway === 'away'
+        )?.team?.id;
 
-      return (
-        isFavorite(evt.id) ||
-        isTeamFavorite(homeId) ||
-        isTeamFavorite(awayId)
-      );
-    });
+        return (
+          isFavorite(evt.id) ||
+          isTeamFavorite(homeId) ||
+          isTeamFavorite(awayId)
+        );
+      }
+    );
 
     cachedEvents = favEvents;
 
@@ -872,7 +887,10 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
 
     let finished = events
       .filter(e => e.status?.type?.state === 'post')
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+      .sort(
+        (a, b) =>
+          new Date(b.date) - new Date(a.date)
+      );
 
     if (finished.length < 5) {
       try {
@@ -899,7 +917,9 @@ async function fetchTeamRecentMatches(leagueId, teamId) {
             combinedMap.set(e.id, e)
           );
 
-          finished = Array.from(combinedMap.values()).sort(
+          finished = Array.from(
+            combinedMap.values()
+          ).sort(
             (a, b) =>
               new Date(b.date) - new Date(a.date)
           );
