@@ -4,9 +4,9 @@
 
 // URL Backend Replit BRI Liga 1
 const REPLIT_LIGA1_URL = 'https://node-express-app--bgsdesign22.replit.app/api/Liga1';
+const REPLIT_LIGA1_STANDINGS_URL = 'https://node-express-app--bgsdesign22.replit.app/api/liga1/standings';
 
 // Pemetaan klub Liga 1 ke ID logo API-Football.
-// Backend Replit saat ini mengirim nama klub dan skor, belum mengirim URL logo.
 const LIGA1_TEAM_LOGO_IDS = {
   'PERSIK KEDIRI': '4241',
   'MADURA UNITED FC': '2444',
@@ -143,6 +143,61 @@ async function fetchLigaIndonesiaData() {
               }
             ]
           }
+        ]
+      };
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    return [];
+  }
+}
+
+// Helper Fetch Data Klasemen Liga 1 Indonesia dari Replit
+async function fetchLigaIndonesiaStandings() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+  try {
+    const res = await fetch(REPLIT_LIGA1_STANDINGS_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const rawList = Array.isArray(data) ? data : (data.standings || data.data || []);
+
+    if (!Array.isArray(rawList)) return [];
+
+    return rawList.map((item) => {
+      const teamName = item.team || item.teamName || item.club || item.name || "Klub Liga 1";
+      const logo = getLiga1TeamLogo(teamName, item.logo || item.teamLogo || item.badge || item.image);
+
+      const played = item.played ?? item.p ?? item.mp ?? item.gamesPlayed ?? item.m ?? 0;
+      const wins = item.won ?? item.wins ?? item.w ?? 0;
+      const draws = item.drawn ?? item.draws ?? item.ties ?? item.d ?? 0;
+      const losses = item.lost ?? item.losses ?? item.l ?? 0;
+      const gf = item.gf ?? item.goalsFor ?? item.pointsFor ?? item.f ?? 0;
+      const ga = item.ga ?? item.goalsAgainst ?? item.pointsAgainst ?? item.a ?? 0;
+      const gd = item.gd ?? item.goalDifference ?? item.pointDifferential ?? (gf - ga);
+      const pts = item.points ?? item.pts ?? (wins * 3 + draws);
+
+      const teamId = item.id || item.teamId || `team-${normalizeLiga1TeamName(teamName)}`;
+
+      return {
+        team: {
+          id: teamId,
+          displayName: teamName,
+          shortDisplayName: teamName,
+          logos: [{ href: logo }]
+        },
+        stats: [
+          { name: 'gamesPlayed', value: played, displayValue: String(played) },
+          { name: 'wins', value: wins, displayValue: String(wins) },
+          { name: 'ties', value: draws, displayValue: String(draws) },
+          { name: 'losses', value: losses, displayValue: String(losses) },
+          { name: 'pointsFor', value: gf, displayValue: String(gf) },
+          { name: 'pointsAgainst', value: ga, displayValue: String(ga) },
+          { name: 'pointDifferential', value: gd, displayValue: String(gd) },
+          { name: 'points', value: pts, displayValue: String(pts) }
         ]
       };
     });
@@ -616,7 +671,7 @@ async function fetchFavoritedMatchesStructured() {
     }
   } catch (err) {
     console.error("Gagal memuat favorit:", err);
-  } finally {
+  } font-medium {
     container.classList.remove('hidden');
   }
 }
@@ -695,7 +750,7 @@ async function fetchFormAndH2H(leagueId, homeTeamId, awayTeamId, homeName, awayN
                   <span class="text-[9px] text-slate-400 w-1/3">${matchDate}</span>
                   <div class="flex items-center justify-center gap-1.5 w-2/3">
                     <span class="font-semibold text-slate-200 text-right truncate w-5/12">${hTeam?.team?.shortDisplayName || ''}</span>
-                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score || '0'} -${aTeam?.score || '0'}</span>
+                    <span class="font-bold bg-white/10 px-1.5 py-0.5 rounded text-emerald-400 text-[11px]">${hTeam?.score \vert{}\vert{} '0'} -${aTeam?.score || '0'}</span>
                     <span class="font-semibold text-slate-200 text-left truncate w-5/12">${aTeam?.team?.shortDisplayName || ''}</span>
                   </div>
                 </div>

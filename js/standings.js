@@ -136,20 +136,39 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
     : (highlightTeamId ? [String(highlightTeamId)] : []);
 
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${targetLeague.id}/standings`);
-    const data = await res.json();
-    
     let groups = [];
-    if (data?.children && data.children.length > 0) {
-      groups = data.children.map(child => ({
-        name: child.name || child.displayName || 'Grup',
-        entries: child.standings?.entries || []
-      }));
-    } else if (data?.standings?.entries) {
-      groups = [{
-        name: targetLeague.name,
-        entries: data.standings.entries
-      }];
+
+    // Khusus BRI Liga 1 Indonesia: Ambil data dari Replit API
+    if (
+      targetLeague.id === 'idn.1' || 
+      targetLeague.id === 'indonesia.1' || 
+      targetLeague.id === 'liga1'
+    ) {
+      const indoEntries = await fetchLigaIndonesiaStandings();
+      if (indoEntries && indoEntries.length > 0) {
+        groups = [{
+          name: targetLeague.name || 'BRI Liga 1 Indonesia',
+          entries: indoEntries
+        }];
+      }
+    }
+
+    // Jika bukan Liga 1 atau data Replit kosong, fallback ke ESPN
+    if (groups.length === 0) {
+      const res = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${targetLeague.id}/standings`);
+      const data = await res.json();
+      
+      if (data?.children && data.children.length > 0) {
+        groups = data.children.map(child => ({
+          name: child.name || child.displayName || 'Grup',
+          entries: child.standings?.entries || []
+        }));
+      } else if (data?.standings?.entries) {
+        groups = [{
+          name: targetLeague.name,
+          entries: data.standings.entries
+        }];
+      }
     }
 
     if (groups.length === 0 || groups.every(g => g.entries.length === 0)) {
@@ -192,10 +211,20 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
         const rawLogo = entry.team?.logos?.[0]?.href || getTeamLogo(entry.team);
         const teamLogo = dataSaverMode ? PLAIN_SHIELD_LOGO : rawLogo;
         const teamId = String(entry.team?.id);
+        const teamNameNorm = typeof normalizeLiga1TeamName === 'function' ? normalizeLiga1TeamName(entry.team?.displayName) : '';
         
-        const isHome = highlightIds[0] && String(highlightIds[0]) === teamId;
-        const isAway = highlightIds[1] && String(highlightIds[1]) === teamId;
-        const isHighlighted = isHome || isAway;
+        const isHighlighted = highlightIds.some(hId => {
+          const hIdStr = String(hId);
+          if (hIdStr === teamId) return true;
+          if (typeof normalizeLiga1TeamName === 'function') {
+            const normH = normalizeLiga1TeamName(decodeURIComponent(hIdStr).replace(/^team-(home|away)-/, ''));
+            if (normH && teamNameNorm && (normH === teamNameNorm || normH.includes(teamNameNorm) || teamNameNorm.includes(normH))) {
+              return true;
+            }
+          }
+          return false;
+        });
+
         const isFav = isTeamFavorite(teamId);
 
         return `
