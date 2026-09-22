@@ -271,6 +271,19 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       } catch (e) {}
     }
 
+    /*
+     * Pertandingan Liga 1 berasal dari API Replit, bukan ESPN.
+     * Jika ESPN tidak mengenali event ID tersebut, gunakan event yang
+     * sudah tersimpan di cachedEvents agar halaman detail tetap tampil.
+     */
+    if (!data || !data.header || !data.header.competitions) {
+      data = buildLiga1SummaryFromCachedEvent(
+        cachedEvt,
+        leagueId,
+        leagueName
+      );
+    }
+
     if (!data || !data.header || !data.header.competitions) {
       throw new Error("Detail pertandingan tidak ditemukan.");
     }
@@ -327,6 +340,70 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       container.classList.remove('hidden');
     }
   }
+}
+
+function buildLiga1SummaryFromCachedEvent(
+  cachedEvent,
+  fallbackLeagueId,
+  fallbackLeagueName
+) {
+  if (
+    !cachedEvent ||
+    !Array.isArray(cachedEvent.competitions) ||
+    !cachedEvent.competitions[0]
+  ) {
+    return null;
+  }
+
+  const competition = cachedEvent.competitions[0];
+  const leagueId = normalizeLiga1LeagueId(
+    cachedEvent.leagueId || fallbackLeagueId
+  );
+
+  const leagueName =
+    cachedEvent.leagueName ||
+    fallbackLeagueName ||
+    'BRI Liga 1 Indonesia';
+
+  return {
+    header: {
+      id: cachedEvent.id,
+      date:
+        cachedEvent.date ||
+        competition.date ||
+        new Date().toISOString(),
+
+      league: {
+        slug: leagueId,
+        name: leagueName
+      },
+
+      competitions: [
+        {
+          ...competition,
+          id: competition.id || cachedEvent.id,
+          date:
+            competition.date ||
+            cachedEvent.date ||
+            new Date().toISOString(),
+          status:
+            competition.status ||
+            cachedEvent.status
+        }
+      ]
+    },
+
+    leagues: [
+      {
+        slug: leagueId,
+        name: leagueName
+      }
+    ],
+
+    details: [],
+    headToHead: [],
+    gameInfo: {}
+  };
 }
 
 function normalizeLiga1LeagueId(leagueId) {
