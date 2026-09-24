@@ -259,9 +259,17 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     let data = null;
 
     if (isLiga1LeagueId(leagueId) || isLiga1LeagueId(cachedEvt?.leagueId)) {
-      data = await fetchLiga1MatchDetailSummary(cachedEvt, leagueName);
+      try {
+        data = await fetchLiga1MatchDetailSummary(cachedEvt, leagueName);
+      } catch (detailError) {
+        console.warn('Detail Liga 1 gagal dimuat, memakai data kartu:', detailError);
+      }
     } else if (isLiga2LeagueId(leagueId) || isLiga2LeagueId(cachedEvt?.leagueId)) {
-      data = await fetchLiga2MatchDetailSummary(cachedEvt, leagueName);
+      try {
+        data = await fetchLiga2MatchDetailSummary(cachedEvt, leagueName);
+      } catch (detailError) {
+        console.warn('Detail Liga 2 gagal dimuat, memakai data kartu:', detailError);
+      }
     }
 
     for (const slug of data ? [] : candidateLeagues) {
@@ -283,7 +291,7 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
      * sudah tersimpan di cachedEvents agar halaman detail tetap tampil.
      */
     if (!data || !data.header || !data.header.competitions) {
-      data = buildLiga1SummaryFromCachedEvent(
+      data = buildMatchSummaryFromCachedEvent(
         cachedEvt,
         leagueId,
         leagueName
@@ -357,7 +365,7 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   }
 }
 
-function buildLiga1SummaryFromCachedEvent(
+function buildMatchSummaryFromCachedEvent(
   cachedEvent,
   fallbackLeagueId,
   fallbackLeagueName
@@ -378,9 +386,33 @@ function buildLiga1SummaryFromCachedEvent(
   const leagueName =
     cachedEvent.leagueName ||
     fallbackLeagueName ||
-    'BRI Liga 1 Indonesia';
+    (isLiga2LeagueId(leagueId)
+      ? 'Pegadaian Championship 2026-27'
+      : isLiga1LeagueId(leagueId)
+      ? 'BRI Liga 1 Indonesia'
+      : 'Pertandingan');
 
-  return {
+  const rawDetail =
+    cachedEvent.liga2Raw ||
+    cachedEvent.liga1Raw ||
+    {};
+  const venueName =
+    competition.venue?.fullName ||
+    rawDetail.stadium ||
+    rawDetail.venue ||
+    '';
+  const fallbackDetail = {
+    match: rawDetail,
+    location: venueName,
+    attendance: rawDetail.attendance || '',
+    kickoffLabel: rawDetail.kickoff || '',
+    timezone: rawDetail.timezone || 'Asia/Jakarta',
+    timeline: rawDetail.timeline || [],
+    statistics: rawDetail.statistics || {},
+    lineups: rawDetail.lineups || []
+  };
+
+  const summary = {
     header: {
       id: cachedEvent.id,
       date:
@@ -417,8 +449,21 @@ function buildLiga1SummaryFromCachedEvent(
 
     details: [],
     headToHead: [],
-    gameInfo: {}
+    gameInfo: {
+      venue: { fullName: venueName },
+      officials: []
+    },
+    boxscore: { teams: [] },
+    rosters: []
   };
+
+  if (isLiga2LeagueId(leagueId)) {
+    summary.liga2Detail = fallbackDetail;
+  } else if (isLiga1LeagueId(leagueId)) {
+    summary.liga1Detail = fallbackDetail;
+  }
+
+  return summary;
 }
 
 function normalizeLiga1LeagueId(leagueId) {
