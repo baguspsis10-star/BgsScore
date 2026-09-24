@@ -7,6 +7,25 @@ const REPLIT_LIGA1_URL = 'https://node-express-app--bgsdesign22.replit.app/api/L
 const REPLIT_LIGA1_FINISHED_URL = 'https://node-express-app--bgsdesign22.replit.app/api/liga1/finished';
 const REPLIT_LIGA1_STANDINGS_URL = 'https://node-express-app--bgsdesign22.replit.app/api/liga1/standings';
 
+// ESPN mengirim beberapa pertandingan pada endpoint "all" hanya dengan
+// numeric league ID di UID. Simpan alias yang sudah diketahui agar nama
+// kompetisi tetap konsisten dengan halaman detail pertandingan.
+const ESPN_LEAGUE_ID_ALIASES = {
+  '8315': 'caf.nations_qual'
+};
+
+function isCompetitionStageLabel(value) {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return /^(group stage|regular season|round(?: [a-z0-9]+)?|quarterfinals?|semifinals?|finals?|playoffs?)$/.test(
+    normalized
+  );
+}
+
 // Pemetaan klub Liga 1 ke ID logo API-Football.
 // Backend Replit saat ini mengirim nama klub dan skor, belum mengirim URL logo.
 const LIGA1_TEAM_LOGO_IDS = {
@@ -337,17 +356,34 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
 
     return (data.events || []).map(evt => {
       const comp = evt.competitions?.[0];
-      
-      let extractedSlug = evt.league?.slug || comp?.league?.slug || evt.season?.slug || rootLeague?.slug;
-      
-      if (!extractedSlug && evt.uid) {
-        const uidMatch = evt.uid.match(/~l:([^~]+)/);
-        if (uidMatch) extractedSlug = uidMatch[1];
-      }
 
-      let rawName = evt.league?.name || comp?.league?.name || evt.season?.name || rootLeague?.name || evt.leagueName;
+      const uidLeagueId = evt.uid?.match(/~l:([^~]+)/)?.[1] || '';
+      const aliasedLeagueId = ESPN_LEAGUE_ID_ALIASES[uidLeagueId] || '';
+      const slugCandidates = [
+        aliasedLeagueId,
+        slug !== 'all' ? slug : '',
+        evt.league?.slug,
+        comp?.league?.slug,
+        rootLeague?.slug,
+        evt.season?.slug
+      ].filter(Boolean);
 
-      if (!rawName && extractedSlug) {
+      const extractedSlug =
+        slugCandidates.find(value => !isCompetitionStageLabel(value)) ||
+        slugCandidates[0] ||
+        '';
+
+      const nameCandidates = [
+        evt.league?.name,
+        comp?.league?.name,
+        rootLeague?.name,
+        evt.season?.name,
+        evt.leagueName
+      ].filter(value => value && !isCompetitionStageLabel(value));
+
+      let rawName = nameCandidates[0] || '';
+
+      if (!rawName && extractedSlug && !isCompetitionStageLabel(extractedSlug)) {
         rawName = extractedSlug
           .split(/[.-]/)
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
