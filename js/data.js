@@ -203,6 +203,32 @@ const LEAGUES = [
   { id: 'generic.ussf', name: "Misc. U.S. Soccer Games", country: "Amerika Serikat", flag: "🇺🇸", logo: "https://www.thesportsdb.com/images/media/league/badge/2510211680100500.png", category: "Amerika" }
 ];
 
+// Kompetisi NCAA (Men maupun Women) tidak ditampilkan di Jadwal, Live,
+// Favorit, atau hasil pencarian agar scoreboard tidak dipenuhi pertandingan
+// kampus yang tidak diperlukan.
+function isExcludedNcaamatch(event) {
+  if (!event || typeof event !== 'object') return false;
+
+  const competition = event.competitions?.[0] || {};
+  const leagueSources = [
+    event.leagueId,
+    event.leagueName,
+    event.league?.id,
+    event.league?.name,
+    event.league?.slug,
+    event.season?.name,
+    event.season?.slug,
+    competition.league?.id,
+    competition.league?.name,
+    competition.league?.slug,
+    competition.season?.name,
+    competition.season?.slug,
+    event.uid
+  ];
+
+  return leagueSources.some(value => /\bncaa\b/i.test(String(value || '')));
+}
+
 // App Navigation & Filter State
 let activeNav = 'live'; 
 let selectedLeague = 'all';

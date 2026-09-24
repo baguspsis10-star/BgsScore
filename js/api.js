@@ -375,7 +375,7 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
         leagueLogo: finalLeagueLogo,
         leagueFlag: finalLeagueFlag
       };
-    });
+    }).filter(event => !isExcludedNcaamatch(event));
   } catch (e) {
     return [];
   }
@@ -587,7 +587,9 @@ async function fetchAllMatches() {
     });
 
     allEvents = sortEventsByFavoriteAndDate(
-      Array.from(uniqueEvents.values())
+      Array.from(uniqueEvents.values()).filter(
+        event => !isExcludedNcaamatch(event)
+      )
     );
     cachedEvents = allEvents;
 
@@ -621,7 +623,9 @@ async function fetchLiveMatchesStructured() {
     indoEvents.forEach(evt => eventMap.set(evt.id, evt));
     liga2Events.forEach(evt => eventMap.set(evt.id, evt));
 
-    let allEvents = Array.from(eventMap.values());
+    let allEvents = Array.from(eventMap.values()).filter(
+      event => !isExcludedNcaamatch(event)
+    );
     
     cachedEvents = allEvents;
     allEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
@@ -730,13 +734,15 @@ async function fetchFavoritedMatchesStructured() {
     indoEvents.forEach(evt => eventMap.set(evt.id, evt));
     liga2Events.forEach(evt => eventMap.set(evt.id, evt));
 
-    const favEvents = Array.from(eventMap.values()).filter(evt => {
+    const favEvents = Array.from(eventMap.values())
+      .filter(evt => !isExcludedNcaamatch(evt))
+      .filter(evt => {
       const comp = evt.competitions?.[0];
       const homeId = comp?.competitors?.find(c => c.homeAway === 'home')?.team?.id;
       const awayId = comp?.competitors?.find(c => c.homeAway === 'away')?.team?.id;
 
       return isFavorite(evt.id) || isTeamFavorite(homeId) || isTeamFavorite(awayId);
-    });
+      });
 
     cachedEvents = favEvents;
     favEvents.forEach(evt => monitorLiveFavoriteEvents(evt));
