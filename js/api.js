@@ -11,7 +11,20 @@ const REPLIT_LIGA1_STANDINGS_URL = 'https://node-express-app--bgsdesign22.replit
 // numeric league ID di UID. Simpan alias yang sudah diketahui agar nama
 // kompetisi tetap konsisten dengan halaman detail pertandingan.
 const ESPN_LEAGUE_ID_ALIASES = {
-  '8315': 'caf.nations_qual'
+  '2395': 'uefa.nations',
+  '8315': 'caf.nations_qual',
+  '8312': {
+    id: 'chi.copa_chi',
+    name: 'Copa Chile'
+  },
+  '3928': {
+    id: 'gua.1',
+    name: 'Guatemalan Liga Nacional'
+  },
+  '23107': {
+    id: 'global.gulf_cup',
+    name: 'Arabian Gulf Cup'
+  }
 };
 
 function isCompetitionStageLabel(value) {
@@ -358,7 +371,15 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
       const comp = evt.competitions?.[0];
 
       const uidLeagueId = evt.uid?.match(/~l:([^~]+)/)?.[1] || '';
-      const aliasedLeagueId = ESPN_LEAGUE_ID_ALIASES[uidLeagueId] || '';
+      const leagueAlias = ESPN_LEAGUE_ID_ALIASES[uidLeagueId];
+      const aliasedLeagueId =
+        typeof leagueAlias === 'string'
+          ? leagueAlias
+          : leagueAlias?.id || '';
+      const aliasedLeagueName =
+        typeof leagueAlias === 'object'
+          ? leagueAlias.name || ''
+          : '';
       const slugCandidates = [
         aliasedLeagueId,
         slug !== 'all' ? slug : '',
@@ -374,6 +395,7 @@ async function fetchMatchesByLeagueOrAll(leagueId, dateStr) {
         '';
 
       const nameCandidates = [
+        aliasedLeagueName,
         evt.league?.name,
         comp?.league?.name,
         rootLeague?.name,
