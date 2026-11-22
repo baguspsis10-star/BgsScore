@@ -330,7 +330,7 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 
             <!-- Logo & Nama Klub -->
             <div class="flex items-center gap-2 min-w-0 pr-1 pl-0.5">
-              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/[0.05] border border-white/[0.08] p-1 flex items-center justify-center shrink-0">
+              <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/[0.05] border border-white/[0.08] p-1 flex items-center justify-center shrink-0">
                 <img src="${teamLogo}" loading="lazy" class="w-full h-full object-contain" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
               </div>
               <div class="min-w-0 flex-1">

@@ -246,7 +246,7 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
       <div class="flex items-center justify-between gap-1.5 pt-0.5">
         <!-- HOME TEAM -->
         <div class="flex items-center gap-2.5 w-[36%] min-w-0">
-          <div class="w-9 h-9 sm:w-10 sm:h-10 p-1.5 bg-white/[0.04] border border-white/[0.08] rounded-xl flex items-center justify-center shrink-0">
+          <div class="w-12 h-12 sm:w-13 sm:h-13 p-1.5 bg-white/[0.04] border border-white/[0.08] rounded-xl flex items-center justify-center shrink-0">
             <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
           </div>
           <span class="font-bold text-xs truncate leading-tight text-slate-100 flex items-center gap-1">
