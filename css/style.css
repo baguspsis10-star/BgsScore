@@ -1,26 +1,33 @@
 /* ============================================================
-   BGS SCOREHUB - FULL DARK NEON + DOT PATTERN TEXTURE
+   BGS SCOREHUB - MODERN OBSIDIAN MATTE THEME (NO NEON)
    ============================================================ */
+
+:root {
+  --bg-base: #0b0e14;
+  --bg-surface: #131822;
+  --bg-elevated: #1a2130;
+  --bg-recessed: #0e121b;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-hover: rgba(255, 255, 255, 0.14);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-emerald: #10b981;
+}
 
 * {
   box-sizing: border-box;
   touch-action: manipulation;
 }
 
-/* BACKGROUND UTAMA DENGAN POLA BINTIK MATRIKS & PENDARAN NEON */
 body {
-  background-color: #0d061a !important;
-  color: #f1f5f9 !important;
+  background-color: var(--bg-base) !important;
+  color: var(--text-primary) !important;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  background-image: 
-    radial-gradient(circle at 50% 0%, rgba(147, 51, 234, 0.22) 0%, transparent 60%),
-    radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.12) 0%, transparent 50%),
-    radial-gradient(rgba(255, 255, 255, 0.08) 1.2px, transparent 1.2px) !important;
-  background-size: 100% 100%, 100% 100%, 22px 22px !important;
+  background-image: linear-gradient(180deg, #0f141e 0%, #0b0e14 280px) !important;
   background-attachment: fixed !important;
 }
 
-/* CUSTOM SCROLLBAR BAR */
+/* CUSTOM SCROLLBAR */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -29,46 +36,64 @@ body {
   scrollbar-width: none;
 }
 
-/* HEADER UTAMA GELAP */
-header {
-  background-color: rgba(19, 9, 35, 0.9) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(16px) !important;
-}
-header h1, header span {
-  color: #ffffff !important;
+/* OVERRIDE LEGACY SURFACES AGAR SERAGAM */
+[class*="bg-[#0d061a]"],
+[class*="bg-[#0f0720]"] {
+  background-color: var(--bg-recessed) !important;
 }
 
-/* OVERRIDE CONTAINER PENCARIAN & TOOLBAR (DULU PUTIH) */
+[class*="bg-[#180d30]"],
+.bg-slate-900,
+.bg-slate-900\/50 {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+[class*="hover:bg-[#231344]"]:hover,
+[class*="bg-[#231344]"] {
+  background-color: var(--bg-elevated) !important;
+}
+
+/* HEADER UTAMA */
+header {
+  background-color: rgba(11, 14, 20, 0.88) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+/* TOOLBAR & INPUT PENCARIAN */
 main div.bg-white,
 #top-all-matches-header button,
 #active-league-badge {
-  background-color: #180d30 !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  color: #ffffff !important;
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-primary) !important;
 }
 
-/* INPUT PENCARIAN & TOMBOL HARI GELAP */
 #search-input {
-  background-color: #0f0720 !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  color: #ffffff !important;
+  background-color: var(--bg-recessed) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-primary) !important;
+}
+#search-input:focus {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08) !important;
 }
 #search-input::placeholder {
-  color: rgba(255, 255, 255, 0.4) !important;
+  color: #64748b !important;
 }
 
-/* KARTU PERTANDINGAN PURPLE GELAP */
+/* KARTU PERTANDINGAN MATTE ELEGAN */
 .card-upcoming,
 .card-live,
 .card-finished,
 .card-fav-upcoming,
 .card-fav-finished {
-  background: #180d30 !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  border-radius: 1.25rem !important;
-  transition: all 0.2s ease-in-out !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 1.125rem !important;
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22) !important;
 }
 
 .card-upcoming:hover,
@@ -76,122 +101,112 @@ main div.bg-white,
 .card-finished:hover,
 .card-fav-upcoming:hover,
 .card-fav-finished:hover {
-  background: #231344 !important;
-  border-color: rgba(255, 255, 255, 0.18) !important;
-  transform: translateY(-2px);
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-hover) !important;
+  transform: translateY(-1px);
 }
 
-/* AKSEN CARD STATE */
+/* AKSEN STATUS HALUS (TANPA NEON) */
 .card-live {
-  border-left: 4px solid #ef4444 !important;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, #180d30 70%) !important;
+  border-left: 3px solid #e11d48 !important;
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.08) 0%, var(--bg-surface) 60%) !important;
 }
 .card-finished {
-  border-left: 4px solid #10b981 !important;
+  border-left: 3px solid #10b981 !important;
 }
 .card-upcoming {
-  border-left: 4px solid #38bdf8 !important;
+  border-left: 3px solid #475569 !important;
 }
 .card-fav-upcoming {
-  border-left: 4px solid #f59e0b !important;
+  border-left: 3px solid #d97706 !important;
 }
 .card-fav-finished {
-  border-left: 4px solid #a855f7 !important;
+  border-left: 3px solid #6366f1 !important;
 }
 
-/* MODAL OVERLAY & POPUP CONTAINER GELAP */
+/* MODAL OVERLAY & CONTAINER */
 #detail-modal > div,
 #team-detail-modal > div,
 #league-modal > div,
 #settings-modal > div {
-  background-color: #120826 !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  color: #ffffff !important;
+  background-color: var(--bg-base) !important;
+  border: 1px solid var(--border-hover) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65) !important;
 }
 
-/* MODAL TOP HEADER BAR */
 #detail-modal .border-b,
 #team-detail-modal .border-b,
 #league-modal .border-b,
 #settings-modal .border-b,
 #team-modal-banner {
-  background-color: #180d30 !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  color: #ffffff !important;
-}
-
-#modal-league-name,
-#team-modal-title {
-  color: #ffffff !important;
-}
-
-/* MODAL TAB BAR CONTAINER (RINGKASAN, STATISTIK, DLL) */
-#detail-modal div[class*="bg-slate-200"],
-#team-detail-modal div[class*="bg-white"] {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-primary) !important;
 }
 
 /* TOMBOL PILL TAB MODAL */
 .tab-pill-active {
-  background-color: #ffffff !important;
+  background-color: #f8fafc !important;
   color: #0f172a !important;
   font-weight: 800 !important;
-  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25) !important;
 }
 .tab-pill-inactive {
   background-color: transparent !important;
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: #94a3b8 !important;
   font-weight: 600 !important;
 }
 .tab-pill-inactive:hover {
-  color: #ffffff !important;
+  color: #f8fafc !important;
 }
 
-/* BOTTOM NAVIGATION BAR GELAP */
+/* BOTTOM NAVIGATION BAR */
 nav.fixed {
-  background-color: rgba(19, 9, 35, 0.92) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(16px) !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+  background-color: rgba(19, 24, 34, 0.92) !important;
+  border: 1px solid var(--border-hover) !important;
+  backdrop-filter: blur(18px) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
 }
 .bnav-item {
-  color: rgba(255, 255, 255, 0.5) !important;
+  color: #64748b !important;
+}
+.bnav-item:hover {
+  color: #cbd5e1 !important;
 }
 .bnav-item.text-emerald-400,
 .bnav-item.font-bold {
-  color: #34d399 !important;
+  color: #10b981 !important;
 }
 
 /* TIMELINE EVENT CAPSULES */
 .timeline-capsule-home {
-  background: #251347;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-left: 4px solid #ff4d6d;
-  border-radius: 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid #e11d48;
+  border-radius: 0.875rem;
 }
 .timeline-capsule-away {
-  background: #251347;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-right: 4px solid #38bdf8;
-  border-radius: 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-right: 3px solid #0284c7;
+  border-radius: 0.875rem;
 }
 .timeline-capsule-goal {
-  background: linear-gradient(90deg, #1e3a37 0%, #134e4a 100%);
-  border: 1px solid #2dd4bf;
-  color: #2dd4bf;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
   border-radius: 9999px;
 }
 
-/* ANIMASI GOL PULSE */
-@keyframes goalPulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
-  50% { transform: scale(1.05); box-shadow: 0 0 12px 4px rgba(16, 185, 129, 0.5); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+/* ANIMASI GOL HALUS */
+@keyframes goalSubtle {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
 }
 .goal-active-pulse {
-  animation: goalPulse 1.2s infinite ease-in-out;
-  background-color: #10b981 !important;
+  animation: goalSubtle 1.4s infinite ease-in-out;
+  background-color: #059669 !important;
   color: #ffffff !important;
 }
 
@@ -220,9 +235,7 @@ nav.fixed {
   }
 }
 
-/* ============================================================
-   KNOCKOUT BRACKET (BAGAN BABAK GUGUR) & TOAST NOTIFICATION
-   ============================================================ */
+/* KNOCKOUT BRACKET */
 .bracket-wrapper {
   display: flex;
   gap: 1.25rem;
@@ -247,26 +260,24 @@ nav.fixed {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #34d399;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.22);
   padding: 0.4rem 0.75rem;
   border-radius: 0.75rem;
 }
 
 .bracket-match {
-  background: #180d30;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.85rem;
   padding: 0.6rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .bracket-match:hover {
-  background: #231344;
-  border-color: rgba(52, 211, 153, 0.5);
-  transform: translateY(-2px);
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
 }
 
 .bracket-team {
@@ -279,6 +290,6 @@ nav.fixed {
 }
 
 .bracket-team.winner {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.12);
   font-weight: 800;
 }
