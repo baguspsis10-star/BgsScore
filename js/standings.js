@@ -178,7 +178,7 @@ function renderMiniFormDots(formVal) {
   `;
 }
 
-// Render Standings Table Component (100% Full-Fit Tanpa Scroll Samping)
+// Render Standings Table Component (100% Full-Fit Tanpa Scroll Samping & Logo Tanpa Kotak)
 async function renderLeagueStandingsTable(targetLeague, container, highlightTeamId = null) {
   const highlightIds = Array.isArray(highlightTeamId) 
     ? highlightTeamId.map(id => String(id)) 
@@ -319,7 +319,7 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
         const miniForm = renderMiniFormDots(entry.form);
 
         return `
-          <div onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')" class="grid ${gridColsClass} items-center gap-0.5 px-2 py-2 border-b border-white/[0.05] last:border-b-0 hover:bg-[#1a2130] transition cursor-pointer tabular-nums ${isHighlighted ? 'bg-emerald-950/60' : ''} ${rowAccentBorder}">
+          <div onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')" class="grid ${gridColsClass} items-center gap-0.5 px-2 py-2.5 border-b border-white/[0.05] last:border-b-0 hover:bg-[#1a2130] transition cursor-pointer tabular-nums ${isHighlighted ? 'bg-emerald-950/60' : ''} ${rowAccentBorder}">
             
             <!-- Peringkat -->
             <div class="flex items-center justify-center">
@@ -328,11 +328,9 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
               </span>
             </div>
 
-            <!-- Logo & Nama Klub -->
+            <!-- Logo (Tanpa Kotak, Sama Seperti matches.js) & Nama Klub -->
             <div class="flex items-center gap-2 min-w-0 pr-1 pl-0.5">
-              <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/[0.05] border border-white/[0.08] p-1 flex items-center justify-center shrink-0">
-                <img src="${teamLogo}" loading="lazy" class="w-full h-full object-contain" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
-              </div>
+              <img src="${teamLogo}" loading="lazy" class="w-12 h-12 sm:w-[52px] sm:h-[52px] object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1">
                   <span class="truncate text-white text-[11px] sm:text-xs font-extrabold leading-tight">${entry.team?.shortDisplayName || entry.team?.displayName || 'Klub'}</span>

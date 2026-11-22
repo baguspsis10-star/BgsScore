@@ -1,4 +1,4 @@
-// MATCHES & MATCH CARDS MODULE - MODERN OBSIDIAN MATTE CARDS
+// MATCHES & MATCH CARDS MODULE - MODERN OBSIDIAN MATTE CARDS (NO LOGO BOX)
 
 // Check if Match is Favorited
 function isFavorite(eventId) {
@@ -146,7 +146,7 @@ function monitorLiveFavoriteEvents(event) {
   };
 }
 
-// Render Match Cards dengan Logo Asli Liga & Tampilan Matte Elegan
+// Render Match Cards dengan Logo Tanpa Kotak Pembungkus
 function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, customVariant = null) {
   const container = document.getElementById(targetContainerId);
   if (!container) return;
@@ -189,8 +189,8 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
 
     // KONTROL SKOR / VS MATTE BADGE
     let scoreDisplay = isPre 
-      ? `<span class="text-[10.5px] font-extrabold tracking-widest text-slate-300 bg-white/[0.06] px-3 py-1 rounded-full border border-white/10">VS</span>`
-      : `<span class="text-xs sm:text-sm font-black tracking-tight tabular-nums ${hasRecentGoal ? 'goal-active-pulse px-2.5 py-0.5 rounded-lg' : 'text-white bg-white/[0.07] px-3 py-1 rounded-lg border border-white/10'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
+      ? `<span class="text-[10.5px] font-extrabold tracking-widest text-slate-300 bg-white/[0.06] px-2.5 py-1 rounded-full border border-white/10">VS</span>`
+      : `<span class="text-xs sm:text-sm font-black tracking-tight tabular-nums ${hasRecentGoal ? 'goal-active-pulse px-2 py-0.5 rounded-lg' : 'text-white bg-white/[0.07] px-2.5 py-1 rounded-lg border border-white/10'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
 
     let cardStyleClass = 'card-upcoming';
 
@@ -245,10 +245,8 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
       <!-- MAIN TEAMS & SCORE BLOCK -->
       <div class="flex items-center justify-between gap-1.5 pt-0.5">
         <!-- HOME TEAM -->
-        <div class="flex items-center gap-2.5 w-[36%] min-w-0">
-          <div class="w-12 h-12 sm:w-13 sm:h-13 p-1.5 bg-white/[0.04] border border-white/[0.08] rounded-xl flex items-center justify-center shrink-0">
-            <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
-          </div>
+        <div class="flex items-center gap-2.5 w-[38%] min-w-0">
+          <img src="${homeLogo}" loading="lazy" class="w-12 h-12 sm:w-[52px] sm:h-[52px] object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
           <span class="font-bold text-xs truncate leading-tight text-slate-100 flex items-center gap-1">
             <span class="truncate">${home?.team?.shortDisplayName || home?.team?.displayName || ''}</span>
             ${homeFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
@@ -256,23 +254,21 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
         </div>
 
         <!-- SCORE / VS & STATUS -->
-        <div class="w-[28%] shrink-0 flex flex-col items-center justify-center text-center">
+        <div class="w-[24%] shrink-0 flex flex-col items-center justify-center text-center">
           ${scoreDisplay}
-          <span class="mt-2 text-[9.5px] font-medium text-slate-400 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums">
+          <span class="mt-2 text-[9px] font-medium text-slate-400 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums">
             <i class="fa-regular fa-clock text-[9px] text-slate-500 shrink-0"></i>
             <span class="${isLive ? 'text-rose-400 font-bold' : 'text-slate-400'}">${isLive ? liveMinuteText : formattedTime}</span>
           </span>
         </div>
 
         <!-- AWAY TEAM -->
-        <div class="flex items-center justify-end gap-2.5 w-[36%] min-w-0 text-right">
+        <div class="flex items-center justify-end gap-2.5 w-[38%] min-w-0 text-right">
           <span class="font-bold text-xs truncate leading-tight text-slate-100 flex items-center justify-end gap-1">
             ${awayFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
             <span class="truncate">${away?.team?.shortDisplayName || away?.team?.displayName || ''}</span>
           </span>
-          <div class="w-9 h-9 sm:w-10 sm:h-10 p-1.5 bg-white/[0.04] border border-white/[0.08] rounded-xl flex items-center justify-center shrink-0">
-            <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
-          </div>
+          <img src="${awayLogo}" loading="lazy" class="w-12 h-12 sm:w-[52px] sm:h-[52px] object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
         </div>
       </div>
     `;
