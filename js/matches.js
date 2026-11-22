@@ -1,4 +1,4 @@
-// MATCHES & MATCH CARDS MODULE - MODERN OBSIDIAN MATTE CARDS (VERTICAL TEAM STACK)
+// MATCHES & MATCH CARDS MODULE - MODERN OBSIDIAN MATTE CARDS + SKELETON LOADING
 
 // Check if Match is Favorited
 function isFavorite(eventId) {
@@ -146,6 +146,44 @@ function monitorLiveFavoriteEvents(event) {
   };
 }
 
+// Skeleton Loading untuk Kartu Pertandingan
+function renderMatchesSkeleton(targetContainerId, count = 4) {
+  const container = document.getElementById(targetContainerId);
+  if (!container) return;
+
+  const skeletonCard = `
+    <div class="p-3.5 rounded-2xl bg-[#131822] border border-white/[0.07] animate-pulse">
+      <div class="flex items-center justify-between mb-3">
+        <div class="h-4 w-28 bg-white/[0.06] rounded-md"></div>
+        <div class="flex items-center gap-1.5">
+          <div class="h-4 w-4 bg-white/[0.06] rounded-md"></div>
+          <div class="h-4 w-4 bg-white/[0.06] rounded-md"></div>
+          <div class="h-4 w-12 bg-white/[0.06] rounded-md"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 pt-0.5">
+        <div class="flex flex-col items-center gap-2 w-[35%]">
+          <div class="w-12 h-12 sm:w-[52px] sm:h-[52px] rounded-full bg-white/[0.06]"></div>
+          <div class="h-3 w-16 bg-white/[0.06] rounded"></div>
+        </div>
+
+        <div class="w-[30%] flex flex-col items-center">
+          <div class="h-7 w-14 rounded-lg bg-white/[0.08]"></div>
+          <div class="h-2.5 w-20 rounded bg-white/[0.05] mt-2"></div>
+        </div>
+
+        <div class="flex flex-col items-center gap-2 w-[35%]">
+          <div class="w-12 h-12 sm:w-[52px] sm:h-[52px] rounded-full bg-white/[0.06]"></div>
+          <div class="h-3 w-16 bg-white/[0.06] rounded"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = Array(count).fill(skeletonCard).join('');
+}
+
 // Render Match Cards dengan Nama Klub di Bawah Logo
 function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, customVariant = null) {
   const container = document.getElementById(targetContainerId);
@@ -168,7 +206,6 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
     const home = comp.competitors.find(c => c.homeAway === 'home');
     const away = comp.competitors.find(c => c.homeAway === 'away');
     
-    // Fallback Image Handler
     const homeLogo = getTeamLogo(home?.team) || PLAIN_SHIELD_LOGO;
     const awayLogo = getTeamLogo(away?.team) || PLAIN_SHIELD_LOGO;
 
@@ -187,7 +224,6 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
     const eventIdStr = String(event.id);
     const hasRecentGoal = recentGoalCache[eventIdStr] && ((Date.now() - recentGoalCache[eventIdStr]) < 30000);
 
-    // KONTROL SKOR / VS MATTE BADGE
     let scoreDisplay = isPre 
       ? `<span class="text-[11px] font-extrabold tracking-widest text-slate-300 bg-white/[0.06] px-3 py-1 rounded-full border border-white/10">VS</span>`
       : `<span class="text-sm sm:text-base font-black tracking-tight tabular-nums ${hasRecentGoal ? 'goal-active-pulse px-2.5 py-0.5 rounded-lg' : 'text-white bg-white/[0.07] px-3 py-1 rounded-lg border border-white/10'} whitespace-nowrap">${home?.score ?? '0'} - ${away?.score ?? '0'}</span>`;
@@ -206,7 +242,6 @@ function renderMatchesCards(targetContainerId, events, showLeagueBadge = false, 
       cardStyleClass = 'card-finished';
     }
 
-    // RESOLUSI LOGO LIGA ASLI + FALLBACK SVG LOGO LIGA
     const foundLeague = typeof LEAGUES !== 'undefined' ? LEAGUES.find(l => l.id === event.leagueId) : null;
     const rawLeagueLogo = event.leagueLogo || foundLeague?.logo || '';
     const fallbackLeagueBadge = generateUnlicensedLeagueBadge(event.leagueId || 'generic', event.leagueName || '', '');

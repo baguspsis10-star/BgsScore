@@ -1,4 +1,4 @@
-// STANDINGS & LEAGUE TABLES MODULE (100% FULL-SCREEN NO HORIZONTAL SCROLL + OBSIDIAN MATTE)
+// STANDINGS & LEAGUE TABLES MODULE (100% FULL-SCREEN NO HORIZONTAL SCROLL + SKELETON LOADING)
 
 // Helper Resolusi Logo Liga (Prioritas Logo Asli -> Fallback Badge SVG)
 function resolveLeagueLogoUrl(league) {
@@ -178,11 +178,54 @@ function renderMiniFormDots(formVal) {
   `;
 }
 
+// Skeleton Loading untuk Tabel Klasemen
+function renderStandingsSkeleton(container, rowCount = 8) {
+  const gridColsClass = 'grid-cols-[20px_minmax(0,1fr)_18px_16px_16px_16px_30px_22px_26px] sm:grid-cols-[28px_minmax(0,1fr)_28px_24px_24px_24px_46px_32px_38px]';
+
+  const rowsHtml = Array(rowCount).fill(`
+    <div class="grid ${gridColsClass} items-center gap-0.5 px-1.5 sm:px-2 py-2.5 border-b border-white/[0.05] last:border-b-0">
+      <div class="flex justify-center"><div class="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-white/[0.06]"></div></div>
+      <div class="flex items-center gap-2 pl-0.5 pr-1">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/[0.06] shrink-0"></div>
+        <div class="flex-1 space-y-1.5">
+          <div class="h-3 w-20 sm:w-28 bg-white/[0.06] rounded"></div>
+          <div class="h-2 w-12 bg-white/[0.04] rounded"></div>
+        </div>
+      </div>
+      <div class="h-3 w-3 mx-auto bg-white/[0.05] rounded"></div>
+      <div class="h-3 w-3 mx-auto bg-white/[0.05] rounded"></div>
+      <div class="h-3 w-3 mx-auto bg-white/[0.05] rounded"></div>
+      <div class="h-3 w-3 mx-auto bg-white/[0.05] rounded"></div>
+      <div class="h-3 w-6 mx-auto bg-white/[0.05] rounded"></div>
+      <div class="h-3 w-4 mx-auto bg-white/[0.05] rounded"></div>
+      <div class="h-5 w-full bg-white/[0.08] rounded-md"></div>
+    </div>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="bg-[#131822] border border-white/[0.07] rounded-2xl overflow-hidden shadow-lg mb-4 w-full animate-pulse">
+      <div class="p-3 border-b border-white/[0.07] bg-[#161c28] flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-white/[0.06]"></div>
+          <div class="space-y-1.5">
+            <div class="h-3.5 w-32 bg-white/[0.07] rounded"></div>
+            <div class="h-2.5 w-24 bg-white/[0.05] rounded"></div>
+          </div>
+        </div>
+        <div class="h-6 w-14 rounded-full bg-white/[0.06]"></div>
+      </div>
+      <div class="divide-y divide-white/[0.05]">${rowsHtml}</div>
+    </div>
+  `;
+}
+
 // Render Standings Table Component (100% Full-Fit Tanpa Scroll Samping & Nama Klub 2 Baris)
 async function renderLeagueStandingsTable(targetLeague, container, highlightTeamId = null) {
   const highlightIds = Array.isArray(highlightTeamId) 
     ? highlightTeamId.map(id => String(id)) 
     : (highlightTeamId ? [String(highlightTeamId)] : []);
+
+  renderStandingsSkeleton(container, 8);
 
   try {
     let groups = [];
@@ -250,7 +293,6 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
     const fallbackLeagueBadge = generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country);
     const headerLeagueLogo = resolveLeagueLogoUrl(targetLeague);
 
-    // Proporsi kolom yang memberi ruang maksimal pada kolom Klub agar tidak terpotong
     const gridColsClass = 'grid-cols-[20px_minmax(0,1fr)_18px_16px_16px_16px_30px_22px_26px] sm:grid-cols-[28px_minmax(0,1fr)_28px_24px_24px_24px_46px_32px_38px]';
 
     groups.forEach(group => {
@@ -421,9 +463,17 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 // Render Tournament Knockout Bracket (Bagan Babak Gugur)
 async function renderLeagueBracket(targetLeague, container) {
   container.innerHTML = `
-    <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-400"></i>
-      <p class="text-xs font-semibold">Memuat bagan babak gugur...</p>
+    <div class="bg-[#131822] border border-white/[0.07] rounded-2xl p-3.5 space-y-3 animate-pulse">
+      <div class="h-3.5 w-32 bg-white/[0.07] rounded"></div>
+      <div class="grid grid-cols-2 gap-3">
+        ${Array(4).fill(`
+          <div class="p-3 rounded-xl bg-[#0e121b] border border-white/[0.06] space-y-2">
+            <div class="h-2.5 w-16 bg-white/[0.05] rounded"></div>
+            <div class="h-3.5 w-full bg-white/[0.07] rounded"></div>
+            <div class="h-3.5 w-full bg-white/[0.07] rounded"></div>
+          </div>
+        `).join('')}
+      </div>
     </div>
   `;
 
@@ -563,9 +613,21 @@ async function renderLeagueBracket(targetLeague, container) {
 // Render Top Scorers & Top Assists (League Leaders)
 async function renderLeagueLeaders(targetLeague, container) {
   container.innerHTML = `
-    <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
-      <p class="text-xs font-semibold">Memuat statistik Top Skorer & Assist...</p>
+    <div class="bg-[#131822] border border-white/[0.07] rounded-2xl p-3.5 space-y-3 animate-pulse">
+      <div class="h-4 w-36 bg-white/[0.07] rounded"></div>
+      ${Array(5).fill(`
+        <div class="flex items-center justify-between py-1.5 border-b border-white/[0.05] last:border-b-0">
+          <div class="flex items-center gap-2.5">
+            <div class="w-4 h-4 bg-white/[0.05] rounded"></div>
+            <div class="w-9 h-9 rounded-full bg-white/[0.06]"></div>
+            <div class="space-y-1.5">
+              <div class="h-3 w-28 bg-white/[0.06] rounded"></div>
+              <div class="h-2.5 w-20 bg-white/[0.04] rounded"></div>
+            </div>
+          </div>
+          <div class="h-6 w-8 rounded-lg bg-white/[0.07]"></div>
+        </div>
+      `).join('')}
     </div>
   `;
 
@@ -684,12 +746,8 @@ async function renderLeagueLeaders(targetLeague, container) {
 
 // Render Matches List in Standings View
 async function renderLeagueMatchesList(targetLeague, container) {
-  container.innerHTML = `
-    <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-      <i class="fa-solid fa-circle-notch fa-spin text-xl text-emerald-500"></i>
-      <p class="text-xs">Memuat pertandingan ${targetLeague.name}...</p>
-    </div>
-  `;
+  container.innerHTML = `<div id="league-matches-skeleton" class="space-y-2"></div>`;
+  renderMatchesSkeleton('league-matches-skeleton', 4);
 
   try {
     const isLiga1 = [
