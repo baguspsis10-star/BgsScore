@@ -1,4 +1,4 @@
-// STANDINGS & LEAGUE TABLES MODULE (ENHANCED DARK NEON + LARGE LOGOS)
+// STANDINGS & LEAGUE TABLES MODULE (100% FULL-SCREEN NO HORIZONTAL SCROLL + LARGE LOGOS)
 
 // Helper Resolusi Logo Liga (Prioritas Logo Asli -> Fallback Badge SVG)
 function resolveLeagueLogoUrl(league) {
@@ -102,7 +102,7 @@ async function fetchStandingsForSelectedLeague() {
       </div>
     </div>
 
-    <!-- SUB TAB BAR (LEAGUE, BAGAN, TOP STATS, MATCH) -->
+    <!-- SUB TAB BAR -->
     <div class="flex bg-[#180d30] p-1.5 rounded-2xl border border-white/10 gap-1 overflow-x-auto no-scrollbar shadow-inner">
       <button onclick="switchStandingsSubTab('table')" id="stab-table" class="flex-1 py-2 px-2.5 text-[11px] rounded-xl transition whitespace-nowrap ${selectedStandingsTab === 'table' ? 'tab-pill-active' : 'tab-pill-inactive'}">
         <i class="fa-solid fa-list-ol mr-1"></i> Klasemen
@@ -137,7 +137,7 @@ async function fetchStandingsForSelectedLeague() {
   container.classList.remove('hidden');
 }
 
-// Switch Standings Sub-Tab (Table / Bracket / Stats / Matches)
+// Switch Standings Sub-Tab
 function switchStandingsSubTab(tab) {
   selectedStandingsTab = tab;
   fetchStandingsForSelectedLeague();
@@ -150,8 +150,8 @@ function selectStandingsLeague(leagueId) {
   loadData(false);
 }
 
-// Helper Render Form Pills (W / D / L)
-function renderStandingsFormPills(formVal) {
+// Helper Render Mini Form Pills (M / S / K) di Bawah Nama Klub
+function renderMiniFormDots(formVal) {
   if (!formVal) return '';
   const items = Array.isArray(formVal)
     ? formVal
@@ -160,17 +160,17 @@ function renderStandingsFormPills(formVal) {
   if (items.length === 0) return '';
 
   return `
-    <div class="flex items-center justify-center gap-1">
+    <div class="inline-flex items-center gap-0.5">
       ${items.slice(-5).map(ch => {
         const c = String(ch).toUpperCase();
         if (c === 'W' || c === 'M') {
-          return `<span class="w-4 h-4 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[9px] font-black flex items-center justify-center">M</span>`;
+          return `<span class="w-3 h-3 rounded-[3px] bg-emerald-500/25 text-emerald-400 text-[7px] font-black flex items-center justify-center">M</span>`;
         }
         if (c === 'D' || c === 'S') {
-          return `<span class="w-4 h-4 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[9px] font-black flex items-center justify-center">S</span>`;
+          return `<span class="w-3 h-3 rounded-[3px] bg-amber-500/25 text-amber-400 text-[7px] font-black flex items-center justify-center">S</span>`;
         }
         if (c === 'L' || c === 'K') {
-          return `<span class="w-4 h-4 rounded-md bg-red-500/20 border border-red-500/40 text-red-400 text-[9px] font-black flex items-center justify-center">K</span>`;
+          return `<span class="w-3 h-3 rounded-[3px] bg-red-500/25 text-red-400 text-[7px] font-black flex items-center justify-center">K</span>`;
         }
         return '';
       }).join('')}
@@ -178,7 +178,7 @@ function renderStandingsFormPills(formVal) {
   `;
 }
 
-// Render Standings Table Component (Modern Dark Neon + Enlarged Club & League Logos)
+// Render Standings Table Component (100% Full-Fit Tanpa Scroll Samping + Logo Besar)
 async function renderLeagueStandingsTable(targetLeague, container, highlightTeamId = null) {
   const highlightIds = Array.isArray(highlightTeamId) 
     ? highlightTeamId.map(id => String(id)) 
@@ -250,6 +250,10 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
     const fallbackLeagueBadge = generateUnlicensedLeagueBadge(targetLeague.id, targetLeague.name, targetLeague.country);
     const headerLeagueLogo = resolveLeagueLogoUrl(targetLeague);
 
+    // Grid proporsional 100% lebar layar:
+    // [# (22px)] [Klub + Logo (1fr)] [MP] [M] [S] [K] [GM:GK] [SG] [PTS]
+    const gridColsClass = 'grid-cols-[22px_minmax(0,1fr)_20px_18px_18px_18px_34px_24px_30px] sm:grid-cols-[28px_minmax(0,1fr)_28px_24px_24px_24px_46px_32px_38px]';
+
     groups.forEach(group => {
       const entries = [...group.entries];
       entries.sort((a, b) => {
@@ -260,12 +264,11 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
       });
 
       const totalTeams = entries.length;
-      const hasAnyForm = entries.some(e => e.form && (Array.isArray(e.form) ? e.form.length > 0 : String(e.form).trim() !== ''));
 
       const card = document.createElement('div');
-      card.className = 'bg-[#180d30] border border-white/10 rounded-3xl overflow-hidden shadow-2xl mb-4';
+      card.className = 'bg-[#180d30] border border-white/10 rounded-3xl overflow-hidden shadow-2xl mb-4 w-full';
 
-      let tableRows = entries.map((entry, idx) => {
+      const rowsHtml = entries.map((entry, idx) => {
         const stats = entry.stats || [];
         const getStat = (names) => {
           for (let name of names) {
@@ -294,106 +297,121 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
         const isHighlighted = isHome || isAway;
         const isFav = isTeamFavorite(teamId);
 
-        // Styling Zona Peringkat
         const isTop1 = displayPosition === 1;
         const isTop4 = displayPosition >= 2 && displayPosition <= 4;
         const isRelegation = totalTeams >= 8 && displayPosition > totalTeams - 3;
 
         let rankBadgeClass = 'bg-white/5 text-slate-300 border border-white/10';
-        let rowAccentBorder = '';
+        let rowAccentBorder = 'border-l-2 border-l-transparent';
 
         if (isTop1) {
-          rankBadgeClass = 'bg-amber-500/20 text-amber-300 border border-amber-400/50 shadow-[0_0_8px_rgba(245,158,11,0.25)]';
-          rowAccentBorder = 'border-l-4 border-l-amber-400';
+          rankBadgeClass = 'bg-amber-500/20 text-amber-300 border border-amber-400/50';
+          rowAccentBorder = 'border-l-[3px] border-l-amber-400';
         } else if (isTop4) {
           rankBadgeClass = 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40';
-          rowAccentBorder = 'border-l-4 border-l-emerald-400';
+          rowAccentBorder = 'border-l-[3px] border-l-emerald-400';
         } else if (isRelegation) {
           rankBadgeClass = 'bg-red-500/20 text-red-300 border border-red-400/40';
-          rowAccentBorder = 'border-l-4 border-l-red-500';
+          rowAccentBorder = 'border-l-[3px] border-l-red-500';
         }
 
-        const stickyBg = isHighlighted
-          ? 'bg-[#17362b]'
-          : 'bg-[#180d30] group-hover/row:bg-[#231344]';
+        const gdNum = parseInt(gd) || 0;
+        const gdFormatted = gdNum > 0 ? `+${gdNum}` : `${gdNum}`;
+        const gdColor = gdNum > 0 ? 'text-emerald-400' : (gdNum < 0 ? 'text-red-400' : 'text-slate-400');
+        const miniForm = renderMiniFormDots(entry.form);
 
         return `
-          <tr class="group/row border-b border-white/5 hover:bg-[#231344] transition text-xs ${isHighlighted ? 'bg-emerald-950/80 font-bold' : ''} ${rowAccentBorder}">
-            <td class="sticky left-0 z-10 ${stickyBg} px-2 py-2.5 text-center transition-colors">
-              <span class="w-6 h-6 mx-auto rounded-lg text-[11px] font-black flex items-center justify-center ${rankBadgeClass}">
+          <div onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')" class="grid ${gridColsClass} items-center gap-0.5 px-2 py-2 border-b border-white/5 last:border-b-0 hover:bg-[#231344] active:bg-[#2a1752] transition cursor-pointer ${isHighlighted ? 'bg-emerald-950/80' : ''} ${rowAccentBorder}">
+            
+            <!-- Peringkat -->
+            <div class="flex items-center justify-center">
+              <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-md text-[10px] sm:text-[11px] font-black flex items-center justify-center ${rankBadgeClass}">
                 ${displayPosition}
               </span>
-            </td>
-            <td class="sticky left-[40px] z-10 ${stickyBg} pr-2.5 pl-1 py-2.5 font-bold cursor-pointer min-w-[155px] max-w-[190px] sm:max-w-[240px] shadow-[6px_0_12px_-6px_rgba(0,0,0,0.6)] transition-colors" onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 border border-white/15 p-1 flex items-center justify-center shrink-0 shadow-sm">
-                  <img src="${teamLogo}" loading="lazy" class="w-full h-full object-contain" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
-                </div>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-1">
-                    <span class="truncate text-white group-hover/row:text-emerald-300 transition text-xs font-extrabold">${entry.team?.shortDisplayName || entry.team?.displayName || 'Klub'}</span>
-                    ${isFav ? '<i class="fa-solid fa-star text-amber-400 text-[9px] shrink-0"></i>' : ''}
-                  </div>
-                </div>
+            </div>
+
+            <!-- Logo Besar & Nama Klub -->
+            <div class="flex items-center gap-2 min-w-0 pr-1 pl-0.5">
+              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 border border-white/15 p-1 flex items-center justify-center shrink-0 shadow-sm">
+                <img src="${teamLogo}" loading="lazy" class="w-full h-full object-contain" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
               </div>
-            </td>
-            <td class="px-2 py-2.5 text-center text-slate-300 font-semibold">${m}</td>
-            <td class="px-2 py-2.5 text-center text-emerald-400 font-bold">${w}</td>
-            <td class="px-2 py-2.5 text-center text-amber-400 font-bold">${d}</td>
-            <td class="px-2 py-2.5 text-center text-red-400 font-bold">${l}</td>
-            <td class="px-2 py-2.5 text-center text-slate-300 font-mono text-[11px] whitespace-nowrap">${gf}:${ga}</td>
-            <td class="px-2 py-2.5 text-center font-bold ${parseInt(gd) > 0 ? 'text-emerald-400' : (parseInt(gd) < 0 ? 'text-red-400' : 'text-slate-400')}">${parseInt(gd) > 0 ? '+' + gd : gd}</td>
-            <td class="px-2.5 py-2.5 text-center">
-              <span class="inline-block min-w-[30px] px-2 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 font-black text-emerald-300 text-xs shadow-sm">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1">
+                  <span class="truncate text-white text-[11px] sm:text-xs font-extrabold leading-tight">${entry.team?.shortDisplayName || entry.team?.displayName || 'Klub'}</span>
+                  ${isFav ? '<i class="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>' : ''}
+                </div>
+                ${miniForm ? `<div class="mt-0.5 leading-none">${miniForm}</div>` : ''}
+              </div>
+            </div>
+
+            <!-- MP -->
+            <div class="text-center text-[10px] sm:text-[11px] text-slate-300 font-semibold">${m}</div>
+
+            <!-- M (Menang) -->
+            <div class="text-center text-[10px] sm:text-[11px] text-emerald-400 font-bold">${w}</div>
+
+            <!-- S (Seri) -->
+            <div class="text-center text-[10px] sm:text-[11px] text-amber-400 font-bold">${d}</div>
+
+            <!-- K (Kalah) -->
+            <div class="text-center text-[10px] sm:text-[11px] text-red-400 font-bold">${l}</div>
+
+            <!-- GM:GK -->
+            <div class="text-center text-[9.5px] sm:text-[10.5px] text-slate-300 font-mono tracking-tighter">${gf}:${ga}</div>
+
+            <!-- SG -->
+            <div class="text-center text-[10px] sm:text-[11px] font-bold ${gdColor}">${gdFormatted}</div>
+
+            <!-- PTS -->
+            <div class="flex items-center justify-center">
+              <span class="w-full py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/35 text-center font-black text-emerald-300 text-[10.5px] sm:text-xs">
                 ${pts}
               </span>
-            </td>
-            ${hasAnyForm ? `<td class="px-2.5 py-2.5 text-center">${renderStandingsFormPills(entry.form)}</td>` : ''}
-          </tr>
+            </div>
+          </div>
         `;
       }).join('');
 
       card.innerHTML = `
-        <div class="p-3.5 border-b border-white/10 bg-gradient-to-r from-[#261245] to-[#180d30] flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
+        <!-- Header Card Klasemen -->
+        <div class="p-3 border-b border-white/10 bg-gradient-to-r from-[#261245] to-[#180d30] flex items-center justify-between gap-2.5">
+          <div class="flex items-center gap-2.5 min-w-0">
             <div class="w-9 h-9 rounded-xl bg-white/10 border border-white/15 p-1.5 flex items-center justify-center shrink-0 shadow-md">
               <img src="${headerLeagueLogo}" loading="lazy" class="w-full h-full object-contain" alt="" onerror="this.onerror=null; this.src='${fallbackLeagueBadge}';">
             </div>
             <div class="min-w-0">
               <h3 class="font-black text-xs sm:text-sm tracking-wide uppercase truncate text-white">${group.name}</h3>
-              <span class="text-[10px] text-slate-400 font-medium">${totalTeams} Klub • Ketuk klub untuk skuad</span>
+              <span class="text-[10px] text-slate-400 font-medium block truncate">${totalTeams} Klub • Ketuk klub untuk skuad</span>
             </div>
           </div>
           <span class="text-[10px] bg-white/5 border border-white/10 text-slate-300 px-2.5 py-1 rounded-full font-bold shrink-0">
-            ${targetLeague.flag || '🏆'} Klasemen
+            ${targetLeague.flag || '🏆'} Tabel
           </span>
         </div>
 
-        <div class="w-full overflow-x-auto no-scrollbar">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="text-[10px] text-slate-400 uppercase bg-[#0f0720] border-b border-white/10 font-extrabold tracking-wider">
-                <th class="sticky left-0 z-20 bg-[#0f0720] px-2 py-2.5 text-center w-[40px]">#</th>
-                <th class="sticky left-[40px] z-20 bg-[#0f0720] pr-2.5 pl-1 py-2.5 min-w-[155px] shadow-[6px_0_12px_-6px_rgba(0,0,0,0.6)]">Klub</th>
-                <th class="px-2 py-2.5 text-center" title="Main">MP</th>
-                <th class="px-2 py-2.5 text-center text-emerald-400" title="Menang">M</th>
-                <th class="px-2 py-2.5 text-center text-amber-400" title="Seri">S</th>
-                <th class="px-2 py-2.5 text-center text-red-400" title="Kalah">K</th>
-                <th class="px-2 py-2.5 text-center" title="Gol Masuk:Kemasukan">GM:GK</th>
-                <th class="px-2 py-2.5 text-center" title="Selisih Gol">SG</th>
-                <th class="px-2.5 py-2.5 text-center text-emerald-400" title="Poin">PTS</th>
-                ${hasAnyForm ? '<th class="px-2.5 py-2.5 text-center">Form</th>' : ''}
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
-          </table>
+        <!-- Column Headers (100% Fit) -->
+        <div class="grid ${gridColsClass} items-center gap-0.5 px-2 py-2 bg-[#0f0720] border-b border-white/10 text-[9px] sm:text-[10px] text-slate-400 uppercase font-extrabold">
+          <div class="text-center">#</div>
+          <div class="pl-1">Klub</div>
+          <div class="text-center" title="Main">MP</div>
+          <div class="text-center text-emerald-400" title="Menang">M</div>
+          <div class="text-center text-amber-400" title="Seri">S</div>
+          <div class="text-center text-red-400" title="Kalah">K</div>
+          <div class="text-center" title="Gol Masuk:Kemasukan">GM:GK</div>
+          <div class="text-center" title="Selisih Gol">SG</div>
+          <div class="text-center text-emerald-400" title="Poin">PTS</div>
         </div>
 
-        <!-- LEGEND ZONA -->
-        <div class="px-3.5 py-2.5 bg-[#0f0720]/90 border-t border-white/10 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] text-slate-400">
-          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span> Puncak Klasemen</span>
-          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-400"></span> Papan Atas</span>
-          ${totalTeams >= 8 ? '<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-red-500"></span> Zona Bawah / Degradasi</span>' : ''}
+        <!-- Rows -->
+        <div class="divide-y divide-white/5">
+          ${rowsHtml}
+        </div>
+
+        <!-- Legend Zona -->
+        <div class="px-3 py-2 bg-[#0f0720]/90 border-t border-white/10 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[9.5px] text-slate-400">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-amber-400"></span> Puncak</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-emerald-400"></span> Papan Atas</span>
+          ${totalTeams >= 8 ? '<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-red-500"></span> Zona Bawah</span>' : ''}
         </div>
       `;
       container.appendChild(card);
@@ -546,7 +564,7 @@ async function renderLeagueBracket(targetLeague, container) {
   }
 }
 
-// Render Top Scorers & Top Assists (League Leaders with Multi-Endpoint Fallback)
+// Render Top Scorers & Top Assists (League Leaders)
 async function renderLeagueLeaders(targetLeague, container) {
   container.innerHTML = `
     <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
