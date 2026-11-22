@@ -1,4 +1,4 @@
-// MODALS & DIALOG CONTROLLER MODULE (ENHANCED DARK PURPLE NEON THEME)
+// MODALS & DIALOG CONTROLLER MODULE (MODERN OBSIDIAN MATTE THEME)
 
 let globalModalZIndex = 50;
 
@@ -204,7 +204,7 @@ function closeLeagueModal() {
 function renderLeagueModalGrid() {
   const grid = document.getElementById('league-selector-grid');
   grid.innerHTML = `
-    <button onclick="selectLeagueFromModal('all')" class="w-full p-2.5 bg-[#180d30] hover:bg-[#231344] border ${selectedLeague === 'all' ? 'border-emerald-500 bg-emerald-950/40' : 'border-white/10'} rounded-xl flex items-center gap-2.5 transition text-left mb-2 shadow-sm">
+    <button onclick="selectLeagueFromModal('all')" class="w-full p-2.5 bg-[#131822] hover:bg-[#1a2130] border ${selectedLeague === 'all' ? 'border-emerald-500/60 bg-emerald-950/30' : 'border-white/[0.07]'} rounded-xl flex items-center gap-2.5 transition text-left mb-2">
       <i class="fa-solid fa-globe text-emerald-400 text-base"></i>
       <div>
         <div class="text-xs font-bold text-white">Semua Liga</div>
@@ -259,17 +259,9 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     let data = null;
 
     if (isLiga1LeagueId(leagueId) || isLiga1LeagueId(cachedEvt?.leagueId)) {
-      try {
-        data = await fetchLiga1MatchDetailSummary(cachedEvt, leagueName);
-      } catch (detailError) {
-        console.warn('Detail Liga 1 gagal dimuat, memakai data kartu:', detailError);
-      }
+      data = await fetchLiga1MatchDetailSummary(cachedEvt, leagueName);
     } else if (isLiga2LeagueId(leagueId) || isLiga2LeagueId(cachedEvt?.leagueId)) {
-      try {
-        data = await fetchLiga2MatchDetailSummary(cachedEvt, leagueName);
-      } catch (detailError) {
-        console.warn('Detail Liga 2 gagal dimuat, memakai data kartu:', detailError);
-      }
+      data = await fetchLiga2MatchDetailSummary(cachedEvt, leagueName);
     }
 
     for (const slug of data ? [] : candidateLeagues) {
@@ -285,13 +277,8 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       } catch (e) {}
     }
 
-    /*
-     * Pertandingan Liga 1 berasal dari API Replit, bukan ESPN.
-     * Jika ESPN tidak mengenali event ID tersebut, gunakan event yang
-     * sudah tersimpan di cachedEvents agar halaman detail tetap tampil.
-     */
     if (!data || !data.header || !data.header.competitions) {
-      data = buildMatchSummaryFromCachedEvent(
+      data = buildLiga1SummaryFromCachedEvent(
         cachedEvt,
         leagueId,
         leagueName
@@ -302,13 +289,13 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
       throw new Error("Detail pertandingan tidak ditemukan.");
     }
 
-      const realLeagueSlug = data.header?.league?.slug || 
-                             data.leagues?.[0]?.slug || 
-                             data.header?.competitions?.[0]?.league?.slug || 
-                             cachedEvt?.leagueId || 
-                             leagueId;
+    const realLeagueSlug = data.header?.league?.slug || 
+                           data.leagues?.[0]?.slug || 
+                           data.header?.competitions?.[0]?.league?.slug || 
+                           cachedEvt?.leagueId || 
+                           leagueId;
 
-      const standingsLeagueId = normalizeLiga1LeagueId(realLeagueSlug);
+    const standingsLeagueId = normalizeLiga1LeagueId(realLeagueSlug);
 
     const realLeagueName = data.header?.league?.name || 
                            data.leagues?.[0]?.name || 
@@ -365,7 +352,7 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
   }
 }
 
-function buildMatchSummaryFromCachedEvent(
+function buildLiga1SummaryFromCachedEvent(
   cachedEvent,
   fallbackLeagueId,
   fallbackLeagueName
@@ -386,33 +373,9 @@ function buildMatchSummaryFromCachedEvent(
   const leagueName =
     cachedEvent.leagueName ||
     fallbackLeagueName ||
-    (isLiga2LeagueId(leagueId)
-      ? 'Pegadaian Championship 2026-27'
-      : isLiga1LeagueId(leagueId)
-      ? 'BRI Liga 1 Indonesia'
-      : 'Pertandingan');
+    'BRI Liga 1 Indonesia';
 
-  const rawDetail =
-    cachedEvent.liga2Raw ||
-    cachedEvent.liga1Raw ||
-    {};
-  const venueName =
-    competition.venue?.fullName ||
-    rawDetail.stadium ||
-    rawDetail.venue ||
-    '';
-  const fallbackDetail = {
-    match: rawDetail,
-    location: venueName,
-    attendance: rawDetail.attendance || '',
-    kickoffLabel: rawDetail.kickoff || '',
-    timezone: rawDetail.timezone || 'Asia/Jakarta',
-    timeline: rawDetail.timeline || [],
-    statistics: rawDetail.statistics || {},
-    lineups: rawDetail.lineups || []
-  };
-
-  const summary = {
+  return {
     header: {
       id: cachedEvent.id,
       date:
@@ -449,21 +412,8 @@ function buildMatchSummaryFromCachedEvent(
 
     details: [],
     headToHead: [],
-    gameInfo: {
-      venue: { fullName: venueName },
-      officials: []
-    },
-    boxscore: { teams: [] },
-    rosters: []
+    gameInfo: {}
   };
-
-  if (isLiga2LeagueId(leagueId)) {
-    summary.liga2Detail = fallbackDetail;
-  } else if (isLiga1LeagueId(leagueId)) {
-    summary.liga1Detail = fallbackDetail;
-  }
-
-  return summary;
 }
 
 function normalizeLiga1LeagueId(leagueId) {
@@ -592,25 +542,25 @@ function renderModalCompleteData(data, leagueId) {
   }
 
   const matchInfoBadgeHtml = `
-    <div class="mt-4 pt-4 border-t border-white/10 grid grid-cols-3 gap-2.5">
-      <div class="bg-white/5 p-3 rounded-2xl border border-white/10 text-center flex flex-col items-center justify-center">
-        <div class="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-1.5 text-emerald-400">
+    <div class="mt-4 pt-4 border-t border-white/[0.07] grid grid-cols-3 gap-2.5">
+      <div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.07] text-center flex flex-col items-center justify-center">
+        <div class="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-1.5 text-emerald-400">
           <i class="fa-solid fa-location-dot text-xs"></i>
         </div>
         <span class="font-extrabold text-slate-200 text-[11px] block truncate w-full" title="${stadium}">${stadium}</span>
         <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Stadion</span>
       </div>
 
-      <div class="bg-white/5 p-3 rounded-2xl border border-white/10 text-center flex flex-col items-center justify-center">
-        <div class="w-8 h-8 rounded-xl bg-sky-500/20 flex items-center justify-center mb-1.5 text-sky-400">
+      <div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.07] text-center flex flex-col items-center justify-center">
+        <div class="w-8 h-8 rounded-xl bg-sky-500/15 flex items-center justify-center mb-1.5 text-sky-400">
           <i class="fa-solid fa-user-ninja text-xs"></i>
         </div>
         <span class="font-extrabold text-slate-200 text-[11px] block truncate w-full" title="${liga2Detail.attendance || referee}">${liga2Detail.attendance ? attendance : referee}</span>
         <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">${liga2Detail.attendance ? 'Penonton' : 'Wasit'}</span>
       </div>
 
-      <div class="bg-white/5 p-3 rounded-2xl border border-white/10 text-center flex flex-col items-center justify-center">
-        <div class="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center mb-1.5 text-amber-400">
+      <div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.07] text-center flex flex-col items-center justify-center">
+        <div class="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center mb-1.5 text-amber-400">
           <i class="fa-solid fa-cloud-sun text-xs"></i>
         </div>
         <span class="font-extrabold text-slate-200 text-[11px] block truncate w-full" title="${weather}">${weather}</span>
@@ -621,11 +571,11 @@ function renderModalCompleteData(data, leagueId) {
 
   const liga2InfoHtml = data.liga2Detail ? `
     <div class="mt-3 grid grid-cols-2 gap-2 text-[10px]">
-      <div class="bg-white/5 border border-white/10 rounded-xl p-2.5">
+      <div class="bg-white/[0.03] border border-white/[0.07] rounded-xl p-2.5">
         <div class="text-slate-400 uppercase tracking-wider font-bold">Kick-off</div>
         <div class="text-white font-bold mt-1">${kickoffLabel || 'Belum dirilis'}</div>
       </div>
-      <div class="bg-white/5 border border-white/10 rounded-xl p-2.5">
+      <div class="bg-white/[0.03] border border-white/[0.07] rounded-xl p-2.5">
         <div class="text-slate-400 uppercase tracking-wider font-bold">Zona waktu</div>
         <div class="text-white font-bold mt-1">${timezoneLabel || 'Asia/Jakarta'}</div>
       </div>
@@ -691,26 +641,26 @@ function renderModalCompleteData(data, leagueId) {
       rows += `
         <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
           <div class="text-right flex items-center justify-end gap-1.5 truncate">
-            ${hG ? `<span class="truncate font-bold">${hG.scorer}${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i>` : ''}
+            ${hG ? `<span class="truncate font-bold">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i>` : ''}
           </div>
           <div class="text-left flex items-center justify-start gap-1.5 truncate">
-            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i> <span class="truncate font-bold">${aG.clock}${aG.scorer}</span>` : ''}
+            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i> <span class="truncate font-bold">${aG.clock} ${aG.scorer}</span>` : ''}
           </div>
         </div>
       `;
     }
-    goalsHtml = `<div class="mt-4 pt-3.5 border-t border-white/10 space-y-1.5">${rows}</div>`;
+    goalsHtml = `<div class="mt-4 pt-3.5 border-t border-white/[0.08] space-y-1.5">${rows}</div>`;
   }
 
   const liveOrStatusText = state === 'pre' 
     ? formattedTime 
-    : (state === 'in' ? `<span class="text-red-400 font-bold animate-pulse">${header.status?.type?.shortDetail || 'LIVE'}</span>` : statusDetail);
+    : (state === 'in' ? `<span class="text-rose-400 font-bold">${header.status?.type?.shortDetail || 'LIVE'}</span>` : statusDetail);
 
   document.getElementById('modal-score-header').innerHTML = `
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#2e134b] via-[#1d0d36] to-[#150a28] p-5 shadow-2xl text-white border border-purple-900/40">
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#1a2234] to-[#111622] p-5 shadow-xl text-white border border-white/10">
       <div class="flex items-center justify-between relative z-10">
         <div onclick="openTeamDetail('${leagueId}', '${home.team.id}', '${home.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
-          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex items-center justify-center group-hover:scale-105 transition">
+          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center group-hover:scale-105 transition">
             <img src="${homeLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
           </div>
           <span class="font-extrabold text-xs sm:text-sm text-white leading-tight transition flex items-center justify-center gap-1">
@@ -720,17 +670,17 @@ function renderModalCompleteData(data, leagueId) {
         </div>
 
         <div class="text-center w-[24%] flex flex-col items-center justify-center">
-          <div class="text-2xl sm:text-3xl font-black tracking-widest text-white flex items-center justify-center gap-2">
+          <div class="text-2xl sm:text-3xl font-black tracking-widest text-white tabular-nums flex items-center justify-center gap-2">
             <span>${state === 'pre' ? 'VS' : (home.score || '0')}</span>
-            ${state !== 'pre' ? '<span class="text-slate-400 text-lg">-</span><span>' + (away.score || '0') + '</span>' : ''}
+            ${state !== 'pre' ? '<span class="text-slate-500 text-lg">-</span><span>' + (away.score || '0') + '</span>' : ''}
           </div>
-          <div class="text-[10px] text-slate-300 font-bold mt-2 bg-white/10 px-3 py-0.5 rounded-full border border-white/10 inline-flex items-center gap-1">
+          <div class="text-[10px] text-slate-300 font-bold mt-2 bg-white/[0.07] px-3 py-0.5 rounded-full border border-white/10 inline-flex items-center gap-1 tabular-nums">
             ${liveOrStatusText}
           </div>
         </div>
 
         <div onclick="openTeamDetail('${leagueId}', '${away.team.id}', '${away.team.displayName.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-2 w-[38%] text-center cursor-pointer group">
-          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex items-center justify-center group-hover:scale-105 transition">
+          <div class="w-16 h-16 sm:w-20 sm:h-20 p-2 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center group-hover:scale-105 transition">
             <img src="${awayLogo}" loading="lazy" class="w-full h-full object-contain" alt="">
           </div>
           <span class="font-extrabold text-xs sm:text-sm text-white leading-tight transition flex items-center justify-center gap-1">
@@ -748,7 +698,7 @@ function renderModalCompleteData(data, leagueId) {
   let statsBlockHtml = '';
   if (state === 'pre') {
     statsBlockHtml = `
-      <div class="bg-[#180d30] border border-white/10 rounded-3xl p-6 text-center shadow-sm">
+      <div class="bg-[#131822] border border-white/[0.07] rounded-2xl p-6 text-center">
         <i class="fa-solid fa-chart-line text-3xl text-slate-500 mb-2 block"></i>
         <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Statistik Belum Tersedia</h4>
         <p class="text-[10px] text-slate-400 mt-1">Statistik live akan muncul secara otomatis ketika pertandingan telah dimulai.</p>
@@ -811,22 +761,22 @@ function renderModalCompleteData(data, leagueId) {
 
       return `
         <div class="space-y-1.5 py-1">
-          <div class="flex items-center justify-between text-xs font-bold">
-            <span class="px-2.5 py-0.5 rounded-full bg-[#ff4d6d] text-white text-[11px] font-black">${homeVal}${isPercentage ? '%' : ''}</span>
+          <div class="flex items-center justify-between text-xs font-bold tabular-nums">
+            <span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-black">${homeVal}${isPercentage ? '%' : ''}</span>
             <span class="text-slate-300 text-[11px] font-medium">${label}</span>
-            <span class="px-2.5 py-0.5 rounded-full bg-[#38bdf8] text-slate-950 text-[11px] font-black">${awayVal}${isPercentage ? '%' : ''}</span>
+            <span class="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[11px] font-black">${awayVal}${isPercentage ? '%' : ''}</span>
           </div>
-          <div class="w-full bg-slate-800/80 h-2 rounded-full overflow-hidden flex">
-            <div class="bg-[#ff4d6d] h-full transition-all duration-500" style="width: ${hPct}%"></div>
-            <div class="bg-[#38bdf8] h-full transition-all duration-500" style="width: ${aPct}%"></div>
+          <div class="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden flex">
+            <div class="bg-rose-500 h-full transition-all duration-500" style="width: ${hPct}%"></div>
+            <div class="bg-sky-500 h-full transition-all duration-500" style="width: ${aPct}%"></div>
           </div>
         </div>
       `;
     };
 
     statsBlockHtml = `
-      <div class="bg-[#180d30] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
-        <h3 class="text-center text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-white/10">Overview</h3>
+      <div class="bg-[#131822] border border-white/[0.07] rounded-2xl p-4 space-y-3">
+        <h3 class="text-center text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-white/[0.07]">Overview</h3>
         <div class="space-y-3 pt-1">
           ${renderStatRow('Possession', getStatVal(homeBox, ['possessionPct', 'possession'], 'home') || 50, getStatVal(awayBox, ['possessionPct', 'possession'], 'away') || 50, true)}
           ${renderStatRow('Shots on Target', getStatVal(homeBox, ['shotsOnTarget', 'shotsontarget'], 'home') || 0, getStatVal(awayBox, ['shotsOnTarget', 'shotsontarget'], 'away') || 0)}
@@ -887,7 +837,7 @@ function renderModalCompleteData(data, leagueId) {
       if (typeText.includes('goal') || typeText.includes('gol')) {
         const scorer = getPlayerName(0);
         const capsuleContent = `
-          <div class="px-3.5 py-1.5 text-xs font-black flex items-center gap-2 shadow-lg rounded-full bg-emerald-950/80 border border-emerald-400 text-emerald-300">
+          <div class="px-3.5 py-1.5 text-xs font-extrabold flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-300">
             <i class="fa-solid fa-futbol text-xs"></i>
             <span>GOAL! ${scorer}</span>
           </div>
@@ -914,7 +864,7 @@ function renderModalCompleteData(data, leagueId) {
             <div class="flex items-center gap-1.5 text-emerald-400 font-bold">
               <i class="fa-solid fa-arrow-right text-[10px]"></i> ${pIn}
             </div>
-            <div class="flex items-center gap-1.5 text-red-400 font-bold mt-0.5">
+            <div class="flex items-center gap-1.5 text-rose-400 font-bold mt-0.5">
               <i class="fa-solid fa-arrow-left text-[10px]"></i> ${pOut}
             </div>
           </div>
@@ -963,7 +913,7 @@ function renderModalCompleteData(data, leagueId) {
     }).join('');
 
     eventsTimelineHtml = `
-      <div class="bg-[#180d30] p-4 rounded-3xl border border-white/10 shadow-xl space-y-1">
+      <div class="bg-[#131822] p-4 rounded-2xl border border-white/[0.07] space-y-1">
         ${timelineItems}
         ${liga2InfoHtml}
         ${matchInfoBadgeHtml}
@@ -971,7 +921,7 @@ function renderModalCompleteData(data, leagueId) {
     `;
   } else {
     eventsTimelineHtml = `
-      <div class="bg-[#180d30] p-4 rounded-3xl border border-white/10 shadow-xl space-y-3">
+      <div class="bg-[#131822] p-4 rounded-2xl border border-white/[0.07] space-y-3">
         <div class="py-8 text-center text-slate-400 text-xs font-medium space-y-1">
           <p class="text-slate-200 font-bold">Belum ada catatan kejadian penting.</p>
         </div>
@@ -1020,12 +970,12 @@ function renderModalCompleteData(data, leagueId) {
         if (!ev) return '';
 
         let badges = '';
-        if (ev.goals) badges += `<span title="Gol" class="bg-emerald-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-futbol text-[7px]"></i>${ev.goals > 1 ? ev.goals : ''}</span>`;
-        if (ev.penGoals) badges += `<span title="Gol Penalti" class="bg-emerald-600 text-amber-300 text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-circle-dot text-[7px]"></i>${ev.penGoals > 1 ? ev.penGoals : ''}</span>`;
-        if (ev.penMiss) badges += `<span title="Penalti Gagal" class="bg-red-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-circle-xmark text-[7px]"></i></span>`;
-        if (ev.assists) badges += `<span title="Assist" class="bg-blue-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5 shadow"><i class="fa-solid fa-shoe-prints text-[7px]"></i>${ev.assists > 1 ? ev.assists : ''}</span>`;
-        if (ev.yellows) badges += `<div title="Kartu Kuning" class="w-2.5 h-3.5 bg-amber-400 rounded-sm shadow"></div>`;
-        if (ev.reds) badges += `<div title="Kartu Merah" class="w-2.5 h-3.5 bg-red-500 rounded-sm shadow"></div>`;
+        if (ev.goals) badges += `<span title="Gol" class="bg-emerald-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-futbol text-[7px]"></i>${ev.goals > 1 ? ev.goals : ''}</span>`;
+        if (ev.penGoals) badges += `<span title="Gol Penalti" class="bg-emerald-600 text-amber-300 text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-circle-dot text-[7px]"></i>${ev.penGoals > 1 ? ev.penGoals : ''}</span>`;
+        if (ev.penMiss) badges += `<span title="Penalti Gagal" class="bg-red-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-circle-xmark text-[7px]"></i></span>`;
+        if (ev.assists) badges += `<span title="Assist" class="bg-blue-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-shoe-prints text-[7px]"></i>${ev.assists > 1 ? ev.assists : ''}</span>`;
+        if (ev.yellows) badges += `<div title="Kartu Kuning" class="w-2.5 h-3.5 bg-amber-400 rounded-sm"></div>`;
+        if (ev.reds) badges += `<div title="Kartu Merah" class="w-2.5 h-3.5 bg-red-500 rounded-sm"></div>`;
 
         return badges ? `<div class="absolute -bottom-1 -left-1 flex items-center gap-0.5 z-20">${badges}</div>` : '';
       };
@@ -1044,12 +994,12 @@ function renderModalCompleteData(data, leagueId) {
               return `
                 <div class="flex flex-col items-center group relative cursor-pointer flex-1 min-w-0 max-w-[70px] sm:max-w-[85px]">
                   <div class="relative shrink-0">
-                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 ${borderColor} bg-[#0f0720] overflow-hidden shadow-md flex items-center justify-center">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 ${borderColor} bg-[#0e121b] overflow-hidden flex items-center justify-center">
                       <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
                     </div>
-                    <span class="absolute -top-1 -right-1 bg-[#0d061a] text-white font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full shadow z-10">#${jersey}</span>${badgeHtml}
+                    <span class="absolute -top-1 -right-1 bg-[#0b0e14] text-white font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full z-10">#${jersey}</span>${badgeHtml}
                   </div>
-                  <span class="text-[8.5px] sm:text-[9.5px] font-bold text-white bg-[#0f0720]/95 px-1.5 py-0.5 rounded shadow-sm w-full text-center mt-1 border border-white/10 leading-tight break-words" title="${pFullName}">${pMultiLine}</span>
+                  <span class="text-[8.5px] sm:text-[9.5px] font-bold text-white bg-[#0b0e14]/90 px-1.5 py-0.5 rounded w-full text-center mt-1 border border-white/10 leading-tight break-words" title="${pFullName}">${pMultiLine}</span>
                 </div>
               `;
             }).join('')}
@@ -1072,14 +1022,14 @@ function renderModalCompleteData(data, leagueId) {
           return `
             <div class="flex items-center gap-2 py-1.5 px-0.5 min-w-0 flex-1">
               <div class="relative shrink-0">
-                <div class="w-8 h-8 rounded-full bg-[#0f0720] overflow-hidden border border-white/10 flex items-center justify-center">
+                <div class="w-8 h-8 rounded-full bg-[#0e121b] overflow-hidden border border-white/10 flex items-center justify-center">
                   <img src="${PLAIN_PERSON_HEADSHOT}" loading="lazy" class="w-full h-full object-cover" onload="loadMultiTierPlayerPhoto(this, '${pId}', '${pFullName.replace(/'/g, "\\'")}')" onerror="handlePlayerImgError(this, '${pFullName.replace(/'/g, "\\'")}')">
                 </div>
                 ${badgeHtml}
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-start gap-1 leading-tight">
-                  <span class="text-blue-400 font-black text-xs shrink-0">#${jersey}</span>
+                  <span class="text-sky-400 font-black text-xs shrink-0">#${jersey}</span>
                   <span class="text-xs font-bold text-slate-200 leading-snug break-words">${pMultiLine}</span>
                 </div>
               </div>
@@ -1091,16 +1041,16 @@ function renderModalCompleteData(data, leagueId) {
           const hP = homeSubs[i];
           const aP = awaySubs[i];
           subRowsHtml += `
-            <div class="flex items-center border-b border-white/5 last:border-b-0">
-              <div class="w-1/2 pr-1.5 border-r border-white/10">${renderSubItem(hP)}</div>
+            <div class="flex items-center border-b border-white/[0.05] last:border-b-0">
+              <div class="w-1/2 pr-1.5 border-r border-white/[0.07]">${renderSubItem(hP)}</div>
               <div class="w-1/2 pl-1.5">${renderSubItem(aP)}</div>
             </div>
           `;
         }
 
         return `
-          <div class="bg-[#180d30] border border-white/10 rounded-3xl p-3 shadow-sm space-y-2 mt-3">
-            <div class="text-sm font-extrabold text-white pb-2 border-b border-white/10 flex items-center justify-between">
+          <div class="bg-[#131822] border border-white/[0.07] rounded-2xl p-3 space-y-2 mt-3">
+            <div class="text-sm font-extrabold text-white pb-2 border-b border-white/[0.07] flex items-center justify-between">
               <span>Substitutes</span>
               <span class="text-[10px] text-slate-400 font-normal">Cadangan</span>
             </div>
@@ -1112,9 +1062,9 @@ function renderModalCompleteData(data, leagueId) {
       };
 
       lineupHtml = `
-        <div class="space-y-3 bg-[#180d30] border border-white/10 p-2.5 rounded-3xl shadow-sm">
-          <div class="flex items-center justify-between border-b border-white/10 pb-2 text-[10px]">
-            <div class="flex items-center gap-1.5 text-blue-400 font-bold">
+        <div class="space-y-3 bg-[#131822] border border-white/[0.07] p-2.5 rounded-2xl">
+          <div class="flex items-center justify-between border-b border-white/[0.07] pb-2 text-[10px]">
+            <div class="flex items-center gap-1.5 text-sky-400 font-bold">
               <img src="${homeLogo}" loading="lazy" class="w-4 h-4 object-contain">
               <span>${home.team.displayName} (${homeRoster.formation || 'Formasi'})</span>
             </div>
@@ -1132,10 +1082,10 @@ function renderModalCompleteData(data, leagueId) {
             <div class="pitch-penalty-box-bottom"></div>
 
             <div class="space-y-1 z-10">
-              ${renderPlayerRow(homeData.gk, 'border-blue-500')}
-              ${renderPlayerRow(homeData.def, 'border-blue-400')}
-              ${renderPlayerRow(homeData.mid, 'border-blue-400')}
-              ${renderPlayerRow(homeData.fwd, 'border-blue-400')}
+              ${renderPlayerRow(homeData.gk, 'border-sky-500')}
+              ${renderPlayerRow(homeData.def, 'border-sky-400')}
+              ${renderPlayerRow(homeData.mid, 'border-sky-400')}
+              ${renderPlayerRow(homeData.fwd, 'border-sky-400')}
             </div>
 
             <div class="space-y-1 z-10">
@@ -1150,15 +1100,15 @@ function renderModalCompleteData(data, leagueId) {
         </div>
       `;
     } else {
-      lineupHtml = `<div class="text-center py-12 text-slate-400 bg-[#180d30] rounded-3xl border border-white/10 space-y-2"><i class="fa-solid fa-user-slash text-3xl mb-1 text-slate-500 block"></i><p class="text-xs font-bold text-slate-200">Susunan Pemain Belum Tersedia</p><p class="text-[10px] text-slate-400">Lineup resmi belum dirilis oleh official pertandingan.</p></div>`;
+      lineupHtml = `<div class="text-center py-12 text-slate-400 bg-[#131822] rounded-2xl border border-white/[0.07] space-y-2"><i class="fa-solid fa-user-slash text-3xl mb-1 text-slate-500 block"></i><p class="text-xs font-bold text-slate-200">Susunan Pemain Belum Tersedia</p><p class="text-[10px] text-slate-400">Lineup resmi belum dirilis oleh official pertandingan.</p></div>`;
     }
   } else {
-    lineupHtml = `<div class="text-center py-12 text-slate-400 bg-[#180d30] rounded-3xl border border-white/10 space-y-2"><i class="fa-solid fa-user-slash text-3xl mb-1 text-slate-500 block"></i><p class="text-xs font-bold text-slate-200">Susunan Pemain Belum Tersedia</p><p class="text-[10px] text-slate-400">Lineup resmi belum dirilis oleh official pertandingan.</p></div>`;
+    lineupHtml = `<div class="text-center py-12 text-slate-400 bg-[#131822] rounded-2xl border border-white/[0.07] space-y-2"><i class="fa-solid fa-user-slash text-3xl mb-1 text-slate-500 block"></i><p class="text-xs font-bold text-slate-200">Susunan Pemain Belum Tersedia</p><p class="text-[10px] text-slate-400">Lineup resmi belum dirilis oleh official pertandingan.</p></div>`;
   }
   document.getElementById('mcontent-lineup').innerHTML = lineupHtml;
 }
 
-// SWITCH TAB DETAIL PERTANDINGAN (PERURUTAN TAB BARU: ODDS SEBELAH KANAN LINEUP)
+// SWITCH TAB DETAIL PERTANDINGAN
 function switchModalTab(tabName) {
   const tabs = ['summary', 'stats', 'lineup', 'odds', 'standings', 'h2h'];
 
