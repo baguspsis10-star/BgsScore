@@ -1,7 +1,7 @@
 // LIGA 1 INDONESIA / BRI SUPER LEAGUE 2026-27
-// Sumber resmi: API iLeague melalui server Liga 1 milik aplikasi.
+// Sumber resmi: API iLeague melalui backend Vercel ileague-api.
 
-const LIGA1_OFFICIAL_API_BASE = 'https://api-liga-1-indonesia--4piliga1.replit.app/api';
+const LIGA1_OFFICIAL_API_BASE = 'https://ileague-api.vercel.app/api';
 const LIGA1_OFFICIAL_ID = 'idn.1';
 const LIGA1_OFFICIAL_COMPETITION_ID = 'BRI_SUPER_LEAGUE_2026-27';
 const LIGA1_OFFICIAL_COMPETITION_NAME = 'BRI SUPER LEAGUE 2026-27';
@@ -36,7 +36,7 @@ function getLiga1TeamLogo(teamName, providedLogo = '') {
 }
 
 function liga1TeamId(team = {}) {
-  const source = team.slug || team.name || team.sourceUrl || 'team';
+  const source = team.id || team.slug || team.name || team.sourceUrl || 'team';
   return `liga1-${String(source)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -88,7 +88,8 @@ function liga1OfficialDateTime(match) {
   const dateKey = normalizeLiga1OfficialDateKey(match?.date);
   if (!dateKey) return new Date().toISOString();
 
-  const kickoff = String(match?.kickoff || '').match(/^(\d{1,2}):(\d{2})$/);
+  const rawTime = String(match?.kickoff || match?.time || '').trim();
+  const kickoff = rawTime.match(/^(\d{1,2}):(\d{2})/);
   const time = kickoff
     ? `${kickoff[1].padStart(2, '0')}:${kickoff[2]}`
     : '12:00';
@@ -117,7 +118,7 @@ function liga1OfficialStatus(status) {
     return 'in';
   }
 
-  if (['finished', 'ft', 'post', 'completed', 'final'].includes(value)) {
+  if (['finished', 'ft', 'post', 'completed', 'final', 'selesai'].includes(value)) {
     return 'post';
   }
 
@@ -131,17 +132,27 @@ function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
   const away = rawMatch.away || rawMatch.awayTeam || {};
   const homeName = home.name || 'Home Team';
   const awayName = away.name || 'Away Team';
-  const state = liga1OfficialStatus(rawMatch.status || fallbackStatus);
+  const inferredStatus =
+    rawMatch.status ||
+    (home.score !== null && home.score !== undefined && away.score !== null && away.score !== undefined
+      ? 'finished'
+      : fallbackStatus);
+  const state = liga1OfficialStatus(inferredStatus);
   const date = liga1OfficialDateTime(rawMatch);
   const eventId =
     rawMatch.id ||
     `${normalizeLiga1OfficialDateKey(rawMatch.date)}-${homeName}-${awayName}`;
-  // Some detail responses currently return a stale "finished" score for a
-  // match that is still upcoming. A pre-match card must never expose scores.
+
   const homeScore =
-    state === 'pre' ? null : rawMatch.score?.home ?? rawMatch.homeScore;
+    state === 'pre'
+      ? null
+      : home.score ?? rawMatch.score?.home ?? rawMatch.homeScore ?? null;
   const awayScore =
-    state === 'pre' ? null : rawMatch.score?.away ?? rawMatch.awayScore;
+    state === 'pre'
+      ? null
+      : away.score ?? rawMatch.score?.away ?? rawMatch.awayScore ?? null;
+
+  const kickoffText = rawMatch.kickoff || rawMatch.time || 'SCHEDULED';
   const statusLabel =
     state === 'in'
       ? rawMatch.minute
@@ -149,7 +160,8 @@ function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
         : 'LIVE'
       : state === 'post'
       ? 'FT'
-      : rawMatch.kickoff || 'SCHEDULED';
+      : kickoffText;
+
   const status = {
     type: {
       state,
@@ -165,7 +177,7 @@ function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
     displayName: name,
     shortDisplayName: name,
     logo: getLiga1TeamLogo(name, raw.logoUrl || raw.logo || ''),
-    slug: raw.slug || ''
+    slug: raw.slug || raw.id || ''
   });
 
   const homeTeam = team(home, homeName);
@@ -189,7 +201,7 @@ function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
         id: String(eventId),
         date,
         status,
-        venue: { fullName: rawMatch.venue || '' },
+        venue: { fullName: rawMatch.venue || rawMatch.stadium || '' },
         competitors: [
           {
             homeAway: 'home',
@@ -217,12 +229,9 @@ async function fetchLiga1OfficialApi(path, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(
     () => controller.abort(),
-    options.timeout || 9000
+    options.timeout || 10000
   );
-  const separator = path.includes('?') ? '&' : '?';
-  const url = `${LIGA1_OFFICIAL_API_BASE}${path}${separator}competitionId=${encodeURIComponent(
-    LIGA1_OFFICIAL_COMPETITION_ID
-  )}`;
+  const url = `${LIGA1_OFFICIAL_API_BASE}${path}`;
 
   try {
     const response = await fetch(url, {
@@ -240,16 +249,56 @@ async function fetchLiga1OfficialApi(path, options = {}) {
   }
 }
 
+function mapVercelStatPlayer(row, index) {
+  if (!row || typeof row !== 'object') return null;
+  const name = row.player || row.name || row.full_name || 'Pemain';
+  const clubName = row.club || row.team?.name || 'Klub';
+  const clubLogo =
+    row.club_logo ||
+    row.team?.logoUrl ||
+    row.team?.logo ||
+    getLiga1ClubLogo(clubName);
+
+  return {
+    rank: Number(row.rank) || index + 1,
+    name,
+    fullName: row.full_name || name,
+    photoUrl: row.photo || row.photoUrl || null,
+    value: Number(row.total ?? row.value) || 0,
+    team: {
+      name: clubName,
+      logoUrl: clubLogo
+    }
+  };
+}
+
 function normalizeLiga1OfficialPayload(payload = {}) {
   const matches = Array.isArray(payload.matches) ? payload.matches : [];
   const classify = status =>
     matches.filter(match => liga1OfficialStatus(match.status) === status);
 
+  const clubs = (Array.isArray(payload.clubs) ? payload.clubs : []).map(club => ({
+    ...club,
+    logoUrl: club.logoUrl || club.logo || ''
+  }));
+
   liga1OfficialClubLogoMap = Object.fromEntries(
-    (Array.isArray(payload.clubs) ? payload.clubs : [])
-      .filter(club => club?.name && club?.logoUrl)
-      .map(club => [normalizeLiga1TeamName(club.name), club.logoUrl])
+    clubs
+      .filter(club => club?.name && (club?.logoUrl || club?.logo))
+      .map(club => [normalizeLiga1TeamName(club.name), club.logoUrl || club.logo])
   );
+
+  // Perkaya logo map dari data klasemen juga jika tersedia
+  (Array.isArray(payload.standings) ? payload.standings : []).forEach(row => {
+    const cName = row?.club || row?.team?.name;
+    const cLogo = row?.logo || row?.team?.logoUrl || row?.team?.logo;
+    if (cName && cLogo && !liga1OfficialClubLogoMap[normalizeLiga1TeamName(cName)]) {
+      liga1OfficialClubLogoMap[normalizeLiga1TeamName(cName)] = cLogo;
+    }
+  });
+
+  const rawTopScorers = Array.isArray(payload.topScorers) ? payload.topScorers : [];
+  const rawTopAssists = Array.isArray(payload.topAssists) ? payload.topAssists : [];
 
   return {
     upcoming: Array.isArray(payload.upcoming)
@@ -260,9 +309,9 @@ function normalizeLiga1OfficialPayload(payload = {}) {
       ? payload.finished
       : classify('post'),
     standings: Array.isArray(payload.standings) ? payload.standings : [],
-    topScorers: Array.isArray(payload.topScorers) ? payload.topScorers : [],
-    topAssists: Array.isArray(payload.topAssists) ? payload.topAssists : [],
-    clubs: Array.isArray(payload.clubs) ? payload.clubs : [],
+    topScorers: rawTopScorers.map(mapVercelStatPlayer).filter(Boolean),
+    topAssists: rawTopAssists.map(mapVercelStatPlayer).filter(Boolean),
+    clubs,
     competition: payload.competition || {
       id: LIGA1_OFFICIAL_COMPETITION_ID,
       name: LIGA1_OFFICIAL_COMPETITION_NAME
@@ -281,38 +330,57 @@ async function fetchLiga1OfficialSnapshot(force = false) {
     Date.now() - liga1OfficialSnapshotCacheAt < 15000;
   if (!force && cacheFresh) return liga1OfficialSnapshotCache;
 
-  let payload;
-  try {
-    payload = await fetchLiga1OfficialApi('/liga-1');
-  } catch (snapshotError) {
-    const results = await Promise.allSettled([
-      fetchLiga1OfficialApi('/liga-1/fixtures?status=upcoming'),
-      fetchLiga1OfficialApi('/liga-1/fixtures?status=live'),
-      fetchLiga1OfficialApi('/liga-1/fixtures?status=finished'),
-      fetchLiga1OfficialApi('/liga-1/standings'),
-      fetchLiga1OfficialApi('/liga-1/top-scorers'),
-      fetchLiga1OfficialApi('/liga-1/clubs')
-    ]);
-    const read = index =>
-      results[index].status === 'fulfilled' ? results[index].value : {};
+  const results = await Promise.allSettled([
+    fetchLiga1OfficialApi('/matches'),
+    fetchLiga1OfficialApi('/standings'),
+    fetchLiga1OfficialApi('/stats'),
+    fetchLiga1OfficialApi('/clubs')
+  ]);
 
-    payload = {
-      upcoming: read(0).matches || [],
-      live: read(1).matches || [],
-      finished: read(2).matches || [],
-      standings: read(3).standings || [],
-      topScorers: read(4).topScorers || [],
-      topAssists: read(4).topAssists || [],
-      clubs: read(5).clubs || [],
-      competition:
-        read(0).competition ||
-        read(3).competition || {
-          id: LIGA1_OFFICIAL_COMPETITION_ID,
-          name: LIGA1_OFFICIAL_COMPETITION_NAME
-        },
-      fetchedAt: new Date().toISOString()
-    };
-  }
+  const read = index =>
+    results[index].status === 'fulfilled' ? results[index].value : {};
+
+  const matchesRes = read(0);
+  const standingsRes = read(1);
+  const statsRes = read(2);
+  const clubsRes = read(3);
+
+  const allMatches = Array.isArray(matchesRes.data)
+    ? matchesRes.data
+    : Array.isArray(matchesRes.matches)
+    ? matchesRes.matches
+    : [];
+
+  const statsData = statsRes.data || statsRes || {};
+
+  const payload = {
+    matches: allMatches,
+    standings: Array.isArray(standingsRes.data)
+      ? standingsRes.data
+      : Array.isArray(standingsRes.standings)
+      ? standingsRes.standings
+      : [],
+    topScorers: Array.isArray(statsData.top_scorers)
+      ? statsData.top_scorers
+      : Array.isArray(statsData.topScorers)
+      ? statsData.topScorers
+      : [],
+    topAssists: Array.isArray(statsData.top_assists)
+      ? statsData.top_assists
+      : Array.isArray(statsData.topAssists)
+      ? statsData.topAssists
+      : [],
+    clubs: Array.isArray(clubsRes.data)
+      ? clubsRes.data
+      : Array.isArray(clubsRes.clubs)
+      ? clubsRes.clubs
+      : [],
+    competition: {
+      id: LIGA1_OFFICIAL_COMPETITION_ID,
+      name: LIGA1_OFFICIAL_COMPETITION_NAME
+    },
+    fetchedAt: matchesRes.updated_at || new Date().toISOString()
+  };
 
   liga1OfficialSnapshotCache = normalizeLiga1OfficialPayload(payload);
   liga1OfficialSnapshotCacheAt = Date.now();
@@ -371,28 +439,41 @@ async function fetchLigaIndonesiaFinishedData(dateFilter = '') {
 
 async function fetchLiga1LiveData() {
   const snapshot = await fetchLiga1OfficialSnapshot();
-  return snapshot.live.map(match => mapLiga1OfficialMatch(match, 'live')).filter(Boolean);
+  return snapshot.live
+    .map(match => mapLiga1OfficialMatch(match, 'live'))
+    .filter(Boolean);
 }
 
 async function fetchLiga1Standings() {
   const snapshot = await fetchLiga1OfficialSnapshot();
   return snapshot.standings
-    .filter(row => row && row.team)
-    .map(row => ({
-      position: Number(row.position) || 0,
-      team: String(row.team.name || row.team),
-      teamLogo: row.team.logoUrl || row.team.logo || '',
-      teamSlug: row.team.slug || '',
-      played: Number(row.played) || 0,
-      won: Number(row.won) || 0,
-      drawn: Number(row.drawn) || 0,
-      lost: Number(row.lost) || 0,
-      goalsFor: Number(row.goalsFor) || 0,
-      goalsAgainst: Number(row.goalsAgainst) || 0,
-      goalDifference: Number(row.goalDifference) || 0,
-      points: Number(row.points) || 0,
-      form: row.form || ''
-    }))
+    .filter(row => row && (row.club || row.team))
+    .map(row => {
+      const teamName = String(row.club || row.team?.name || row.team || '');
+      const teamLogo =
+        row.logo ||
+        row.team?.logoUrl ||
+        row.team?.logo ||
+        getLiga1ClubLogo(teamName);
+
+      return {
+        position: Number(row.rank ?? row.position) || 0,
+        team: teamName,
+        teamLogo,
+        teamSlug:
+          row.team?.slug ||
+          teamName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        played: Number(row.played) || 0,
+        won: Number(row.win ?? row.won) || 0,
+        drawn: Number(row.draw ?? row.drawn) || 0,
+        lost: Number(row.loss ?? row.lost) || 0,
+        goalsFor: Number(row.goals_for ?? row.goalsFor) || 0,
+        goalsAgainst: Number(row.goals_against ?? row.goalsAgainst) || 0,
+        goalDifference: Number(row.goal_difference ?? row.goalDifference) || 0,
+        points: Number(row.points) || 0,
+        form: Array.isArray(row.form) ? row.form.join('') : row.form || ''
+      };
+    })
     .sort((a, b) => a.position - b.position);
 }
 
@@ -410,7 +491,6 @@ async function fetchLiga1Clubs() {
 }
 
 async function refreshLiga1OfficialData() {
-  await fetchLiga1OfficialApi('/liga-1/refresh', { method: 'POST' });
   liga1OfficialSnapshotCache = null;
   liga1OfficialSnapshotCacheAt = 0;
   return fetchLiga1OfficialSnapshot(true);
@@ -423,54 +503,74 @@ async function fetchLiga1MatchDetailSummary(
   const eventId = cachedEvent?.id || cachedEvent?.liga1Raw?.id;
   if (!eventId) return null;
 
-  const detail = await fetchLiga1OfficialApi(
-    `/liga-1/matches/${encodeURIComponent(eventId)}`
+  const response = await fetchLiga1OfficialApi(
+    `/match-detail?id=${encodeURIComponent(eventId)}`
   );
-  const detailMatch = detail.match || detail;
+  const detail = response.data || response.match || response;
   const cachedRaw = cachedEvent?.liga1Raw || {};
   const cachedState =
     cachedEvent?.status?.type?.state ||
     liga1OfficialStatus(cachedRaw.status || '');
   const isScheduled = cachedState === 'pre';
 
-  // The list/snapshot endpoint describes the schedule state. Prefer it over
-  // the detail endpoint when the latter has stale result data for an upcoming
-  // fixture. Keep the detail endpoint's metadata and logos where possible.
-  const match = isScheduled
-    ? {
-        ...detailMatch,
-        ...cachedRaw,
-        status: 'upcoming',
-        date: cachedRaw.date || detailMatch.date,
-        kickoff: cachedRaw.kickoff || detailMatch.kickoff,
-        kickoffIso: cachedRaw.kickoffIso || detailMatch.kickoffIso,
-        venue: cachedRaw.venue || detailMatch.venue,
-        home: { ...(detailMatch.home || {}), ...(cachedRaw.home || {}) },
-        away: { ...(detailMatch.away || {}), ...(cachedRaw.away || {}) },
-        score: null,
-        homeScore: null,
-        awayScore: null
-      }
-    : detailMatch;
+  const mergedHome = {
+    ...(detail.home || {}),
+    ...(cachedRaw.home || {}),
+    score: isScheduled ? null : detail.home?.score ?? cachedRaw.home?.score ?? null,
+    logo: detail.home?.logo || cachedRaw.home?.logo || ''
+  };
+  const mergedAway = {
+    ...(detail.away || {}),
+    ...(cachedRaw.away || {}),
+    score: isScheduled ? null : detail.away?.score ?? cachedRaw.away?.score ?? null,
+    logo: detail.away?.logo || cachedRaw.away?.logo || ''
+  };
+
+  const match = {
+    ...detail,
+    ...cachedRaw,
+    id: eventId,
+    status: isScheduled ? 'upcoming' : 'finished',
+    date: cachedRaw.date || detail.date,
+    kickoff: cachedRaw.kickoff || cachedRaw.time || detail.kickoff || '',
+    home: mergedHome,
+    away: mergedAway
+  };
 
   const mapped = mapLiga1OfficialMatch(match, match.status);
   if (!mapped) return null;
-  const safeDetail = isScheduled
-    ? {
-        ...detail,
-        ...match,
-        status: 'upcoming',
-        score: null,
-        timeline: [],
-        statistics: [],
-        lineups: []
-      }
-    : detail;
+
+  const normalizedTimeline = isScheduled
+    ? []
+    : (Array.isArray(detail.events) ? detail.events : []).map(ev => ({
+        minute: ev.minute || '',
+        team: ev.team || '',
+        type: ev.type || 'EVENT',
+        player: ev.player || ev.detail || '',
+        text: `${ev.minute || ''} ${ev.player || ev.detail || ''}`.trim()
+      }));
+
+  const normalizedStats = isScheduled
+    ? []
+    : Array.isArray(detail.statistics)
+    ? detail.statistics
+    : [];
+
+  const normalizedLineups = isScheduled
+    ? []
+    : Array.isArray(detail.lineups)
+    ? detail.lineups
+    : [];
+
   const enrichedDetail = {
-    ...safeDetail,
-    location: safeDetail.venue || match.venue || '',
-    kickoffLabel: safeDetail.kickoff || '',
-    match: safeDetail
+    ...detail,
+    ...match,
+    timeline: normalizedTimeline,
+    statistics: normalizedStats,
+    lineups: normalizedLineups,
+    location: detail.venue || match.venue || '',
+    kickoffLabel: match.kickoff || '',
+    match
   };
 
   return {
@@ -483,17 +583,17 @@ async function fetchLiga1MatchDetailSummary(
     leagues: [
       { slug: LIGA1_OFFICIAL_ID, name: fallbackLeagueName }
     ],
-    details: safeDetail.timeline || [],
+    details: normalizedTimeline,
     headToHead: [],
     gameInfo: {
       venue: { fullName: detail.venue || match.venue || '' },
-      officials: (safeDetail.officials || []).map(official => ({
+      officials: (detail.officials || []).map(official => ({
         displayName: official.name || official.displayName || String(official),
         position: { name: 'Referee' }
       }))
     },
     boxscore: { teams: [] },
-    rosters: safeDetail.lineups || [],
+    rosters: normalizedLineups,
     liga1Detail: enrichedDetail,
     liga2Detail: enrichedDetail
   };
@@ -536,14 +636,20 @@ function renderLiga1TopScorers(container, data) {
           <div class="space-y-0.5">
             ${section.rows
               .map((row, index) => {
-                const name = row.name || 'Pemain';
-                const club = row.team?.name || 'Klub';
+                const name = row.name || row.player || 'Pemain';
+                const club = row.team?.name || row.club || 'Klub';
                 const photo =
                   row.photoUrl ||
+                  row.photo ||
                   `https://ui-avatars.com/api/?name=${encodeURIComponent(
                     name
                   )}&background=991b1b&color=fff&bold=true&rounded=true`;
-                const value = row.value ?? 0;
+                const clubLogo =
+                  row.team?.logoUrl ||
+                  row.club_logo ||
+                  getLiga1ClubLogo(club) ||
+                  PLAIN_SHIELD_LOGO;
+                const value = row.value ?? row.total ?? 0;
                 return `
                   <div class="flex items-center justify-between p-2 rounded-xl border-b border-slate-800/40 last:border-b-0">
                     <div class="flex items-center gap-2.5 min-w-0 flex-1">
@@ -554,7 +660,7 @@ function renderLiga1TopScorers(container, data) {
                       <div class="min-w-0">
                         <div class="font-bold text-white text-xs truncate">${name}</div>
                         <div class="text-[10px] text-slate-400 flex items-center gap-1 truncate">
-                          <img src="${row.team?.logoUrl || PLAIN_SHIELD_LOGO}" class="w-3 h-3 object-contain" alt="">
+                          <img src="${clubLogo}" class="w-3 h-3 object-contain" alt="">
                           <span class="truncate">${club}</span>
                         </div>
                       </div>
