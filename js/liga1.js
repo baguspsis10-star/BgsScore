@@ -122,33 +122,69 @@ function liga1OfficialStatus(status) {
     return 'post';
   }
 
-  return 'pre';
+  if (['upcoming', 'pre', 'scheduled', 'not_started', 'ns', 'tba', 'fixture'].includes(value)) {
+    return 'pre';
+  }
+
+  return '';
+}
+
+function isPlausibleFootballScore(homeVal, awayVal, rawMatch = {}) {
+  if (
+    homeVal === null ||
+    homeVal === undefined ||
+    homeVal === '' ||
+    homeVal === '-' ||
+    awayVal === null ||
+    awayVal === undefined ||
+    awayVal === '' ||
+    awayVal === '-'
+  ) {
+    return false;
+  }
+
+  const hNum = Number(homeVal);
+  const aNum = Number(awayVal);
+  if (Number.isNaN(hNum) || Number.isNaN(aNum) || hNum < 0 || aNum < 0) {
+    return false;
+  }
+
+  // Cegah skor puluhan akibat jam kick-off (mis. 15:30 / 19:00) atau tanggal terbaca sebagai skor
+  if (hNum > 12 || aNum > 12) return false;
+
+  const timeStr = String(rawMatch.kickoff || rawMatch.time || '').trim();
+  if (timeStr) {
+    const tMatch = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+    if (
+      tMatch &&
+      hNum === parseInt(tMatch[1], 10) &&
+      aNum === parseInt(tMatch[2], 10)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function detectLiga1MatchState(rawMatch, fallbackStatus = '') {
   if (!rawMatch || typeof rawMatch !== 'object') return 'pre';
 
   const explicit = liga1OfficialStatus(rawMatch.status || fallbackStatus);
-  if (explicit !== 'pre') return explicit;
+  if (explicit === 'pre') return 'pre';
+  if (explicit === 'in') return 'in';
 
   const home = rawMatch.home || rawMatch.homeTeam || {};
   const away = rawMatch.away || rawMatch.awayTeam || {};
   const hScore = home.score ?? rawMatch.score?.home ?? rawMatch.homeScore;
   const aScore = away.score ?? rawMatch.score?.away ?? rawMatch.awayScore;
+  const validScore = isPlausibleFootballScore(hScore, aScore, rawMatch);
 
-  const hasValidScore =
-    hScore !== null &&
-    hScore !== undefined &&
-    hScore !== '' &&
-    hScore !== '-' &&
-    aScore !== null &&
-    aScore !== undefined &&
-    aScore !== '' &&
-    aScore !== '-' &&
-    !Number.isNaN(Number(hScore)) &&
-    !Number.isNaN(Number(aScore));
+  if (explicit === 'post') {
+    return validScore ? 'post' : 'pre';
+  }
 
-  return hasValidScore ? 'post' : 'pre';
+  return validScore ? 'post' : 'pre';
 }
 
 function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
@@ -164,14 +200,17 @@ function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
     rawMatch.id ||
     `${normalizeLiga1OfficialDateKey(rawMatch.date)}-${homeName}-${awayName}`;
 
+  const rawHomeScore = home.score ?? rawMatch.score?.home ?? rawMatch.homeScore ?? null;
+  const rawAwayScore = away.score ?? rawMatch.score?.away ?? rawMatch.awayScore ?? null;
+
   const homeScore =
-    state === 'pre'
+    state === 'pre' || !isPlausibleFootballScore(rawHomeScore, rawAwayScore, rawMatch)
       ? null
-      : home.score ?? rawMatch.score?.home ?? rawMatch.homeScore ?? null;
+      : rawHomeScore;
   const awayScore =
-    state === 'pre'
+    state === 'pre' || !isPlausibleFootballScore(rawHomeScore, rawAwayScore, rawMatch)
       ? null
-      : away.score ?? rawMatch.score?.away ?? rawMatch.awayScore ?? null;
+      : rawAwayScore;
 
   const kickoffText = rawMatch.kickoff || rawMatch.time || 'SCHEDULED';
   const statusLabel =
@@ -353,6 +392,19 @@ function extractMatchesArray(res) {
   return [];
 }
 
+function buildMatchDedupKey(match, idx = 0) {
+  const home = normalizeLiga1TeamName(match?.home?.name || match?.homeTeam?.name || '');
+  const away = normalizeLiga1TeamName(match?.away?.name || match?.awayTeam?.name || '');
+  const dateKey = normalizeLiga1OfficialDateKey(match?.date || match?.id);
+  if (home && away && dateKey) {
+    return `${dateKey}-${home}-${away}`;
+  }
+  if (match?.id) {
+    return String(match.id).toUpperCase();
+  }
+  return `match-${idx}-${home}-${away}`;
+}
+
 async function fetchLiga1OfficialSnapshot(force = false) {
   const cacheFresh =
     liga1OfficialSnapshotCache &&
@@ -361,6 +413,7 @@ async function fetchLiga1OfficialSnapshot(force = false) {
 
   const results = await Promise.allSettled([
     fetchLiga1OfficialApi('/matches'),
+    fetchLiga1OfficialApi('/matches?status=upcoming'),
     fetchLiga1OfficialApi('/matches?status=finished'),
     fetchLiga1OfficialApi('/matches?status=live'),
     fetchLiga1OfficialApi('/standings'),
@@ -372,29 +425,35 @@ async function fetchLiga1OfficialSnapshot(force = false) {
     results[index].status === 'fulfilled' ? results[index].value : {};
 
   const defaultMatches = extractMatchesArray(read(0));
-  const finishedMatches = extractMatchesArray(read(1)).map(m => ({
+  const upcomingMatches = extractMatchesArray(read(1)).map(m => ({
+    ...m,
+    status: m.status || 'upcoming'
+  }));
+  const finishedMatches = extractMatchesArray(read(2)).map(m => ({
     ...m,
     status: m.status || 'finished'
   }));
-  const liveMatches = extractMatchesArray(read(2)).map(m => ({
+  const liveMatches = extractMatchesArray(read(3)).map(m => ({
     ...m,
     status: m.status || 'live'
   }));
 
   const mergedMap = new Map();
-  [...defaultMatches, ...finishedMatches, ...liveMatches].forEach((match, idx) => {
+  [
+    ...defaultMatches,
+    ...upcomingMatches,
+    ...finishedMatches,
+    ...liveMatches
+  ].forEach((match, idx) => {
     if (!match || typeof match !== 'object') return;
-    const key = String(
-      match.id ||
-        `${match.date || idx}-${match.home?.name || ''}-${match.away?.name || ''}`
-    );
+    const key = buildMatchDedupKey(match, idx);
     const prev = mergedMap.get(key);
     mergedMap.set(key, prev ? { ...prev, ...match } : match);
   });
 
-  const standingsRes = read(3);
-  const statsRes = read(4);
-  const clubsRes = read(5);
+  const standingsRes = read(4);
+  const statsRes = read(5);
+  const clubsRes = read(6);
   const statsData = statsRes.data || statsRes || {};
 
   const payload = {
@@ -439,8 +498,8 @@ async function fetchLiga1EventsForDate(dateFilter = '') {
     ...snapshot.finished
   ];
   const unique = new Map();
-  allRaw.forEach(match => {
-    if (match?.id) unique.set(String(match.id), match);
+  allRaw.forEach((match, idx) => {
+    unique.set(buildMatchDedupKey(match, idx), match);
   });
 
   const dateKey = normalizeLiga1OfficialDateKey(dateFilter);
@@ -459,7 +518,7 @@ async function fetchLigaIndonesiaData(dateFilter = '') {
   const rawMatches = [...snapshot.live, ...snapshot.upcoming];
   const dateKey = normalizeLiga1OfficialDateKey(dateFilter);
   return rawMatches
-    .map(match => mapLiga1OfficialMatch(match))
+    .map(match => mapLiga1OfficialMatch(match, 'upcoming'))
     .filter(Boolean)
     .filter(
       event =>
