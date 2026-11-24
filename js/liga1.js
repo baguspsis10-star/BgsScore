@@ -45,7 +45,7 @@ function liga1TeamId(team = {}) {
 
 function normalizeLiga1OfficialDateKey(value) {
   const text = String(value || '').trim();
-  const isoMatch = text.match(/^(\d{4})-?(\d{2})-?(\d{2})/);
+  const isoMatch = text.match(/(\d{4})-?(\d{2})-?(\d{2})/);
   if (isoMatch) return `${isoMatch[1]}${isoMatch[2]}${isoMatch[3]}`;
 
   const months = {
@@ -73,7 +73,7 @@ function normalizeLiga1OfficialDateKey(value) {
     november: '11',
     december: '12'
   };
-  const localized = text.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/i);
+  const localized = text.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/i);
   if (!localized) return '';
 
   const month = months[localized[2].toLowerCase()];
@@ -85,14 +85,14 @@ function normalizeLiga1OfficialDateKey(value) {
 function liga1OfficialDateTime(match) {
   if (match?.kickoffIso) return match.kickoffIso;
 
-  const dateKey = normalizeLiga1OfficialDateKey(match?.date);
+  const dateKey = normalizeLiga1OfficialDateKey(match?.date || match?.id);
   if (!dateKey) return new Date().toISOString();
 
   const rawTime = String(match?.kickoff || match?.time || '').trim();
-  const kickoff = rawTime.match(/^(\d{1,2}):(\d{2})/);
+  const kickoff = rawTime.match(/(\d{1,2}):(\d{2})/);
   const time = kickoff
     ? `${kickoff[1].padStart(2, '0')}:${kickoff[2]}`
-    : '12:00';
+    : '15:30';
 
   return `${dateKey.slice(0, 4)}-${dateKey.slice(4, 6)}-${dateKey.slice(
     6,
@@ -114,15 +114,41 @@ function liga1OfficialStatus(status) {
     .toLowerCase()
     .trim();
 
-  if (['live', 'in', 'ht', 'halftime', 'playing', 'ongoing'].includes(value)) {
+  if (['live', 'in', 'ht', 'halftime', 'playing', 'ongoing', 'berlangsung'].includes(value)) {
     return 'in';
   }
 
-  if (['finished', 'ft', 'post', 'completed', 'final', 'selesai'].includes(value)) {
+  if (['finished', 'ft', 'post', 'completed', 'final', 'selesai', 'result', 'ended', 'done'].includes(value)) {
     return 'post';
   }
 
   return 'pre';
+}
+
+function detectLiga1MatchState(rawMatch, fallbackStatus = '') {
+  if (!rawMatch || typeof rawMatch !== 'object') return 'pre';
+
+  const explicit = liga1OfficialStatus(rawMatch.status || fallbackStatus);
+  if (explicit !== 'pre') return explicit;
+
+  const home = rawMatch.home || rawMatch.homeTeam || {};
+  const away = rawMatch.away || rawMatch.awayTeam || {};
+  const hScore = home.score ?? rawMatch.score?.home ?? rawMatch.homeScore;
+  const aScore = away.score ?? rawMatch.score?.away ?? rawMatch.awayScore;
+
+  const hasValidScore =
+    hScore !== null &&
+    hScore !== undefined &&
+    hScore !== '' &&
+    hScore !== '-' &&
+    aScore !== null &&
+    aScore !== undefined &&
+    aScore !== '' &&
+    aScore !== '-' &&
+    !Number.isNaN(Number(hScore)) &&
+    !Number.isNaN(Number(aScore));
+
+  return hasValidScore ? 'post' : 'pre';
 }
 
 function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
@@ -132,12 +158,7 @@ function mapLiga1OfficialMatch(rawMatch, fallbackStatus = '') {
   const away = rawMatch.away || rawMatch.awayTeam || {};
   const homeName = home.name || 'Home Team';
   const awayName = away.name || 'Away Team';
-  const inferredStatus =
-    rawMatch.status ||
-    (home.score !== null && home.score !== undefined && away.score !== null && away.score !== undefined
-      ? 'finished'
-      : fallbackStatus);
-  const state = liga1OfficialStatus(inferredStatus);
+  const state = detectLiga1MatchState(rawMatch, fallbackStatus);
   const date = liga1OfficialDateTime(rawMatch);
   const eventId =
     rawMatch.id ||
@@ -274,8 +295,8 @@ function mapVercelStatPlayer(row, index) {
 
 function normalizeLiga1OfficialPayload(payload = {}) {
   const matches = Array.isArray(payload.matches) ? payload.matches : [];
-  const classify = status =>
-    matches.filter(match => liga1OfficialStatus(match.status) === status);
+  const classify = targetState =>
+    matches.filter(match => detectLiga1MatchState(match) === targetState);
 
   const clubs = (Array.isArray(payload.clubs) ? payload.clubs : []).map(club => ({
     ...club,
@@ -288,7 +309,6 @@ function normalizeLiga1OfficialPayload(payload = {}) {
       .map(club => [normalizeLiga1TeamName(club.name), club.logoUrl || club.logo])
   );
 
-  // Perkaya logo map dari data klasemen juga jika tersedia
   (Array.isArray(payload.standings) ? payload.standings : []).forEach(row => {
     const cName = row?.club || row?.team?.name;
     const cLogo = row?.logo || row?.team?.logoUrl || row?.team?.logo;
@@ -301,11 +321,13 @@ function normalizeLiga1OfficialPayload(payload = {}) {
   const rawTopAssists = Array.isArray(payload.topAssists) ? payload.topAssists : [];
 
   return {
-    upcoming: Array.isArray(payload.upcoming)
+    upcoming: Array.isArray(payload.upcoming) && payload.upcoming.length
       ? payload.upcoming
       : classify('pre'),
-    live: Array.isArray(payload.live) ? payload.live : classify('in'),
-    finished: Array.isArray(payload.finished)
+    live: Array.isArray(payload.live) && payload.live.length
+      ? payload.live
+      : classify('in'),
+    finished: Array.isArray(payload.finished) && payload.finished.length
       ? payload.finished
       : classify('post'),
     standings: Array.isArray(payload.standings) ? payload.standings : [],
@@ -324,6 +346,13 @@ function getLiga1ClubLogo(teamName) {
   return liga1OfficialClubLogoMap[normalizeLiga1TeamName(teamName)] || '';
 }
 
+function extractMatchesArray(res) {
+  if (!res || typeof res !== 'object') return [];
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res.matches)) return res.matches;
+  return [];
+}
+
 async function fetchLiga1OfficialSnapshot(force = false) {
   const cacheFresh =
     liga1OfficialSnapshotCache &&
@@ -332,6 +361,8 @@ async function fetchLiga1OfficialSnapshot(force = false) {
 
   const results = await Promise.allSettled([
     fetchLiga1OfficialApi('/matches'),
+    fetchLiga1OfficialApi('/matches?status=finished'),
+    fetchLiga1OfficialApi('/matches?status=live'),
     fetchLiga1OfficialApi('/standings'),
     fetchLiga1OfficialApi('/stats'),
     fetchLiga1OfficialApi('/clubs')
@@ -340,21 +371,34 @@ async function fetchLiga1OfficialSnapshot(force = false) {
   const read = index =>
     results[index].status === 'fulfilled' ? results[index].value : {};
 
-  const matchesRes = read(0);
-  const standingsRes = read(1);
-  const statsRes = read(2);
-  const clubsRes = read(3);
+  const defaultMatches = extractMatchesArray(read(0));
+  const finishedMatches = extractMatchesArray(read(1)).map(m => ({
+    ...m,
+    status: m.status || 'finished'
+  }));
+  const liveMatches = extractMatchesArray(read(2)).map(m => ({
+    ...m,
+    status: m.status || 'live'
+  }));
 
-  const allMatches = Array.isArray(matchesRes.data)
-    ? matchesRes.data
-    : Array.isArray(matchesRes.matches)
-    ? matchesRes.matches
-    : [];
+  const mergedMap = new Map();
+  [...defaultMatches, ...finishedMatches, ...liveMatches].forEach((match, idx) => {
+    if (!match || typeof match !== 'object') return;
+    const key = String(
+      match.id ||
+        `${match.date || idx}-${match.home?.name || ''}-${match.away?.name || ''}`
+    );
+    const prev = mergedMap.get(key);
+    mergedMap.set(key, prev ? { ...prev, ...match } : match);
+  });
 
+  const standingsRes = read(3);
+  const statsRes = read(4);
+  const clubsRes = read(5);
   const statsData = statsRes.data || statsRes || {};
 
   const payload = {
-    matches: allMatches,
+    matches: Array.from(mergedMap.values()),
     standings: Array.isArray(standingsRes.data)
       ? standingsRes.data
       : Array.isArray(standingsRes.standings)
@@ -379,7 +423,7 @@ async function fetchLiga1OfficialSnapshot(force = false) {
       id: LIGA1_OFFICIAL_COMPETITION_ID,
       name: LIGA1_OFFICIAL_COMPETITION_NAME
     },
-    fetchedAt: matchesRes.updated_at || new Date().toISOString()
+    fetchedAt: read(0).updated_at || new Date().toISOString()
   };
 
   liga1OfficialSnapshotCache = normalizeLiga1OfficialPayload(payload);
@@ -406,7 +450,7 @@ async function fetchLiga1EventsForDate(dateFilter = '') {
     .filter(
       event =>
         !dateKey ||
-        normalizeLiga1OfficialDateKey(event.liga1Raw?.date) === dateKey
+        normalizeLiga1OfficialDateKey(event.liga1Raw?.date || event.date) === dateKey
     );
 }
 
@@ -420,7 +464,7 @@ async function fetchLigaIndonesiaData(dateFilter = '') {
     .filter(
       event =>
         !dateKey ||
-        normalizeLiga1OfficialDateKey(event.liga1Raw?.date) === dateKey
+        normalizeLiga1OfficialDateKey(event.liga1Raw?.date || event.date) === dateKey
     );
 }
 
@@ -433,7 +477,7 @@ async function fetchLigaIndonesiaFinishedData(dateFilter = '') {
     .filter(
       event =>
         !dateKey ||
-        normalizeLiga1OfficialDateKey(event.liga1Raw?.date) === dateKey
+        normalizeLiga1OfficialDateKey(event.liga1Raw?.date || event.date) === dateKey
     );
 }
 
@@ -510,7 +554,7 @@ async function fetchLiga1MatchDetailSummary(
   const cachedRaw = cachedEvent?.liga1Raw || {};
   const cachedState =
     cachedEvent?.status?.type?.state ||
-    liga1OfficialStatus(cachedRaw.status || '');
+    detectLiga1MatchState(cachedRaw);
   const isScheduled = cachedState === 'pre';
 
   const mergedHome = {
