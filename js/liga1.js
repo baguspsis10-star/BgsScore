@@ -612,7 +612,11 @@ function resolveLiga1EventTeamSide(ev, homeName, awayName) {
   const homeNorm = normalizeLiga1TeamName(homeName);
   const awayNorm = normalizeLiga1TeamName(awayName);
 
-  if (evTeamNorm && awayNorm && (evTeamNorm === awayNorm || awayNorm.includes(evTeamNorm) || evTeamNorm.includes(awayNorm))) {
+  if (
+    evTeamNorm &&
+    awayNorm &&
+    (evTeamNorm === awayNorm || awayNorm.includes(evTeamNorm) || evTeamNorm.includes(awayNorm))
+  ) {
     return 'away';
   }
   return 'home';
@@ -926,7 +930,8 @@ async function fetchLiga1MatchDetailSummary(
     statistics: Array.isArray(rawStats) ? rawStats : [],
     lineups: mappedRosters,
     location: detail.venue || detail.stadium || match.venue || '',
-    kickoffLabel: match.kickoff || '',
+    attendance: detail.attendance || '',
+    kickoffLabel: detail.kickoff || match.kickoff || '',
     match
   };
 
