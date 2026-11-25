@@ -259,7 +259,7 @@ async function openMatchDetail(leagueId, eventId, leagueName, isSilent = false) 
     let data = null;
 
     if (isLiga1LeagueId(leagueId) || isLiga1LeagueId(cachedEvt?.leagueId)) {
-      data = await fetchLiga1MatchDetailSummary(cachedEvt, leagueName);
+      data = await fetchLiga1MatchDetailSummary(cachedEvt, leagueName, eventId);
     } else if (isLiga2LeagueId(leagueId) || isLiga2LeagueId(cachedEvt?.leagueId)) {
       data = await fetchLiga2MatchDetailSummary(cachedEvt, leagueName);
     }

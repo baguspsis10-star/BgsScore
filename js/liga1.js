@@ -149,7 +149,6 @@ function isPlausibleFootballScore(homeVal, awayVal, rawMatch = {}) {
     return false;
   }
 
-  // Cegah skor puluhan akibat jam kick-off (mis. 15:30 / 19:00) atau tanggal terbaca sebagai skor
   if (hNum > 12 || aNum > 12) return false;
 
   const timeStr = String(rawMatch.kickoff || rawMatch.time || '').trim();
@@ -599,11 +598,259 @@ async function refreshLiga1OfficialData() {
   return fetchLiga1OfficialSnapshot(true);
 }
 
+// =========================================================
+// ADAPTER DETAIL PERTANDINGAN LIGA 1 -> FORMAT MODAL BGS
+// =========================================================
+
+function resolveLiga1EventTeamSide(ev, homeName, awayName) {
+  const side = String(ev.side || ev.team_side || ev.homeAway || '').toLowerCase();
+  if (side === 'home' || side === 'away') return side;
+
+  const evTeamNorm = normalizeLiga1TeamName(
+    typeof ev.team === 'object' ? ev.team?.name || ev.team?.displayName : ev.team
+  );
+  const homeNorm = normalizeLiga1TeamName(homeName);
+  const awayNorm = normalizeLiga1TeamName(awayName);
+
+  if (evTeamNorm && awayNorm && (evTeamNorm === awayNorm || awayNorm.includes(evTeamNorm) || evTeamNorm.includes(awayNorm))) {
+    return 'away';
+  }
+  return 'home';
+}
+
+function mapLiga1DetailEventsToEspnDetails(rawEvents, homeTeam, awayTeam) {
+  if (!Array.isArray(rawEvents)) return [];
+
+  return rawEvents.map((ev, idx) => {
+    const rawType = String(ev.type || ev.event || ev.kind || '').toLowerCase();
+    const rawDetail = String(ev.detail || ev.text || ev.description || '').toLowerCase();
+    const combined = `${rawType} ${rawDetail}`;
+
+    let typeText = 'Event';
+    if (combined.includes('own goal') || combined.includes('og') || combined.includes('bunuh diri')) {
+      typeText = 'Own Goal';
+    } else if (combined.includes('pen') && (combined.includes('miss') || combined.includes('gagal'))) {
+      typeText = 'Missed Penalty';
+    } else if (combined.includes('pen')) {
+      typeText = 'Penalty - Goal';
+    } else if (combined.includes('goal') || combined.includes('gol')) {
+      typeText = 'Goal';
+    } else if (combined.includes('red') || combined.includes('merah')) {
+      typeText = 'Red Card';
+    } else if (combined.includes('yellow') || combined.includes('kuning')) {
+      typeText = 'Yellow Card';
+    } else if (combined.includes('sub') || combined.includes('pergantian') || combined.includes('ganti')) {
+      typeText = 'Substitution';
+    }
+
+    const side = resolveLiga1EventTeamSide(ev, homeTeam.displayName, awayTeam.displayName);
+    const targetTeamId = side === 'away' ? awayTeam.id : homeTeam.id;
+
+    const minuteRaw = String(ev.minute || ev.time || ev.clock || '0').replace(/'/g, '').trim();
+    const primaryPlayer =
+      ev.player ||
+      ev.player_in ||
+      ev.playerIn ||
+      ev.scorer ||
+      ev.name ||
+      ev.detail ||
+      'Pemain';
+    const secondaryPlayer =
+      ev.player_out ||
+      ev.playerOut ||
+      ev.assist ||
+      '';
+
+    const participants = [
+      {
+        athlete: {
+          id: `l1-ath-${normalizeLiga1TeamName(primaryPlayer).replace(/\s+/g, '-') || idx}`,
+          displayName: String(primaryPlayer).trim(),
+          fullName: String(primaryPlayer).trim()
+        }
+      }
+    ];
+
+    if (secondaryPlayer) {
+      participants.push({
+        athlete: {
+          id: `l1-ath-${normalizeLiga1TeamName(secondaryPlayer).replace(/\s+/g, '-') || idx + '-2'}`,
+          displayName: String(secondaryPlayer).trim(),
+          fullName: String(secondaryPlayer).trim()
+        }
+      });
+    }
+
+    return {
+      clock: { displayValue: minuteRaw ? `${minuteRaw}'` : '0\'' },
+      time: minuteRaw ? `${minuteRaw}'` : '0\'',
+      team: { id: targetTeamId },
+      type: { text: typeText },
+      text: `${typeText}: ${primaryPlayer}`,
+      participants
+    };
+  });
+}
+
+function mapLiga1StatsToBoxscore(rawStats, homeTeam, awayTeam) {
+  const rows = Array.isArray(rawStats) ? rawStats : [];
+  const homeStats = [];
+  const awayStats = [];
+
+  const statNameMap = [
+    { match: ['penguasaan', 'possession'], espnName: 'possessionPct' },
+    { match: ['tembakan ke gawang', 'shots on target', 'shot on target'], espnName: 'shotsOnTarget' },
+    { match: ['total tembakan', 'shots off target', 'tembakan'], espnName: 'shotsOffTarget' },
+    { match: ['tendangan sudut', 'corner'], espnName: 'wonCorners' },
+    { match: ['pelanggaran', 'foul'], espnName: 'foulsCommitted' },
+    { match: ['kartu kuning', 'yellow'], espnName: 'yellowCards' },
+    { match: ['kartu merah', 'red'], espnName: 'redCards' }
+  ];
+
+  rows.forEach(row => {
+    const label = String(row.metric || row.label || row.name || '').toLowerCase();
+    const found = statNameMap.find(m => m.match.some(k => label.includes(k)));
+    const espnName = found ? found.espnName : label;
+
+    const cleanVal = (v) => {
+      if (v === undefined || v === null) return '0';
+      return String(v).replace('%', '').trim();
+    };
+
+    homeStats.push({
+      name: espnName,
+      label: row.metric || row.label || row.name || espnName,
+      displayValue: cleanVal(row.home)
+    });
+    awayStats.push({
+      name: espnName,
+      label: row.metric || row.label || row.name || espnName,
+      displayValue: cleanVal(row.away)
+    });
+  });
+
+  return {
+    teams: [
+      { team: homeTeam, statistics: homeStats },
+      { team: awayTeam, statistics: awayStats }
+    ]
+  };
+}
+
+function normalizeLiga1PlayerEntry(p, idx, isStarter, teamPrefix) {
+  if (!p) return null;
+  if (typeof p === 'string') {
+    const numMatch = p.match(/^#?(\d+)\s+(.+)$/);
+    const jersey = numMatch ? numMatch[1] : String(idx + 1);
+    const name = numMatch ? numMatch[2].trim() : p.trim();
+    return {
+      starter: isStarter,
+      jersey,
+      position: { abbreviation: idx === 0 && isStarter ? 'GK' : 'MF' },
+      athlete: {
+        id: `${teamPrefix}-p-${idx}`,
+        displayName: name,
+        fullName: name
+      }
+    };
+  }
+
+  const name = p.name || p.player || p.displayName || p.full_name || 'Pemain';
+  const jersey = String(p.number ?? p.jersey ?? p.no ?? idx + 1);
+  const rawPos = String(p.position || p.pos || '').toUpperCase();
+  let posAbbr = rawPos;
+  if (!posAbbr) {
+    posAbbr = idx === 0 && isStarter ? 'GK' : 'MF';
+  } else if (posAbbr.includes('GOAL') || posAbbr.includes('KIPER')) {
+    posAbbr = 'GK';
+  } else if (posAbbr.includes('DEF') || posAbbr.includes('BEK')) {
+    posAbbr = 'DF';
+  } else if (posAbbr.includes('MID') || posAbbr.includes('GELANDANG')) {
+    posAbbr = 'MF';
+  } else if (posAbbr.includes('FOR') || posAbbr.includes('STRIKER') || posAbbr.includes('PENYERANG')) {
+    posAbbr = 'FW';
+  }
+
+  return {
+    starter: isStarter,
+    jersey,
+    position: { abbreviation: posAbbr },
+    athlete: {
+      id: p.id || `${teamPrefix}-p-${jersey}-${idx}`,
+      displayName: name,
+      fullName: name
+    }
+  };
+}
+
+function mapLiga1LineupsToRosters(rawLineups, homeTeam, awayTeam) {
+  if (!rawLineups) return [];
+
+  let homeRaw = null;
+  let awayRaw = null;
+
+  if (Array.isArray(rawLineups)) {
+    if (rawLineups[0]?.roster) return rawLineups;
+    homeRaw = rawLineups[0] || null;
+    awayRaw = rawLineups[1] || null;
+  } else if (typeof rawLineups === 'object') {
+    homeRaw = rawLineups.home || rawLineups.homeTeam || null;
+    awayRaw = rawLineups.away || rawLineups.awayTeam || null;
+  }
+
+  if (!homeRaw || !awayRaw) return [];
+
+  const buildRosterList = (sideData, prefix) => {
+    const startersRaw =
+      sideData.starting ||
+      sideData.starters ||
+      sideData.lineup ||
+      sideData.starting_xi ||
+      (Array.isArray(sideData) ? sideData.slice(0, 11) : []);
+    const subsRaw =
+      sideData.substitutes ||
+      sideData.subs ||
+      sideData.bench ||
+      (Array.isArray(sideData) ? sideData.slice(11) : []);
+
+    const starters = (Array.isArray(startersRaw) ? startersRaw : [])
+      .map((p, i) => normalizeLiga1PlayerEntry(p, i, true, prefix))
+      .filter(Boolean);
+    const subs = (Array.isArray(subsRaw) ? subsRaw : [])
+      .map((p, i) => normalizeLiga1PlayerEntry(p, i + 11, false, prefix))
+      .filter(Boolean);
+
+    return [...starters, ...subs];
+  };
+
+  const homeRoster = buildRosterList(homeRaw, 'h');
+  const awayRoster = buildRosterList(awayRaw, 'a');
+
+  if (homeRoster.length === 0 || awayRoster.length === 0) return [];
+
+  return [
+    {
+      team: homeTeam,
+      formation: homeRaw.formation || '',
+      roster: homeRoster
+    },
+    {
+      team: awayTeam,
+      formation: awayRaw.formation || '',
+      roster: awayRoster
+    }
+  ];
+}
+
 async function fetchLiga1MatchDetailSummary(
   cachedEvent,
-  fallbackLeagueName = LIGA1_OFFICIAL_COMPETITION_NAME
+  fallbackLeagueName = LIGA1_OFFICIAL_COMPETITION_NAME,
+  fallbackEventId = ''
 ) {
-  const eventId = cachedEvent?.id || cachedEvent?.liga1Raw?.id;
+  const eventId =
+    cachedEvent?.id ||
+    cachedEvent?.liga1Raw?.id ||
+    fallbackEventId;
   if (!eventId) return null;
 
   const response = await fetchLiga1OfficialApi(
@@ -611,67 +858,74 @@ async function fetchLiga1MatchDetailSummary(
   );
   const detail = response.data || response.match || response;
   const cachedRaw = cachedEvent?.liga1Raw || {};
-  const cachedState =
-    cachedEvent?.status?.type?.state ||
-    detectLiga1MatchState(cachedRaw);
-  const isScheduled = cachedState === 'pre';
 
-  const mergedHome = {
-    ...(detail.home || {}),
-    ...(cachedRaw.home || {}),
-    score: isScheduled ? null : detail.home?.score ?? cachedRaw.home?.score ?? null,
-    logo: detail.home?.logo || cachedRaw.home?.logo || ''
+  const combinedRaw = {
+    ...cachedRaw,
+    ...detail,
+    home: {
+      ...(cachedRaw.home || {}),
+      ...(detail.home || {}),
+      score: detail.home?.score ?? cachedRaw.home?.score ?? null,
+      logo: detail.home?.logo || detail.home?.logoUrl || cachedRaw.home?.logo || ''
+    },
+    away: {
+      ...(cachedRaw.away || {}),
+      ...(detail.away || {}),
+      score: detail.away?.score ?? cachedRaw.away?.score ?? null,
+      logo: detail.away?.logo || detail.away?.logoUrl || cachedRaw.away?.logo || ''
+    }
   };
-  const mergedAway = {
-    ...(detail.away || {}),
-    ...(cachedRaw.away || {}),
-    score: isScheduled ? null : detail.away?.score ?? cachedRaw.away?.score ?? null,
-    logo: detail.away?.logo || cachedRaw.away?.logo || ''
-  };
+
+  const detectedState = detectLiga1MatchState(combinedRaw);
+  const hasDetailContent =
+    (Array.isArray(detail.events) && detail.events.length > 0) ||
+    (Array.isArray(detail.statistics) && detail.statistics.length > 0) ||
+    Boolean(detail.lineups);
+  const isScheduled = detectedState === 'pre' && !hasDetailContent;
 
   const match = {
-    ...detail,
-    ...cachedRaw,
+    ...combinedRaw,
     id: eventId,
-    status: isScheduled ? 'upcoming' : 'finished',
-    date: cachedRaw.date || detail.date,
-    kickoff: cachedRaw.kickoff || cachedRaw.time || detail.kickoff || '',
-    home: mergedHome,
-    away: mergedAway
+    status: isScheduled ? 'upcoming' : detectedState === 'in' ? 'live' : 'finished',
+    date: detail.date || cachedRaw.date,
+    kickoff: detail.kickoff || cachedRaw.kickoff || cachedRaw.time || ''
   };
 
   const mapped = mapLiga1OfficialMatch(match, match.status);
   if (!mapped) return null;
 
-  const normalizedTimeline = isScheduled
-    ? []
-    : (Array.isArray(detail.events) ? detail.events : []).map(ev => ({
-        minute: ev.minute || '',
-        team: ev.team || '',
-        type: ev.type || 'EVENT',
-        player: ev.player || ev.detail || '',
-        text: `${ev.minute || ''} ${ev.player || ev.detail || ''}`.trim()
-      }));
+  const homeComp = mapped.competitions[0].competitors.find(c => c.homeAway === 'home');
+  const awayComp = mapped.competitions[0].competitors.find(c => c.homeAway === 'away');
+  const homeTeam = homeComp.team;
+  const awayTeam = awayComp.team;
 
-  const normalizedStats = isScheduled
-    ? []
-    : Array.isArray(detail.statistics)
-    ? detail.statistics
-    : [];
+  const rawEvents = detail.events || detail.timeline || [];
+  const rawStats = detail.statistics || detail.stats || [];
+  const rawLineups = detail.lineups || detail.lineup || null;
 
-  const normalizedLineups = isScheduled
-    ? []
-    : Array.isArray(detail.lineups)
-    ? detail.lineups
-    : [];
+  const normalizedDetails = mapLiga1DetailEventsToEspnDetails(
+    rawEvents,
+    homeTeam,
+    awayTeam
+  );
+  const mappedBoxscore = mapLiga1StatsToBoxscore(
+    rawStats,
+    homeTeam,
+    awayTeam
+  );
+  const mappedRosters = mapLiga1LineupsToRosters(
+    rawLineups,
+    homeTeam,
+    awayTeam
+  );
 
   const enrichedDetail = {
     ...detail,
     ...match,
-    timeline: normalizedTimeline,
-    statistics: normalizedStats,
-    lineups: normalizedLineups,
-    location: detail.venue || match.venue || '',
+    timeline: normalizedDetails,
+    statistics: Array.isArray(rawStats) ? rawStats : [],
+    lineups: mappedRosters,
+    location: detail.venue || detail.stadium || match.venue || '',
     kickoffLabel: match.kickoff || '',
     match
   };
@@ -686,17 +940,17 @@ async function fetchLiga1MatchDetailSummary(
     leagues: [
       { slug: LIGA1_OFFICIAL_ID, name: fallbackLeagueName }
     ],
-    details: normalizedTimeline,
+    details: normalizedDetails,
     headToHead: [],
     gameInfo: {
-      venue: { fullName: detail.venue || match.venue || '' },
-      officials: (detail.officials || []).map(official => ({
+      venue: { fullName: detail.venue || detail.stadium || match.venue || '' },
+      officials: (detail.officials || (detail.referee ? [detail.referee] : [])).map(official => ({
         displayName: official.name || official.displayName || String(official),
         position: { name: 'Referee' }
       }))
     },
-    boxscore: { teams: [] },
-    rosters: normalizedLineups,
+    boxscore: mappedBoxscore,
+    rosters: mappedRosters,
     liga1Detail: enrichedDetail,
     liga2Detail: enrichedDetail
   };
