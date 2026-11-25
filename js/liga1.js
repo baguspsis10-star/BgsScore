@@ -741,37 +741,51 @@ function mapLiga1StatsToBoxscore(rawStats, homeTeam, awayTeam) {
   };
 }
 
+function formatCompactLiga1PlayerName(rawName) {
+  const cleaned = String(rawName || '')
+    .replace(/'\d{1,3}(?:\+\d+)?\s*/g, '')
+    .replace(/\b\d{1,3}(?:\+\d+)?'\s*/g, '')
+    .trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length <= 2) return cleaned;
+  return `${parts[0][0]}. ${parts[parts.length - 1]}`;
+}
+
 function normalizeLiga1PlayerEntry(p, idx, isStarter, teamPrefix) {
   if (!p) return null;
   if (typeof p === 'string') {
     const numMatch = p.match(/^#?(\d+)\s+(.+)$/);
     const jersey = numMatch ? numMatch[1] : String(idx + 1);
-    const name = numMatch ? numMatch[2].trim() : p.trim();
+    const rawName = numMatch ? numMatch[2].trim() : p.trim();
+    const displayName = isStarter ? formatCompactLiga1PlayerName(rawName) : rawName;
     return {
       starter: isStarter,
       jersey,
       position: { abbreviation: idx === 0 && isStarter ? 'GK' : 'MF' },
       athlete: {
         id: `${teamPrefix}-p-${idx}`,
-        displayName: name,
-        fullName: name
+        displayName,
+        fullName: rawName
       }
     };
   }
 
-  const name = p.name || p.player || p.displayName || p.full_name || 'Pemain';
+  const rawName = (p.name || p.player || p.displayName || p.full_name || 'Pemain')
+    .replace(/'\d{1,3}(?:\+\d+)?\s*/g, '')
+    .trim();
+  const displayName = isStarter ? formatCompactLiga1PlayerName(rawName) : rawName;
   const jersey = String(p.number ?? p.jersey ?? p.no ?? idx + 1);
   const rawPos = String(p.position || p.pos || '').toUpperCase();
   let posAbbr = rawPos;
   if (!posAbbr) {
     posAbbr = idx === 0 && isStarter ? 'GK' : 'MF';
-  } else if (posAbbr.includes('GOAL') || posAbbr.includes('KIPER')) {
+  } else if (posAbbr.includes('GOAL') || posAbbr.includes('KIPER') || posAbbr === 'GK') {
     posAbbr = 'GK';
-  } else if (posAbbr.includes('DEF') || posAbbr.includes('BEK')) {
+  } else if (posAbbr.includes('DEF') || posAbbr.includes('BEK') || posAbbr === 'DF') {
     posAbbr = 'DF';
-  } else if (posAbbr.includes('MID') || posAbbr.includes('GELANDANG')) {
+  } else if (posAbbr.includes('MID') || posAbbr.includes('GELANDANG') || posAbbr === 'MF') {
     posAbbr = 'MF';
-  } else if (posAbbr.includes('FOR') || posAbbr.includes('STRIKER') || posAbbr.includes('PENYERANG')) {
+  } else if (posAbbr.includes('FOR') || posAbbr.includes('STRIKER') || posAbbr.includes('PENYERANG') || posAbbr === 'FW') {
     posAbbr = 'FW';
   }
 
@@ -781,8 +795,8 @@ function normalizeLiga1PlayerEntry(p, idx, isStarter, teamPrefix) {
     position: { abbreviation: posAbbr },
     athlete: {
       id: p.id || `${teamPrefix}-p-${jersey}-${idx}`,
-      displayName: name,
-      fullName: name
+      displayName,
+      fullName: rawName
     }
   };
 }
