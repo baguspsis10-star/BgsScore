@@ -544,7 +544,7 @@ function renderModalCompleteData(data, leagueId) {
   const matchInfoBadgeHtml = `
     <div class="mt-4 pt-4 border-t border-white/[0.07] grid grid-cols-3 gap-2.5">
       <div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.07] text-center flex flex-col items-center justify-center">
-        <div class="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-1.5 text-emerald-400">
+        <div class="w-8 h-8 rounded-xl bg-white/[0.05] text-slate-300 flex items-center justify-center mb-1.5">
           <i class="fa-solid fa-location-dot text-xs"></i>
         </div>
         <span class="font-extrabold text-slate-200 text-[11px] block truncate w-full" title="${stadium}">${stadium}</span>
@@ -552,7 +552,7 @@ function renderModalCompleteData(data, leagueId) {
       </div>
 
       <div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.07] text-center flex flex-col items-center justify-center">
-        <div class="w-8 h-8 rounded-xl bg-sky-500/15 flex items-center justify-center mb-1.5 text-sky-400">
+        <div class="w-8 h-8 rounded-xl bg-white/[0.05] text-slate-300 flex items-center justify-center mb-1.5">
           <i class="fa-solid fa-user-ninja text-xs"></i>
         </div>
         <span class="font-extrabold text-slate-200 text-[11px] block truncate w-full" title="${liga2Detail.attendance || referee}">${liga2Detail.attendance ? attendance : referee}</span>
@@ -560,7 +560,7 @@ function renderModalCompleteData(data, leagueId) {
       </div>
 
       <div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.07] text-center flex flex-col items-center justify-center">
-        <div class="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center mb-1.5 text-amber-400">
+        <div class="w-8 h-8 rounded-xl bg-white/[0.05] text-slate-300 flex items-center justify-center mb-1.5">
           <i class="fa-solid fa-cloud-sun text-xs"></i>
         </div>
         <span class="font-extrabold text-slate-200 text-[11px] block truncate w-full" title="${weather}">${weather}</span>
@@ -641,10 +641,10 @@ function renderModalCompleteData(data, leagueId) {
       rows += `
         <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
           <div class="text-right flex items-center justify-end gap-1.5 truncate">
-            ${hG ? `<span class="truncate font-bold">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i>` : ''}
+            ${hG ? `<span class="truncate font-bold">${hG.scorer} ${hG.clock}</span> <i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0 anim-goal-ball"></i>` : ''}
           </div>
           <div class="text-left flex items-center justify-start gap-1.5 truncate">
-            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0"></i> <span class="truncate font-bold">${aG.clock} ${aG.scorer}</span>` : ''}
+            ${aG ? `<i class="fa-solid fa-futbol text-[10px] text-emerald-400 shrink-0 anim-goal-ball"></i> <span class="truncate font-bold">${aG.clock} ${aG.scorer}</span>` : ''}
           </div>
         </div>
       `;
@@ -694,7 +694,7 @@ function renderModalCompleteData(data, leagueId) {
     </div>
   `;
 
-  // STATISTIK MATCH
+  // STATISTIK MATCH (MODERN MONOCHROME ELEGANT)
   let statsBlockHtml = '';
   if (state === 'pre') {
     statsBlockHtml = `
@@ -755,20 +755,40 @@ function renderModalCompleteData(data, leagueId) {
     const renderStatRow = (label, homeVal, awayVal, isPercentage = false) => {
       const hValNum = parseFloat(homeVal) || 0;
       const aValNum = parseFloat(awayVal) || 0;
-      const total = (hValNum + aValNum) || 1;
-      const hPct = Math.min(100, Math.max(0, Math.round((hValNum / total) * 100)));
+      const bothZero = hValNum === 0 && aValNum === 0;
+      const total = bothZero ? 1 : (hValNum + aValNum);
+      const hPct = bothZero ? 50 : Math.min(100, Math.max(0, Math.round((hValNum / total) * 100)));
       const aPct = 100 - hPct;
 
+      const homeLeads = hValNum > aValNum;
+      const awayLeads = aValNum > hValNum;
+
+      const homePillClass = homeLeads
+        ? 'bg-white/[0.12] text-white border border-white/25'
+        : 'bg-white/[0.04] text-slate-400 border border-white/[0.07]';
+
+      const awayPillClass = awayLeads
+        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/35'
+        : 'bg-white/[0.04] text-slate-400 border border-white/[0.07]';
+
+      const homeBarClass = bothZero
+        ? 'bg-white/[0.08]'
+        : (homeLeads ? 'bg-slate-200' : 'bg-slate-600/75');
+
+      const awayBarClass = bothZero
+        ? 'bg-white/[0.08]'
+        : (awayLeads ? 'bg-emerald-400' : 'bg-emerald-500/35');
+
       return `
-        <div class="space-y-1.5 py-1">
-          <div class="flex items-center justify-between text-xs font-bold tabular-nums">
-            <span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-black">${homeVal}${isPercentage ? '%' : ''}</span>
-            <span class="text-slate-300 text-[11px] font-medium">${label}</span>
-            <span class="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[11px] font-black">${awayVal}${isPercentage ? '%' : ''}</span>
+        <div class="space-y-1.5 py-1.5">
+          <div class="flex items-center justify-between text-xs tabular-nums">
+            <span class="min-w-[44px] text-center px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold transition-colors ${homePillClass}">${homeVal}${isPercentage ? '%' : ''}</span>
+            <span class="text-slate-300 text-[11px] font-semibold tracking-wide">${label}</span>
+            <span class="min-w-[44px] text-center px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold transition-colors ${awayPillClass}">${awayVal}${isPercentage ? '%' : ''}</span>
           </div>
-          <div class="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden flex">
-            <div class="bg-rose-500 h-full transition-all duration-500" style="width: ${hPct}%"></div>
-            <div class="bg-sky-500 h-full transition-all duration-500" style="width: ${aPct}%"></div>
+          <div class="w-full bg-[#0e121b] h-1.5 rounded-full overflow-hidden flex gap-[2px] p-[1px] border border-white/[0.05]">
+            <div class="${homeBarClass} h-full rounded-l-full transition-all duration-700 ease-out" style="width: ${hPct}%"></div>
+            <div class="${awayBarClass} h-full rounded-r-full transition-all duration-700 ease-out" style="width: ${aPct}%"></div>
           </div>
         </div>
       `;
@@ -776,8 +796,18 @@ function renderModalCompleteData(data, leagueId) {
 
     statsBlockHtml = `
       <div class="bg-[#131822] border border-white/[0.07] rounded-2xl p-4 space-y-3">
-        <h3 class="text-center text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-white/[0.07]">Overview</h3>
-        <div class="space-y-3 pt-1">
+        <div class="flex items-center justify-between pb-2.5 border-b border-white/[0.07]">
+          <div class="flex items-center gap-1.5 min-w-0 max-w-[34%]">
+            <span class="w-2 h-2 rounded-full bg-slate-200 shrink-0"></span>
+            <span class="text-[10px] font-bold text-slate-300 truncate">${home.team.shortDisplayName || home.team.displayName}</span>
+          </div>
+          <h3 class="text-[11px] font-extrabold text-slate-200 uppercase tracking-widest">Statistik</h3>
+          <div class="flex items-center justify-end gap-1.5 min-w-0 max-w-[34%]">
+            <span class="text-[10px] font-bold text-slate-300 truncate">${away.team.shortDisplayName || away.team.displayName}</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+          </div>
+        </div>
+        <div class="space-y-2.5 pt-0.5 divide-y divide-white/[0.04]">
           ${renderStatRow('Possession', getStatVal(homeBox, ['possessionPct', 'possession'], 'home') || 50, getStatVal(awayBox, ['possessionPct', 'possession'], 'away') || 50, true)}
           ${renderStatRow('Shots on Target', getStatVal(homeBox, ['shotsOnTarget', 'shotsontarget'], 'home') || 0, getStatVal(awayBox, ['shotsOnTarget', 'shotsontarget'], 'away') || 0)}
           ${renderStatRow('Shots off Target', getStatVal(homeBox, ['shotsOffTarget'], 'home') || 0, getStatVal(awayBox, ['shotsOffTarget'], 'away') || 0)}
@@ -791,7 +821,7 @@ function renderModalCompleteData(data, leagueId) {
   }
   document.getElementById('mcontent-stats').innerHTML = statsBlockHtml;
 
-  // TIMELINE EVENTS SUMMARY
+  // TIMELINE EVENTS SUMMARY (WITH ANIMATED EVENT ICONS)
   let eventsTimelineHtml = '';
   if (rawEvents && rawEvents.length > 0) {
     const validEvents = rawEvents.filter(item => {
@@ -820,36 +850,67 @@ function renderModalCompleteData(data, leagueId) {
       return timeB - timeA;
     });
 
-    let timelineItems = sortedEvents.map(item => {
+    let timelineItems = sortedEvents.map((item, idx) => {
       const clock = item.clock?.displayValue || item.time || '0\'';
       const isHomeEvent = item.team?.id ? String(item.team.id) === String(home.team.id) : true;
       const typeText = (item.type?.text || item.text || '').toLowerCase();
+      const rawText = (item.text || '').toLowerCase();
+      const animDelay = `style="animation-delay: ${Math.min(idx * 45, 450)}ms"`;
 
-      const getPlayerName = (idx = 0) => {
-        if (item.participants && item.participants[idx] && item.participants[idx].athlete) {
-          return item.participants[idx].athlete.displayName || item.participants[idx].athlete.fullName || 'Pemain';
+      const getPlayerName = (pIdx = 0) => {
+        if (item.participants && item.participants[pIdx] && item.participants[pIdx].athlete) {
+          return item.participants[pIdx].athlete.displayName || item.participants[pIdx].athlete.fullName || 'Pemain';
         }
         let raw = item.text || '';
         if (raw.includes('(')) raw = raw.split('(')[0];
         return raw.trim() || 'Pemain';
       };
 
+      const isDisallowed = typeText.includes('disallowed') || typeText.includes('cancelled') || rawText.includes('disallowed') || rawText.includes('cancelled');
+      const isPenMiss = typeText.includes('missed penalty') || typeText.includes('penalty miss') || (typeText.includes('penalty') && typeText.includes('miss'));
+
+      if (isPenMiss || isDisallowed || typeText.includes('var')) {
+        const player = getPlayerName(0);
+        const label = isPenMiss ? 'Penalti Gagal' : 'Gol Dianulir (VAR)';
+        const capsuleContent = `
+          <div class="px-3 py-1.5 text-xs font-bold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid ${isPenMiss ? 'fa-circle-xmark text-rose-400' : 'fa-tv text-amber-400'} text-xs anim-var-icon"></i>
+            <div>
+              <div class="leading-tight">${player}</div>
+              <div class="text-[9.5px] text-slate-400 font-medium">${label}</div>
+            </div>
+          </div>
+        `;
+
+        return `
+          <div ${animDelay} class="timeline-row-enter flex items-center gap-3 my-2.5 ${isHomeEvent ? 'justify-start' : 'justify-end'}">
+            ${isHomeEvent ? `
+              <div class="timeline-capsule-home max-w-[78%]">${capsuleContent}</div>
+              <span class="text-xs font-bold text-slate-400 font-mono tabular-nums">${clock}</span>
+            ` : `
+              <span class="text-xs font-bold text-slate-400 font-mono tabular-nums">${clock}</span>
+              <div class="timeline-capsule-away max-w-[78%]">${capsuleContent}</div>
+            `}
+          </div>
+        `;
+      }
+
       if (typeText.includes('goal') || typeText.includes('gol')) {
         const scorer = getPlayerName(0);
         const capsuleContent = `
           <div class="px-3.5 py-1.5 text-xs font-extrabold flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-300">
-            <i class="fa-solid fa-futbol text-xs"></i>
+            <i class="fa-solid fa-futbol text-xs text-emerald-400 anim-goal-ball"></i>
             <span>GOAL! ${scorer}</span>
           </div>
         `;
 
         return `
-          <div class="flex items-center gap-3 my-2.5 ${isHomeEvent ? 'justify-start' : 'justify-end'}">
+          <div ${animDelay} class="timeline-row-enter flex items-center gap-3 my-2.5 ${isHomeEvent ? 'justify-start' : 'justify-end'}">
             ${isHomeEvent ? `
               ${capsuleContent}
-              <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>
+              <span class="text-xs font-bold text-slate-400 font-mono tabular-nums">${clock}</span>
             ` : `
-              <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>${capsuleContent}
+              <span class="text-xs font-bold text-slate-400 font-mono tabular-nums">${clock}</span>${capsuleContent}
             `}
           </div>
         `;
@@ -862,22 +923,24 @@ function renderModalCompleteData(data, leagueId) {
         const capsuleContent = `
           <div class="px-3 py-1.5 text-xs">
             <div class="flex items-center gap-1.5 text-emerald-400 font-bold">
-              <i class="fa-solid fa-arrow-right text-[10px]"></i> ${pIn}
+              <i class="fa-solid fa-arrow-right text-[10px] anim-sub-in"></i>
+              <span>${pIn}</span>
             </div>
-            <div class="flex items-center gap-1.5 text-rose-400 font-bold mt-0.5">
-              <i class="fa-solid fa-arrow-left text-[10px]"></i> ${pOut}
+            <div class="flex items-center gap-1.5 text-slate-400 font-semibold mt-0.5">
+              <i class="fa-solid fa-arrow-left text-[10px] text-rose-400/80 anim-sub-out"></i>
+              <span>${pOut}</span>
             </div>
           </div>
         `;
 
         return `
-          <div class="flex items-center gap-3 my-2.5 ${isHomeEvent ? 'justify-start' : 'justify-end'}">
+          <div ${animDelay} class="timeline-row-enter flex items-center gap-3 my-2.5 ${isHomeEvent ? 'justify-start' : 'justify-end'}">
             ${isHomeEvent ? `
-              <div class="timeline-capsule-home max-w-[75%]">${capsuleContent}</div>
-              <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>
+              <div class="timeline-capsule-home max-w-[78%]">${capsuleContent}</div>
+              <span class="text-xs font-bold text-slate-400 font-mono tabular-nums">${clock}</span>
             ` : `
-              <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>
-              <div class="timeline-capsule-away max-w-[75%]">${capsuleContent}</div>
+              <span class="text-xs font-bold text-slate-400 font-mono tabular-nums">${clock}</span>
+              <div class="timeline-capsule-away max-w-[78%]">${capsuleContent}</div>
             `}
           </div>
         `;
@@ -887,9 +950,9 @@ function renderModalCompleteData(data, leagueId) {
         const isRed = typeText.includes('red') || typeText.includes('merah');
         const player = getPlayerName(0);
 
-        const cardBox = `<div class="w-2.5 h-3.5 ${isRed ? 'bg-red-500' : 'bg-amber-400'} rounded-sm shrink-0"></div>`;
+        const cardBox = `<div class="w-2.5 h-3.5 ${isRed ? 'bg-red-500' : 'bg-amber-400'} rounded-[2px] shrink-0 anim-card-icon"></div>`;
         const capsuleContent = `
-          <div class="px-3 py-1.5 text-xs font-bold text-white flex items-center gap-2">
+          <div class="px-3 py-1.5 text-xs font-bold text-slate-100 flex items-center gap-2">
             ${isHomeEvent ? cardBox : ''}
             <span>${player}</span>
             ${!isHomeEvent ? cardBox : ''}
@@ -897,12 +960,12 @@ function renderModalCompleteData(data, leagueId) {
         `;
 
         return `
-          <div class="flex items-center gap-3 my-2.5 ${isHomeEvent ? 'justify-start' : 'justify-end'}">
+          <div ${animDelay} class="timeline-row-enter flex items-center gap-3 my-2.5 ${isHomeEvent ? 'justify-start' : 'justify-end'}">
             ${isHomeEvent ? `
               <div class="timeline-capsule-home">${capsuleContent}</div>
-              <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>
+              <span class="text-xs font-bold text-slate-400 font-mono tabular-nums">${clock}</span>
             ` : `
-              <span class="text-xs font-bold text-slate-400 font-mono">${clock}</span>
+              <span class="text-xs font-bold text-slate-400 font-mono tabular-nums">${clock}</span>
               <div class="timeline-capsule-away">${capsuleContent}</div>
             `}
           </div>
@@ -970,12 +1033,12 @@ function renderModalCompleteData(data, leagueId) {
         if (!ev) return '';
 
         let badges = '';
-        if (ev.goals) badges += `<span title="Gol" class="bg-emerald-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-futbol text-[7px]"></i>${ev.goals > 1 ? ev.goals : ''}</span>`;
+        if (ev.goals) badges += `<span title="Gol" class="bg-emerald-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-futbol text-[7px] anim-goal-ball"></i>${ev.goals > 1 ? ev.goals : ''}</span>`;
         if (ev.penGoals) badges += `<span title="Gol Penalti" class="bg-emerald-600 text-amber-300 text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-circle-dot text-[7px]"></i>${ev.penGoals > 1 ? ev.penGoals : ''}</span>`;
         if (ev.penMiss) badges += `<span title="Penalti Gagal" class="bg-red-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-circle-xmark text-[7px]"></i></span>`;
         if (ev.assists) badges += `<span title="Assist" class="bg-blue-600 text-white text-[8px] font-black px-1 rounded-full flex items-center gap-0.5"><i class="fa-solid fa-shoe-prints text-[7px]"></i>${ev.assists > 1 ? ev.assists : ''}</span>`;
-        if (ev.yellows) badges += `<div title="Kartu Kuning" class="w-2.5 h-3.5 bg-amber-400 rounded-sm"></div>`;
-        if (ev.reds) badges += `<div title="Kartu Merah" class="w-2.5 h-3.5 bg-red-500 rounded-sm"></div>`;
+        if (ev.yellows) badges += `<div title="Kartu Kuning" class="w-2.5 h-3.5 bg-amber-400 rounded-sm anim-card-icon"></div>`;
+        if (ev.reds) badges += `<div title="Kartu Merah" class="w-2.5 h-3.5 bg-red-500 rounded-sm anim-card-icon"></div>`;
 
         return badges ? `<div class="absolute -bottom-1 -left-1 flex items-center gap-0.5 z-20">${badges}</div>` : '';
       };
@@ -1075,6 +1138,9 @@ function renderModalCompleteData(data, leagueId) {
           </div>
 
           <div class="soccer-full-pitch rounded-2xl p-1 py-3 flex flex-col justify-between relative">
+            <div class="pitch-watermark">BGS SCORE</div>
+            <div class="pitch-watermark-sub pitch-watermark-top">BGS SCORE</div>
+            <div class="pitch-watermark-sub pitch-watermark-bottom">BGS SCORE</div>
             <div class="pitch-center-line-full"></div>
             <div class="pitch-center-circle"></div>
             <div class="pitch-center-dot"></div>
@@ -1082,17 +1148,17 @@ function renderModalCompleteData(data, leagueId) {
             <div class="pitch-penalty-box-bottom"></div>
 
             <div class="space-y-1 z-10">
-              ${renderPlayerRow(homeData.gk, 'border-sky-500')}
-              ${renderPlayerRow(homeData.def, 'border-sky-400')}
-              ${renderPlayerRow(homeData.mid, 'border-sky-400')}
-              ${renderPlayerRow(homeData.fwd, 'border-sky-400')}
+              ${renderPlayerRow(homeData.gk, 'border-sky-500 shadow-md')}
+              ${renderPlayerRow(homeData.def, 'border-sky-400 shadow-md')}
+              ${renderPlayerRow(homeData.mid, 'border-sky-400 shadow-md')}
+              ${renderPlayerRow(homeData.fwd, 'border-sky-400 shadow-md')}
             </div>
 
             <div class="space-y-1 z-10">
-              ${renderPlayerRow(awayData.fwd, 'border-emerald-400')}
-              ${renderPlayerRow(awayData.mid, 'border-emerald-400')}
-              ${renderPlayerRow(awayData.def, 'border-emerald-400')}
-              ${renderPlayerRow(awayData.gk, 'border-emerald-500')}
+              ${renderPlayerRow(awayData.fwd, 'border-emerald-400 shadow-md')}
+              ${renderPlayerRow(awayData.mid, 'border-emerald-400 shadow-md')}
+              ${renderPlayerRow(awayData.def, 'border-emerald-400 shadow-md')}
+              ${renderPlayerRow(awayData.gk, 'border-emerald-500 shadow-md')}
             </div>
           </div>
 
