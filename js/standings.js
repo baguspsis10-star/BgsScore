@@ -219,7 +219,7 @@ function renderStandingsSkeleton(container, rowCount = 8) {
   `;
 }
 
-// Render Standings Table Component (100% Full-Fit Tanpa Scroll Samping & Nama Klub 2 Baris)
+// Render Standings Table Component (100% Full-Fit Tanpa Scroll Samping & Tampilan Bersih Monokromatik)
 async function renderLeagueStandingsTable(targetLeague, container, highlightTeamId = null) {
   const highlightIds = Array.isArray(highlightTeamId) 
     ? highlightTeamId.map(id => String(id)) 
@@ -358,15 +358,15 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
 
         const gdNum = parseInt(gd) || 0;
         const gdFormatted = gdNum > 0 ? `+${gdNum}` : `${gdNum}`;
-        const gdColor = gdNum > 0 ? 'text-emerald-400' : (gdNum < 0 ? 'text-rose-400' : 'text-slate-400');
+        const gdColor = gdNum > 0 ? 'text-slate-200' : (gdNum < 0 ? 'text-slate-500' : 'text-slate-400');
         const miniForm = renderMiniFormDots(entry.form);
 
         return `
-          <div onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')" class="grid ${gridColsClass} items-center gap-0.5 px-1.5 sm:px-2 py-2.5 border-b border-white/[0.05] last:border-b-0 hover:bg-[#1a2130] transition cursor-pointer tabular-nums ${isHighlighted ? 'bg-emerald-950/60' : ''} ${rowAccentBorder}">
+          <div onclick="openTeamDetail('${targetLeague.id}', '${teamId}', '${(entry.team?.displayName||'').replace(/'/g, "\\'")}')" class="grid ${gridColsClass} items-center gap-0.5 px-1.5 sm:px-2 py-2.5 border-b border-white/[0.05] last:border-b-0 hover:bg-[#1a2130] transition cursor-pointer tabular-nums ${isHighlighted ? 'bg-emerald-950/40' : ''} ${rowAccentBorder}">
             
             <!-- Peringkat -->
             <div class="flex items-center justify-center">
-              <span class="w-4 h-4 sm:w-6 sm:h-6 rounded-md text-[9.5px] sm:text-[11px] font-black flex items-center justify-center ${rankBadgeClass}">
+              <span class="w-4 h-4 sm:w-6 sm:h-6 rounded-md text-[9.5px] sm:text-[11px] font-bold flex items-center justify-center ${rankBadgeClass}">
                 ${displayPosition}
               </span>
             </div>
@@ -375,34 +375,34 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
             <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0 pr-1 pl-0.5">
               <img src="${teamLogo}" loading="lazy" class="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" alt="" onerror="this.onerror=null; this.src='${PLAIN_SHIELD_LOGO}';">
               <div class="min-w-0 flex-1">
-                <div class="text-white text-[10.5px] sm:text-xs font-extrabold leading-tight line-clamp-2 break-words">
+                <div class="text-slate-100 text-[10.5px] sm:text-xs font-bold leading-tight line-clamp-2 break-words">
                   ${entry.team?.shortDisplayName || entry.team?.displayName || 'Klub'}${isFav ? ' <i class="fa-solid fa-star text-amber-400 text-[8px] align-middle"></i>' : ''}
                 </div>
                 ${miniForm ? `<div class="mt-1 leading-none">${miniForm}</div>` : ''}
               </div>
             </div>
 
-            <!-- MP -->
-            <div class="text-center text-[9.5px] sm:text-[11px] text-slate-300 font-semibold">${m}</div>
+            <!-- MP (Main) -->
+            <div class="text-center text-[9.5px] sm:text-[11px] text-slate-400 font-medium">${m}</div>
 
-            <!-- M (Menang) -->
-            <div class="text-center text-[9.5px] sm:text-[11px] text-emerald-400 font-bold">${w}</div>
+            <!-- M (Menang) - Netral -->
+            <div class="text-center text-[9.5px] sm:text-[11px] text-slate-300 font-medium">${w}</div>
 
-            <!-- S (Seri) -->
-            <div class="text-center text-[9.5px] sm:text-[11px] text-amber-400 font-bold">${d}</div>
+            <!-- S (Seri) - Netral -->
+            <div class="text-center text-[9.5px] sm:text-[11px] text-slate-400 font-medium">${d}</div>
 
-            <!-- K (Kalah) -->
-            <div class="text-center text-[9.5px] sm:text-[11px] text-rose-400 font-bold">${l}</div>
+            <!-- K (Kalah) - Netral -->
+            <div class="text-center text-[9.5px] sm:text-[11px] text-slate-400 font-medium">${l}</div>
 
-            <!-- GM:GK -->
-            <div class="text-center text-[9px] sm:text-[10.5px] text-slate-300 font-mono tracking-tighter">${gf}:${ga}</div>
+            <!-- GM:GK - Netral Redup -->
+            <div class="text-center text-[9px] sm:text-[10.5px] text-slate-400 font-mono tracking-tighter">${gf}:${ga}</div>
 
-            <!-- SG -->
-            <div class="text-center text-[9.5px] sm:text-[11px] font-bold ${gdColor}">${gdFormatted}</div>
+            <!-- SG (Selisih Gol) -->
+            <div class="text-center text-[9.5px] sm:text-[11px] font-semibold ${gdColor}">${gdFormatted}</div>
 
-            <!-- PTS -->
+            <!-- PTS (Poin) - Fokus Utama -->
             <div class="flex items-center justify-center">
-              <span class="w-full py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-center font-black text-emerald-300 text-[10px] sm:text-xs">
+              <span class="w-full py-0.5 rounded-md bg-white/[0.06] border border-white/[0.1] text-center font-black text-white text-[10px] sm:text-xs">
                 ${pts}
               </span>
             </div>
@@ -427,17 +427,17 @@ async function renderLeagueStandingsTable(targetLeague, container, highlightTeam
           </span>
         </div>
 
-        <!-- Column Headers (100% Fit) -->
-        <div class="grid ${gridColsClass} items-center gap-0.5 px-1.5 sm:px-2 py-2 bg-[#0e121b] border-b border-white/[0.07] text-[8.5px] sm:text-[10px] text-slate-400 uppercase font-extrabold">
+        <!-- Column Headers (Clean & Netral) -->
+        <div class="grid ${gridColsClass} items-center gap-0.5 px-1.5 sm:px-2 py-2 bg-[#0e121b] border-b border-white/[0.07] text-[8.5px] sm:text-[10px] text-slate-400 uppercase font-bold tracking-wider">
           <div class="text-center">#</div>
           <div class="pl-1">Klub</div>
           <div class="text-center" title="Main">MP</div>
-          <div class="text-center text-emerald-400" title="Menang">M</div>
-          <div class="text-center text-amber-400" title="Seri">S</div>
-          <div class="text-center text-rose-400" title="Kalah">K</div>
+          <div class="text-center" title="Menang">M</div>
+          <div class="text-center" title="Seri">S</div>
+          <div class="text-center" title="Kalah">K</div>
           <div class="text-center" title="Gol Masuk:Kemasukan">GM:GK</div>
           <div class="text-center" title="Selisih Gol">SG</div>
-          <div class="text-center text-emerald-400" title="Poin">PTS</div>
+          <div class="text-center text-slate-200" title="Poin">PTS</div>
         </div>
 
         <!-- Rows -->
