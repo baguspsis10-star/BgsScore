@@ -179,17 +179,19 @@ nav.fixed {
   color: #10b981 !important;
 }
 
-/* TIMELINE EVENT CAPSULES */
+/* ============================================================
+   TIMELINE EVENT CAPSULES & ICON ANIMATIONS
+   ============================================================ */
 .timeline-capsule-home {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-left: 3px solid #e11d48;
+  border-left: 2.5px solid rgba(255, 255, 255, 0.28);
   border-radius: 0.875rem;
 }
 .timeline-capsule-away {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-right: 3px solid #0284c7;
+  border-right: 2.5px solid rgba(16, 185, 129, 0.55);
   border-radius: 0.875rem;
 }
 .timeline-capsule-goal {
@@ -197,6 +199,99 @@ nav.fixed {
   border: 1px solid rgba(16, 185, 129, 0.35);
   color: #34d399;
   border-radius: 9999px;
+}
+
+@keyframes timelineRowSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ballSpinBounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  35% {
+    transform: translateY(-2.5px) rotate(140deg) scale(1.15);
+  }
+  70% {
+    transform: translateY(0) rotate(280deg) scale(0.96);
+  }
+}
+
+@keyframes cardPulseTilt {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-10deg) scale(1.08);
+  }
+  75% {
+    transform: rotate(10deg) scale(1.08);
+  }
+}
+
+@keyframes subArrowIn {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(2.5px);
+  }
+}
+
+@keyframes subArrowOut {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-2.5px);
+  }
+}
+
+@keyframes varScreenPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+}
+
+.timeline-row-enter {
+  animation: timelineRowSlide 0.32s ease-out both;
+}
+
+.anim-goal-ball {
+  display: inline-block;
+  animation: ballSpinBounce 2.2s infinite ease-in-out;
+}
+
+.anim-card-icon {
+  display: inline-block;
+  animation: cardPulseTilt 2.4s infinite ease-in-out;
+}
+
+.anim-sub-in {
+  display: inline-block;
+  animation: subArrowIn 1.6s infinite ease-in-out;
+}
+
+.anim-sub-out {
+  display: inline-block;
+  animation: subArrowOut 1.6s infinite ease-in-out;
+}
+
+.anim-var-icon {
+  display: inline-block;
+  animation: varScreenPulse 1.8s infinite ease-in-out;
 }
 
 /* ANIMASI GOL HALUS */
